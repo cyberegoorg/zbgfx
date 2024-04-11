@@ -1,0 +1,11 @@
+.{
+    .name = "zbgfx",
+    .version = "0.1.0",
+    .paths = .{
+        "libs",
+        "build.zig",
+        "build.zig.zon",
+    },
+
+    .dependencies = .{},
+}

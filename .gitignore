@@ -1,0 +1,12 @@
+# ZIG
+zig-cache
+zig-out
+
+# VSCode
+
+# MacOS
+*.DS_Store
+.DS_Store
+*.dylib
+
+#examples/libs/zig-gamedev/
