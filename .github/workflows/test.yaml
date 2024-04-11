@@ -58,20 +58,21 @@ jobs:
       - name: Lint
         run: zig fmt --check .
 
-  x86-64-linux:
+  build-examples:
     needs: ["validation"]
-    name: x86-64 Linux
-    runs-on: linux-large #ubuntu-latest
-    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [linux-large-latest, macos-13-large, windows-large]
+    runs-on: ${{matrix.os}}
+    name: "Build examples"
+    timeout-minutes: 10
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
           submodules: true
 
-      - name: Prepare
-        run: sudo apt-get update && sudo apt-get install kcov libdbus-1-dev
-      
       - name: Read .zig-version
         id: zigversion
         uses: juliangruber/read-file-action@v1
@@ -82,62 +83,6 @@ jobs:
         with:
           version: ${{ steps.zigversion.outputs.content }}
     
-      - name: Build example 00
-        shell: bash
-        run: cd examples/00-minimal && zig build
-      - name: Build example 01
-        shell: bash
-        run: cd examples/01-minimal-zgui && zig build
-
-  x86-64-macos:
-    needs: ["validation"]
-    name: x86-64 Macos
-    runs-on: macos-13-large # macos-latest
-    timeout-minutes: 20
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          submodules: true
-
-      - name: Read .zig-version
-        id: zigversion
-        uses: juliangruber/read-file-action@v1
-        with:
-          path: ./.zigversion
-      - name: Install Zig
-        uses: goto-bus-stop/setup-zig@v2
-        with:
-          version: ${{ steps.zigversion.outputs.content }}
-
-      - name: Build example 00
-        shell: bash
-        run: cd examples/00-minimal && zig build
-      - name: Build example 01
-        shell: bash
-        run: cd examples/01-minimal-zgui && zig build
-
-  x86-64-windows:
-    needs: ["validation"]
-    name: x86-64 Windows
-    runs-on: windows-large # windows-latest
-    timeout-minutes: 20
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          submodules: true
-
-      - name: Read .zig-version
-        id: zigversion
-        uses: juliangruber/read-file-action@v1
-        with:
-          path: ./.zigversion
-      - name: Install Zig
-        uses: goto-bus-stop/setup-zig@v2
-        with:
-          version: ${{ steps.zigversion.outputs.content }}
-
       - name: Build example 00
         shell: bash
         run: cd examples/00-minimal && zig build
