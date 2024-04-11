@@ -63,7 +63,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [linux-large-latest, macos-13-large, windows-large]
+        os: [linux-large, macos-13-large, windows-large]
     runs-on: ${{matrix.os}}
     name: "Build examples"
     timeout-minutes: 10
