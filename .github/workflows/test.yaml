@@ -8,9 +8,24 @@ on:
     branches:
       - main
       - unstable
+    paths:
+      - "src/**"
+      - "examples/**"
+      - "libs/**"
+      - "tools/**"
+      - "build.zig"
+      - "build.zig.zon"
+
   push:
     branches:
       - main
+    paths:
+      - "src/**"
+      - "examples/**"
+      - "libs/**"
+      - "tools/**"
+      - "build.zig"
+      - "build.zig.zon"
 
 concurrency:
   # Cancels pending runs when a PR gets updated.
