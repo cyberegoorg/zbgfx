@@ -9,4 +9,4 @@ zig-out
 .DS_Store
 *.dylib
 
-#examples/libs/zig-gamedev/
+imgui.ini
