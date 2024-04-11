@@ -64,8 +64,9 @@ See examples for binding usage and [bgfx](https://github.com/bkaradzic/bgfx) for
 
 Examples use [zig-gamedev](https://github.com/zig-gamedev/zig-gamedev) as submodule.
 Run this:
+
 ```bash
-git submodule update
+git submodule update --init --depth=1
 ```
 
 ### [00-Minimal](examples/00-minimal/)
