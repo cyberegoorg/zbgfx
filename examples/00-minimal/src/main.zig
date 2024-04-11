@@ -107,6 +107,9 @@ pub fn main() anyerror!u8 {
     var bgfx_init: bgfx.Init = undefined;
     bgfx.initCtor(&bgfx_init);
 
+    // This force renderer type.
+    // bgfx_init.type == .Vulkan
+
     bgfx_init.resolution.width = WIDTH;
     bgfx_init.resolution.height = HEIGHT;
     bgfx_init.platformData.ndt = null;
