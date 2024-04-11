@@ -72,7 +72,7 @@ git submodule update --init --depth=1
 ### [00-Minimal](examples/00-minimal/)
 
 ```sh
-cd examples/minimal
+cd examples/00-minimal
 zig build
 ```
 
@@ -83,7 +83,7 @@ zig-out/bin/minimal
 ### [01-Minimal-ZGui](examples/01-minimal-zgui/)
 
 ```sh
-cd examples/minimal
+cd examples/01-minimal-zgui
 zig build
 ```
 
