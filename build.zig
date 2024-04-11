@@ -1,7 +1,7 @@
 const std = @import("std");
 const zbgfx = @import("src/zbgfx.zig");
 
-pub const buidl_shader = zbgfx.build;
+pub const build_shader = zbgfx.build;
 
 pub fn build(b: *std.Build) !void {
     const target = b.standardTargetOptions(.{});

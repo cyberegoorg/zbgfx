@@ -201,6 +201,7 @@ pub fn compileBasicBinH(
     return combine_step;
 }
 
+// Basic build use these to map it to platform
 const basic_profiles = [_]shader.Profile{
     .glsl_120,
     .es_100,
@@ -208,7 +209,6 @@ const basic_profiles = [_]shader.Profile{
     .metal,
     .s_5_0,
 };
-
 const LazyPathList = std.ArrayList(std.Build.LazyPath);
 pub fn compileBasic(
     b: *std.Build,

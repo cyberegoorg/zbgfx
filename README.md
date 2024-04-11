@@ -4,7 +4,7 @@
 
 When [zig](https://github.com/ziglang/zig) meets [bgfx](https://github.com/bkaradzic/bgfx).
 
-REMEMBER: This is only zig bindig for BGFX. For BGFX stuff goto [bgfx](https://github.com/bkaradzic/bgfx).
+REMEMBER: This is only zig binding for BGFX. For BGFX stuff goto [bgfx](https://github.com/bkaradzic/bgfx).
 
 ## Features
 
@@ -25,11 +25,11 @@ REMEMBER: This is only zig bindig for BGFX. For BGFX stuff goto [bgfx](https://g
 
 - On retina/hidpi display imgui rendering is broken but is probably simple to fix. (WIP)
 - If you build shaders/app and see something like `run shaderc (shader.bin.h) stderr`.
-  Remember is not "true" error but only in debug build shaderc print some stuff to stderr and zig build catch it.
+  Remember is not "true" error but only in debug build shader print some stuff to stderr and zig build catch it.
 
 ## Zig version
 
-Minimal is `0.12.0`. But you know.. try your version and belive.
+Minimal is `0.12.0`. But you know.. try your version and believe.
 I am open to make some backward compatibility changes but not older version then `0.12.0`.
 
 ## Getting started
