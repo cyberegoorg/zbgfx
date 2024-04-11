@@ -37,11 +37,14 @@ pub fn build(b: *std.Build) !void {
         },
     );
 
+    //
+    // Compile shaders to zig module
+    //
     const zbgfx_module = zbgfx_dep.module("zbgfx");
     const shaderc = zbgfx_dep.artifact("shaderc");
     const combine_bin_zig = zbgfx_dep.artifact("combine_bin_zig");
-
     const shader_includes = zbgfx_dep.path("shaders");
+
     const fs_cubes_zig = try zbgfx.build_shader.compileBasicBinZig(
         b,
         target,
