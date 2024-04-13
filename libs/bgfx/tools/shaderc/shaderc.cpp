@@ -2927,7 +2927,114 @@ namespace bgfx
 
 } // namespace bgfx
 
+#ifdef ZBGFX_EMBED_SHADERC
+extern "C" {
+    typedef int32_t (writeFce)(void* context, const void* _data, int32_t _size);
+    class ClbWriter : public bx::WriterI
+	{
+	public:
+		///
+		ClbWriter(void* context, writeFce* _write_fce) : m_writeFce(_write_fce), m_context(context) {
+        }
+
+		
+		virtual int32_t write(const void* _data, int32_t _size, bx::Error* _err) override {
+            return m_writeFce(m_context, _data, _size);
+        }
+
+	private:
+        writeFce* m_writeFce;
+		void* m_context;
+	};
+
+	struct COptions
+	{
+		char shaderType;
+		const char* platform;
+		const char* profile;
+
+		const char* 	inputFilePath;
+		const char* 	outputFilePath;
+
+		const char** includeDirs;
+        uint32_t includeDirsN;
+
+        const char** defines;
+        uint32_t definesN;
+		
+		const char** dependencies;
+        uint32_t dependenciesN;
+
+		bool disasm;
+		bool raw;
+		bool preprocessOnly;
+		bool depends;
+
+		bool debugInformation;
+
+		bool avoidFlowControl;
+		bool noPreshader;
+		bool partialPrecision;
+		bool preferFlowControl;
+		bool backwardsCompatibility;
+		bool warningsAreErrors;
+		bool keepIntermediate;
+
+		bool optimize;
+		uint32_t optimizationLevel;
+	};
+
+    bool zbgfx_compileShader(const char* _varying, const char* _comment, char* _shader, uint32_t _shaderLen, const COptions* _options, writeFce* _shaderWriter, void* _shaderWriterContext, writeFce* _messageWriter, void* _messageWriterContext) {
+        bgfx::Options options;
+
+        std::vector<std::string> includesDirs(_options->includeDirsN);
+        for(int i = 0; i < _options->includeDirsN; i++) {
+            includesDirs.push_back(_options->includeDirs[i]);
+        }
+
+        std::vector<std::string> defines(_options->definesN);
+        for(int i = 0; i < _options->definesN; i++) {
+            includesDirs.push_back(_options->defines[i]);
+        }
+
+        std::vector<std::string> dependencies(_options->dependenciesN);
+        for(int i = 0; i < _options->dependenciesN; i++) {
+            includesDirs.push_back(_options->dependencies[i]);
+        }
+
+        options.shaderType = _options->shaderType;
+		options.platform = _options->platform;
+		options.profile = _options->profile;
+		options.inputFilePath = _options->inputFilePath;
+		options.outputFilePath = _options->outputFilePath;
+        options.includeDirs = includesDirs;
+        options.defines = defines;
+		options.dependencies = dependencies;
+		options.disasm = _options->disasm;
+		options.raw = _options->raw;
+		options.preprocessOnly = _options->preprocessOnly;
+		options.depends = _options->depends;
+		options.debugInformation = _options->debugInformation;
+		options.avoidFlowControl = _options->avoidFlowControl;
+		options.noPreshader = _options->noPreshader;
+		options.partialPrecision = _options->partialPrecision;
+		options.preferFlowControl = _options->preferFlowControl;
+		options.backwardsCompatibility = _options->backwardsCompatibility;
+		options.warningsAreErrors = _options->warningsAreErrors;
+		options.keepIntermediate = _options->keepIntermediate;
+		options.optimize = _options->optimize;
+		options.optimizationLevel = _options->optimizationLevel;
+
+        ClbWriter shaderWriter(_shaderWriterContext, _shaderWriter);
+        ClbWriter messageWriter(_messageWriterContext, _messageWriter);
+
+        return bgfx::compileShader(_varying, _comment, _shader, _shaderLen, options, &shaderWriter,&messageWriter);
+    }
+
+}
+#else
 int main(int _argc, const char* _argv[])
 {
 	return bgfx::compileShader(_argc, _argv);
 }
+#endif

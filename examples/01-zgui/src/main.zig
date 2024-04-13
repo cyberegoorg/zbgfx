@@ -48,7 +48,7 @@ pub fn main() anyerror!u8 {
     bgfx.initCtor(&bgfx_init);
 
     // This force renderer type.
-    // bgfx_init.type == .Vulkan
+    // bgfx_init.type = .Vulkan
 
     bgfx_init.resolution.width = WIDTH;
     bgfx_init.resolution.height = HEIGHT;

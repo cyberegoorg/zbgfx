@@ -1,5 +1,3 @@
-
-
 #include <bx/bx.h>
 #include <bx/string.h>
 

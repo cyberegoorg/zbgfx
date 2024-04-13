@@ -53,7 +53,7 @@ pub fn build(b: *std.Build) !void {
         combine_bin_zig,
         "fs_cubes.zig",
         .{
-            .typee = .fragment,
+            .shaderType = .fragment,
             .input = .{ .path = "src/fs_cubes.sc" },
         },
         .{
@@ -69,7 +69,7 @@ pub fn build(b: *std.Build) !void {
         combine_bin_zig,
         "vs_cubes.zig",
         .{
-            .typee = .vertex,
+            .shaderType = .vertex,
             .input = .{ .path = "src/vs_cubes.sc" },
         },
         .{

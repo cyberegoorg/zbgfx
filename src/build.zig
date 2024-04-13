@@ -10,7 +10,7 @@ pub const BuildShaderOptions = struct {
     input: std.Build.LazyPath,
     output: []const u8,
     includes: []const std.Build.LazyPath,
-    typee: shader.ShaderType,
+    shaderType: shader.ShaderType,
     platform: shader.Platform,
     profile: shader.Profile,
     optimize: ?shader.Optimize,
@@ -37,7 +37,7 @@ pub fn buildShaderC(
 
     options.platform.addAsArg(shaderc_cmd);
     options.profile.addAsArg(shaderc_cmd);
-    options.typee.addAsArg(shaderc_cmd);
+    options.shaderType.addAsArg(shaderc_cmd);
 
     if (options.optimize) |o| {
         o.addAsArg(shaderc_cmd);
@@ -108,12 +108,12 @@ pub fn combineBinHStep(
     return &wf.step;
 }
 
-pub const BasicCompileBinHInput = struct {
+pub const BasicCompileInput = struct {
     input: std.Build.LazyPath,
-    typee: shader.ShaderType,
+    shaderType: shader.ShaderType,
 };
 
-pub const BasicCompileBinHOptions = struct {
+pub const BasicCompileOptions = struct {
     output: []const u8,
     bin2c: ?[]const u8 = null,
     includes: []const std.Build.LazyPath,
@@ -126,8 +126,8 @@ pub fn compileBasicBinZig(
     zbgfx_modul: *std.Build.Module,
     combine_zig_h: *std.Build.Step.Compile,
     shader_zig_name: []const u8,
-    input: BasicCompileBinHInput,
-    options: BasicCompileBinHOptions,
+    input: BasicCompileInput,
+    options: BasicCompileOptions,
 ) !*std.Build.Module {
     var shaders = std.ArrayList(std.Build.LazyPath).init(b.allocator);
     defer shaders.deinit();
@@ -177,8 +177,8 @@ pub fn compileBasicBinH(
     target: std.Build.ResolvedTarget,
     shaderc: *std.Build.Step.Compile,
     combine_bin_h: *std.Build.Step.Compile,
-    input: BasicCompileBinHInput,
-    options: BasicCompileBinHOptions,
+    input: BasicCompileInput,
+    options: BasicCompileOptions,
 ) !*std.Build.Step {
     var shaders = std.ArrayList(std.Build.LazyPath).init(b.allocator);
     defer shaders.deinit();
@@ -209,14 +209,15 @@ const basic_profiles = [_]shader.Profile{
     .metal,
     .s_5_0,
 };
+
 const LazyPathList = std.ArrayList(std.Build.LazyPath);
 pub fn compileBasic(
     b: *std.Build,
     out_shaders: *LazyPathList,
     target: std.Build.ResolvedTarget,
     shaderc: *std.Build.Step.Compile,
-    input: BasicCompileBinHInput,
-    options: BasicCompileBinHOptions,
+    input: BasicCompileInput,
+    options: BasicCompileOptions,
 ) !void {
     for (basic_profiles) |profile| {
         if (target.result.os.tag != .windows and profile == .s_5_0) continue;
@@ -240,7 +241,7 @@ pub fn compileBasic(
             b,
             shaderc,
             .{
-                .typee = input.typee,
+                .shaderType = input.shaderType,
                 .platform = os,
                 .optimize = optimize,
                 .profile = profile,

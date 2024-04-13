@@ -14,7 +14,8 @@ pub fn build(b: *std.Build) !void {
     const options = .{
         .imgui_include = b.option([]const u8, "imgui_include", "Path to imgui (need for imgui bgfx backend)"),
         .multithread = b.option(bool, "multithread", "Compile with BGFX_CONFIG_MULTITHREAD") orelse true,
-        .with_shaderc = b.option(bool, "with_shaderc", "Compile with shaderc") orelse true,
+        .with_shaderc = b.option(bool, "with_shaderc", "Compile with shaderc executable") orelse true,
+        .with_static_shaderc = b.option(bool, "with_static_shaderc", "Compile with shaderc as static lib") orelse true,
     };
 
     const options_step = b.addOptions();
@@ -110,6 +111,7 @@ pub fn build(b: *std.Build) !void {
     //
     // Bgfx
     //
+    const bgfx_path = "libs/bgfx/";
     const bgfx = b.addStaticLibrary(.{
         .name = "bgfx",
         .target = target,
@@ -169,7 +171,6 @@ pub fn build(b: *std.Build) !void {
     //
     if (options.imgui_include) |include| {
         bgfx.addIncludePath(.{ .path = include });
-
         bgfx.addCSourceFiles(.{
             .flags = &cxx_options,
             .files = &[_][]const u8{
@@ -187,14 +188,36 @@ pub fn build(b: *std.Build) !void {
     // Shaderc
     // Base steal from https://github.com/Interrupt/zig-bgfx-example/blob/main/build_shader_compiler.zig
     //
+    var shaderc_variant = std.ArrayList(*std.Build.Step.Compile).init(b.allocator);
+    defer shaderc_variant.deinit();
+
     if (options.with_shaderc) {
-        const bgfx_path = "libs/bgfx/";
         const shaderc = b.addExecutable(.{
             .name = "shaderc",
             .target = target,
             .optimize = optimize,
         });
+        try shaderc_variant.append(shaderc);
+    }
+
+    if (options.with_static_shaderc) {
+        const shaderc = b.addStaticLibrary(.{
+            .name = "shaderc-static",
+            .target = target,
+            .optimize = optimize,
+        });
+        shaderc.defineCMacro("ZBGFX_EMBED_SHADERC", null);
+        shaderc.defineCMacro("bgfx", "bgfx_shader"); // Tricky&Dirty (without this is problem with duplicate symbols).
         b.installArtifact(shaderc);
+
+        try shaderc_variant.append(shaderc);
+    }
+
+    for (shaderc_variant.items) |shaderc| {
+        if (shaderc.kind == .exe) {
+            b.installArtifact(shaderc);
+        }
+
         bxInclude(shaderc, target, optimize);
 
         shaderc.addIncludePath(.{ .path = "libs/bimg/include" });
@@ -210,77 +233,6 @@ pub fn build(b: *std.Build) !void {
         shaderc.addIncludePath(.{ .path = bgfx_path ++ "3rdparty/spirv-cross" });
         shaderc.addIncludePath(.{ .path = bgfx_path ++ "3rdparty/spirv-tools/include" });
         shaderc.addIncludePath(.{ .path = bgfx_path ++ "3rdparty/webgpu/include" });
-
-        const shader_includes = .{ .path = "libs/bgfx/src/" };
-
-        const fs_imgui_image_bin_h = try zbgfx.build.compileBasicBinH(
-            b,
-            target,
-            shaderc,
-            combine_bin_h,
-            .{
-                .typee = .fragment,
-                .input = .{ .path = "src/imgui_impl_bgfx/fs_imgui_image.sc" },
-            },
-            .{
-                .bin2c = "fs_imgui_image",
-                .output = "src/imgui_impl_bgfx/fs_imgui_image.bin.h",
-                .includes = &.{shader_includes},
-            },
-        );
-
-        //
-        const fs_ocornut_imgui_bin_h = try zbgfx.build.compileBasicBinH(
-            b,
-            target,
-            shaderc,
-            combine_bin_h,
-            .{
-                .typee = .fragment,
-                .input = .{ .path = "src/imgui_impl_bgfx/fs_ocornut_imgui.sc" },
-            },
-            .{
-                .bin2c = "fs_ocornut_imgui",
-                .output = "src/imgui_impl_bgfx/fs_ocornut_imgui.bin.h",
-                .includes = &.{shader_includes},
-            },
-        );
-
-        const vs_imgui_image_bin_h = try zbgfx.build.compileBasicBinH(
-            b,
-            target,
-            shaderc,
-            combine_bin_h,
-            .{
-                .typee = .vertex,
-                .input = .{ .path = "src/imgui_impl_bgfx/vs_imgui_image.sc" },
-            },
-            .{
-                .bin2c = "vs_imgui_image",
-                .output = "src/imgui_impl_bgfx/vs_imgui_image.bin.h",
-                .includes = &.{shader_includes},
-            },
-        );
-
-        const vs_ocornut_imgui_bin_h = try zbgfx.build.compileBasicBinH(
-            b,
-            target,
-            shaderc,
-            combine_bin_h,
-            .{
-                .typee = .vertex,
-                .input = .{ .path = "src/imgui_impl_bgfx/vs_ocornut_imgui.sc" },
-            },
-            .{
-                .bin2c = "vs_ocornut_imgui",
-                .output = "src/imgui_impl_bgfx/vs_ocornut_imgui.bin.h",
-                .includes = &.{shader_includes},
-            },
-        );
-        compile_imgui_shaders.dependOn(fs_imgui_image_bin_h);
-        compile_imgui_shaders.dependOn(fs_ocornut_imgui_bin_h);
-        compile_imgui_shaders.dependOn(vs_imgui_image_bin_h);
-        compile_imgui_shaders.dependOn(vs_ocornut_imgui_bin_h);
 
         shaderc.addCSourceFiles(.{
             .files = &.{
@@ -302,10 +254,84 @@ pub fn build(b: *std.Build) !void {
             shaderc.linkFramework("CoreFoundation");
             shaderc.linkFramework("Foundation");
         }
-        shaderc.linkLibrary(bx);
 
-        shaderc.linkLibC();
-        shaderc.linkLibCpp();
+        if (shaderc.kind == .exe) {
+            shaderc.linkLibrary(bx);
+            shaderc.linkLibC();
+            shaderc.linkLibCpp();
+        }
+
+        if (shaderc.kind == .exe) {
+            const shader_includes = .{ .path = "shaders" };
+            const fs_imgui_image_bin_h = try zbgfx.build.compileBasicBinH(
+                b,
+                target,
+                shaderc,
+                combine_bin_h,
+                .{
+                    .shaderType = .fragment,
+                    .input = .{ .path = "src/imgui_impl_bgfx/fs_imgui_image.sc" },
+                },
+                .{
+                    .bin2c = "fs_imgui_image",
+                    .output = "src/imgui_impl_bgfx/fs_imgui_image.bin.h",
+                    .includes = &.{shader_includes},
+                },
+            );
+
+            //
+            const fs_ocornut_imgui_bin_h = try zbgfx.build.compileBasicBinH(
+                b,
+                target,
+                shaderc,
+                combine_bin_h,
+                .{
+                    .shaderType = .fragment,
+                    .input = .{ .path = "src/imgui_impl_bgfx/fs_ocornut_imgui.sc" },
+                },
+                .{
+                    .bin2c = "fs_ocornut_imgui",
+                    .output = "src/imgui_impl_bgfx/fs_ocornut_imgui.bin.h",
+                    .includes = &.{shader_includes},
+                },
+            );
+
+            const vs_imgui_image_bin_h = try zbgfx.build.compileBasicBinH(
+                b,
+                target,
+                shaderc,
+                combine_bin_h,
+                .{
+                    .shaderType = .vertex,
+                    .input = .{ .path = "src/imgui_impl_bgfx/vs_imgui_image.sc" },
+                },
+                .{
+                    .bin2c = "vs_imgui_image",
+                    .output = "src/imgui_impl_bgfx/vs_imgui_image.bin.h",
+                    .includes = &.{shader_includes},
+                },
+            );
+
+            const vs_ocornut_imgui_bin_h = try zbgfx.build.compileBasicBinH(
+                b,
+                target,
+                shaderc,
+                combine_bin_h,
+                .{
+                    .shaderType = .vertex,
+                    .input = .{ .path = "src/imgui_impl_bgfx/vs_ocornut_imgui.sc" },
+                },
+                .{
+                    .bin2c = "vs_ocornut_imgui",
+                    .output = "src/imgui_impl_bgfx/vs_ocornut_imgui.bin.h",
+                    .includes = &.{shader_includes},
+                },
+            );
+            compile_imgui_shaders.dependOn(fs_imgui_image_bin_h);
+            compile_imgui_shaders.dependOn(fs_ocornut_imgui_bin_h);
+            compile_imgui_shaders.dependOn(vs_imgui_image_bin_h);
+            compile_imgui_shaders.dependOn(vs_ocornut_imgui_bin_h);
+        }
 
         //
         // fcpp

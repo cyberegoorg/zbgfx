@@ -4,22 +4,23 @@
 
 When [zig](https://github.com/ziglang/zig) meets [bgfx](https://github.com/bkaradzic/bgfx).
 
-REMEMBER: This is only zig binding for BGFX. For BGFX stuff goto [bgfx](https://github.com/bkaradzic/bgfx).
+REMEMBER: This is only zig binding. For BGFX stuff goto [bgfx](https://github.com/bkaradzic/bgfx).
 
 ## Features
 
 - [x] Zig api.
 - [x] Compile as standard zig library.
-- [x] `imgui` render backend. Use build option `imgui_include` to enable. ex. for zgui: `.imgui_include = zgui.path("libs").getPath(b),`
+- [x] `imgui` render backend. Use build option `imgui_include` to enable. ex. for
+  zgui: `.imgui_include = zgui.path("libs").getPath(b),`
 - [x] `shaderc` as build artifact.
 - [x] Shader compile in `build.zig` to `*.bin.h`.
 - [x] Shader compile in `build.zig` and embed as zig module. (this is zig equivalent of `*.bin.h`)
-- [ ] WIP: Shader compile from code (in memory solution, no tmp files).
+- [x] Shader compile from code (in memory solution, no tmp files).
 - [ ] WIP: [DebugDraw API](https://github.com/bkaradzic/bgfx/tree/master/examples/common/debugdraw)
 
 ## Warnings
 
-- Shader compile api for building shaders in `build.zig` is first draft and need cleanup.
+- Shader compile/shaderc api is first draft and need cleanup.
 
 ## Know problems
 
@@ -46,19 +47,28 @@ Then in your `build.zig` add:
 pub fn build(b: *std.Build) void {
     const exe = b.addExecutable(.{ ... });
 
-    const zbgfx = b.dependency("zbgfx", .{});
-    exe.root_module.addImport("zbgfx", zbgfx.module("zbgfx"));
-    exe.linkLibrary(zbgfx.artifact("bgfx"));
+const zbgfx = b.dependency("zbgfx", .{});
+exe.root_module.addImport("zbgfx", zbgfx.module("zbgfx"));
+exe.linkLibrary(zbgfx.artifact("bgfx"));
 
-    // This install shaderc to install dir
-    // For shader build in build =D check examples
-    // b.installArtifact(zbgfx.artifact("shaderc"));
+// This install shaderc to install dir
+// For shader build in build =D check examples
+// b.installArtifact(zbgfx.artifact("shaderc"));
 }
 ```
 
 ## Usage
 
 See examples for binding usage and [bgfx](https://github.com/bkaradzic/bgfx) for bgfx stuff.
+
+## Build options
+
+| Build option          | Default | Description                                          |
+|-----------------------|---------|------------------------------------------------------|
+| `imgui_include`       | `null`  | Path to ImGui includes (need for imgui bgfx backend) |
+| `multithread`         | `true`  | Compile with BGFX_CONFIG_MULTITHREAD                 |
+| `with_shaderc`        | `true`  | Compile with shaderc executable                      |
+| `with_static_shaderc` | `true`  | Compile with shaderc as static lib                   |
 
 ## Examples
 
@@ -71,16 +81,47 @@ git submodule update --init --depth=1
 
 ### [00-Minimal](examples/00-minimal/)
 
+Minimal setup with GLFW for window and input.
+
 ```sh
 cd examples/00-minimal
 zig build
 zig-out/bin/minimal
 ```
 
-### [01-Minimal-ZGui](examples/01-minimal-zgui/)
+| Key | Description  |
+|-----|--------------|
+| `v` | Vsync on/off |
+| `d` | Debug on/off |
+
+### [01-ZGui](examples/01-zgui/)
+
+Minimal setup for zgui/ImGui.
 
 ```sh
-cd examples/01-minimal-zgui
+cd examples/01-zgui
 zig build
-zig-out/bin/minimal-zgui
+zig-out/bin/zgui
 ```
+
+| Key | Description  |
+|-----|--------------|
+| `v` | Vsync on/off |
+| `d` | Debug on/off |
+
+### [02-Runtime shaderc](examples/02-runtime-shaderc/)
+
+Basic usage of shader compile in runtime.
+Try edit shaders in `zig-out/bin/shaders` and hit `r` to recompile.
+
+```sh
+cd examples/02-runtime-shaderc
+zig build
+zig-out/bin/runtime-shaderc
+```
+
+| Key | Description                 |
+|-----|-----------------------------|
+| `v` | Vsync on/off                |
+| `d` | Debug on/off                |
+| `r` | Recompile shaders form file |
