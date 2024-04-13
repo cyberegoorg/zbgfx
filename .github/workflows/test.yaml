@@ -38,7 +38,7 @@ jobs:
   validation:
     name: Validation
     runs-on: ubuntu-latest
-    timeout-minutes: 1
+    timeout-minutes: 2
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -66,7 +66,7 @@ jobs:
         os: [linux-large, macos-13-large, windows-large]
     runs-on: ${{matrix.os}}
     name: "Build examples"
-    timeout-minutes: 10
+    timeout-minutes: 15
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -88,4 +88,7 @@ jobs:
         run: cd examples/00-minimal && zig build
       - name: Build example 01
         shell: bash
-        run: cd examples/01-minimal-zgui && zig build
+        run: cd examples/01-zgui && zig build
+      - name: Build example 02
+        shell: bash
+        run: cd examples/02-runtime-shaderc && zig build
