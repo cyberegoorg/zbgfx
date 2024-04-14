@@ -176,12 +176,13 @@ pub fn build(b: *std.Build) !void {
     // Bgfx imgui backend
     // TODO: zig based
     //
+    const bgfx_imgui_path = "libs/bgfx/examples/common/imgui/";
     if (options.imgui_include) |include| {
         bgfx.addIncludePath(.{ .path = include });
         bgfx.addCSourceFiles(.{
             .flags = &cxx_options,
             .files = &[_][]const u8{
-                "src/imgui_impl_bgfx/imgui.cpp",
+                bgfx_imgui_path ++ "imgui.cpp",
             },
         });
     }
@@ -275,11 +276,11 @@ pub fn build(b: *std.Build) !void {
             combine_bin_h,
             .{
                 .shaderType = .fragment,
-                .input = .{ .path = "src/imgui_impl_bgfx/fs_imgui_image.sc" },
+                .input = .{ .path = bgfx_imgui_path ++ "fs_imgui_image.sc" },
             },
             .{
                 .bin2c = "fs_imgui_image",
-                .output = "src/imgui_impl_bgfx/fs_imgui_image.bin.h",
+                .output = bgfx_imgui_path ++ "fs_imgui_image.bin.h",
                 .includes = &.{shader_includes},
             },
         );
@@ -292,11 +293,11 @@ pub fn build(b: *std.Build) !void {
             combine_bin_h,
             .{
                 .shaderType = .fragment,
-                .input = .{ .path = "src/imgui_impl_bgfx/fs_ocornut_imgui.sc" },
+                .input = .{ .path = bgfx_imgui_path ++ "fs_ocornut_imgui.sc" },
             },
             .{
                 .bin2c = "fs_ocornut_imgui",
-                .output = "src/imgui_impl_bgfx/fs_ocornut_imgui.bin.h",
+                .output = bgfx_imgui_path ++ "fs_ocornut_imgui.bin.h",
                 .includes = &.{shader_includes},
             },
         );
@@ -308,11 +309,11 @@ pub fn build(b: *std.Build) !void {
             combine_bin_h,
             .{
                 .shaderType = .vertex,
-                .input = .{ .path = "src/imgui_impl_bgfx/vs_imgui_image.sc" },
+                .input = .{ .path = bgfx_imgui_path ++ "vs_imgui_image.sc" },
             },
             .{
                 .bin2c = "vs_imgui_image",
-                .output = "src/imgui_impl_bgfx/vs_imgui_image.bin.h",
+                .output = bgfx_imgui_path ++ "vs_imgui_image.bin.h",
                 .includes = &.{shader_includes},
             },
         );
@@ -324,11 +325,11 @@ pub fn build(b: *std.Build) !void {
             combine_bin_h,
             .{
                 .shaderType = .vertex,
-                .input = .{ .path = "src/imgui_impl_bgfx/vs_ocornut_imgui.sc" },
+                .input = .{ .path = bgfx_imgui_path ++ "vs_ocornut_imgui.sc" },
             },
             .{
                 .bin2c = "vs_ocornut_imgui",
-                .output = "src/imgui_impl_bgfx/vs_ocornut_imgui.bin.h",
+                .output = bgfx_imgui_path ++ "vs_ocornut_imgui.bin.h",
                 .includes = &.{shader_includes},
             },
         );

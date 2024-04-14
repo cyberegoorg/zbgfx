@@ -92,8 +92,7 @@ zig build
 Minimal setup with GLFW for window and input.
 
 ```sh
-cd examples
-zig-out/bin/00-minimal
+examples/zig-out/bin/00-minimal
 ```
 
 | Key | Description  |
@@ -106,8 +105,7 @@ zig-out/bin/00-minimal
 Minimal setup for zgui/ImGui.
 
 ```sh
-cd examples
-zig-out/bin/01-zgui
+examples/zig-out/bin/01-zgui
 ```
 
 | Key | Description  |
@@ -121,8 +119,7 @@ Basic usage of shader compile in runtime.
 Try edit shaders in `zig-out/bin/shaders` and hit `r` to recompile.
 
 ```sh
-cd examples
-zig-out/bin/02-runtime-shaderc
+examples/zig-out/bin/02-runtime-shaderc
 ```
 
 | Key | Description                 |
@@ -136,8 +133,7 @@ zig-out/bin/02-runtime-shaderc
 DebugDraw api usage example.
 
 ```sh
-cd examples
-zig-out/bin/03-debugdraw
+examples/zig-out/bin/03-debugdraw
 ```
 
 | Key | Description  |
@@ -147,7 +143,6 @@ zig-out/bin/03-debugdraw
 
 ## License
 
-Folders `libs`, `shaders`, `src/imgui_impl_bgfx` is copy&paste from [bgfx](https://github.com/bkaradzic/bgfx) for more
-sell-contained experience and is licensed [by](https://github.com/bkaradzic/bgfx/blob/master/LICENSE)
-
+Folders `libs`, `shaders` is copy&paste from [bgfx](https://github.com/bkaradzic/bgfx) for more sell-contained
+experience and is licensed by [LICENSEE](https://github.com/bkaradzic/bgfx/blob/master/LICENSE)
 Zig binding is licensed by [WTFPL](LICENSE)
