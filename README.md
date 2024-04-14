@@ -142,7 +142,6 @@ zig-out/bin/runtime-shaderc
 |-----|-----------------------------|
 | `v` | Vsync on/off                |
 | `d` | Debug on/off                |
-| `r` | Recompile shaders form file |
 
 ## License
 
