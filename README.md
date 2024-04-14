@@ -10,19 +10,19 @@ REMEMBER: This is only zig binding. For BGFX stuff goto [bgfx](https://github.co
 
 - [x] Zig api.
 - [x] Compile as standard zig library.
+- [x] `shaderc` as build artifact.
 - [x] Shader compile in `build.zig` to `*.bin.h`.
 - [x] Shader compile in `build.zig` and embed as zig module. (this is zig equivalent of `*.bin.h`)
 - [x] Shader compile from code (in memory solution, no tmp files).
-- [x] `shaderc` as build artifact.
+- [x] Binding for [DebugDraw API](https://github.com/bkaradzic/bgfx/tree/master/examples/common/debugdraw)
 - [x] `imgui` render backend. Use build option `imgui_include` to enable. ex. for
   zgui: `.imgui_include = zgui.path("libs").getPath(b),`
-
-
-- [ ] WIP: [DebugDraw API](https://github.com/bkaradzic/bgfx/tree/master/examples/common/debugdraw)
 
 ## Warnings
 
 - Shader compile/shaderc api is first draft and need cleanup.
+- Binding for DebugDraw is first draft and need cleanup.
+- `shaderc` and `shaderc-static` need some time to compile.
 
 ## Know problems
 
@@ -71,13 +71,6 @@ See examples for binding usage and [bgfx](https://github.com/bkaradzic/bgfx) for
 | `multithread`         | `true`  | Compile with BGFX_CONFIG_MULTITHREAD                 |
 | `with_shaderc`        | `true`  | Compile with shaderc executable                      |
 | `with_static_shaderc` | `true`  | Compile with shaderc as static lib                   |
-
-## License
-
-Folders `libs`, `shaders`, `src/imgui_impl_bgfx` is copy&paste from [bgfx](https://github.com/bkaradzic/bgfx) for more
-sell-contained experience and is licensed [by](https://github.com/bkaradzic/bgfx/blob/master/LICENSE)
-
-Zig binding is licensed by [WTFPL](LICENSE)
 
 ## Examples
 
@@ -134,3 +127,26 @@ zig-out/bin/runtime-shaderc
 | `v` | Vsync on/off                |
 | `d` | Debug on/off                |
 | `r` | Recompile shaders form file |
+
+### [03-debugdraw](examples/03-debugdraw/)
+
+DebugDraw api usage example.
+
+```sh
+cd examples/03-debugdraw
+zig build
+zig-out/bin/runtime-shaderc
+```
+
+| Key | Description                 |
+|-----|-----------------------------|
+| `v` | Vsync on/off                |
+| `d` | Debug on/off                |
+| `r` | Recompile shaders form file |
+
+## License
+
+Folders `libs`, `shaders`, `src/imgui_impl_bgfx` is copy&paste from [bgfx](https://github.com/bkaradzic/bgfx) for more
+sell-contained experience and is licensed [by](https://github.com/bkaradzic/bgfx/blob/master/LICENSE)
+
+Zig binding is licensed by [WTFPL](LICENSE)

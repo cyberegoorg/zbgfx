@@ -165,6 +165,14 @@ pub fn build(b: *std.Build) !void {
         },
     });
 
+    // debugdraw
+    bgfx.addCSourceFiles(.{
+        .flags = &cxx_options,
+        .files = &[_][]const u8{
+            "libs/bgfx/examples/common/debugdraw/debugdraw.cpp",
+        },
+    });
+
     //
     // Bgfx imgui backend
     // TODO: zig based

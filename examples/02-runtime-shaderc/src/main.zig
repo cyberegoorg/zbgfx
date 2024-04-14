@@ -246,7 +246,7 @@ pub fn main() anyerror!u8 {
     // Create view and proj matrices
     //
     const viewMtx = zm.lookAtRh(zm.f32x4(0.0, 0.0, -50.0, 1.0), zm.f32x4(0.0, 0.0, 0.0, 1.0), zm.f32x4(0.0, 1.0, 0.0, 0.0));
-    var projMtx = zm.perspectiveFovRhGl(0.25 * math.pi, @as(f32, @floatFromInt(old_size[0])) / @as(f32, @floatFromInt(old_size[1])), 0.1, 100.0);
+    var projMtx: zm.Mat = undefined;
 
     //
     // Default state

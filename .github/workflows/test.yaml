@@ -92,3 +92,6 @@ jobs:
       - name: Build example 02
         shell: bash
         run: cd examples/02-runtime-shaderc && zig build
+      - name: Build example 03
+        shell: bash
+        run: cd examples/03-debugdraw && zig build
