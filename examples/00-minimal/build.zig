@@ -2,10 +2,11 @@ const std = @import("std");
 
 const zbgfx = @import("zbgfx");
 
-pub fn build(b: *std.Build) !void {
-    const target = b.standardTargetOptions(.{});
-    const optimize = b.standardOptimizeOption(.{});
-
+pub fn build(
+    b: *std.Build,
+    optimize: std.builtin.Mode,
+    target: std.Build.ResolvedTarget,
+) !void {
     //
     // OPTIONS
     //
@@ -54,10 +55,10 @@ pub fn build(b: *std.Build) !void {
         "fs_cubes.zig",
         .{
             .shaderType = .fragment,
-            .input = .{ .path = "src/fs_cubes.sc" },
+            .input = .{ .path = thisDir() ++ "/src/fs_cubes.sc" },
         },
         .{
-            .output = "src/fs_cubes.bin.zig",
+            .output = thisDir() ++ "/src/fs_cubes.bin.zig",
             .includes = &.{shader_includes},
         },
     );
@@ -70,17 +71,17 @@ pub fn build(b: *std.Build) !void {
         "vs_cubes.zig",
         .{
             .shaderType = .vertex,
-            .input = .{ .path = "src/vs_cubes.sc" },
+            .input = .{ .path = thisDir() ++ "/src/vs_cubes.sc" },
         },
         .{
-            .output = "src/vs_cubes.bin.zig",
+            .output = thisDir() ++ "/src/vs_cubes.bin.zig",
             .includes = &.{shader_includes},
         },
     );
 
     const exe = b.addExecutable(.{
-        .name = "minimal",
-        .root_source_file = .{ .path = "src/main.zig" },
+        .name = "00-minimal",
+        .root_source_file = .{ .path = thisDir() ++ "/src/main.zig" },
         .target = target,
     });
     b.installArtifact(exe);
@@ -93,4 +94,8 @@ pub fn build(b: *std.Build) !void {
     exe.root_module.addImport("zmath", zmath.module("root"));
     exe.root_module.addImport("zglfw", zglfw.module("root"));
     exe.linkLibrary(zglfw.artifact("glfw"));
+}
+
+inline fn thisDir() []const u8 {
+    return comptime std.fs.path.dirname(@src().file) orelse ".";
 }

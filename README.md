@@ -65,20 +65,27 @@ See examples for binding usage and [bgfx](https://github.com/bkaradzic/bgfx) for
 
 ## Build options
 
-| Build option          | Default | Description                                          |
-|-----------------------|---------|------------------------------------------------------|
-| `imgui_include`       | `null`  | Path to ImGui includes (need for imgui bgfx backend) |
-| `multithread`         | `true`  | Compile with BGFX_CONFIG_MULTITHREAD                 |
-| `with_shaderc`        | `true`  | Compile with shaderc executable                      |
-| `with_static_shaderc` | `true`  | Compile with shaderc as static lib                   |
+| Build option    | Default | Description                                          |
+|-----------------|---------|------------------------------------------------------|
+| `imgui_include` | `null`  | Path to ImGui includes (need for imgui bgfx backend) |
+| `multithread`   | `true`  | Compile with BGFX_CONFIG_MULTITHREAD                 |
+| `with_shaderc`  | `true`  | Compile with `shaderc`                               |
 
 ## Examples
 
 Examples use [zig-gamedev](https://github.com/zig-gamedev/zig-gamedev) as submodule.
-Run this:
+
+Run this to fetch `zig-gamedev`:
 
 ```bash
 git submodule update --init --depth=1
+```
+
+And this for build all examples:
+
+```sh
+cd examples
+zig build
 ```
 
 ### [00-Minimal](examples/00-minimal/)
@@ -86,9 +93,8 @@ git submodule update --init --depth=1
 Minimal setup with GLFW for window and input.
 
 ```sh
-cd examples/00-minimal
-zig build
-zig-out/bin/minimal
+cd examples
+zig-out/bin/00-minimal
 ```
 
 | Key | Description  |
@@ -101,9 +107,8 @@ zig-out/bin/minimal
 Minimal setup for zgui/ImGui.
 
 ```sh
-cd examples/01-zgui
-zig build
-zig-out/bin/zgui
+cd examples
+zig-out/bin/01-zgui
 ```
 
 | Key | Description  |
@@ -117,9 +122,8 @@ Basic usage of shader compile in runtime.
 Try edit shaders in `zig-out/bin/shaders` and hit `r` to recompile.
 
 ```sh
-cd examples/02-runtime-shaderc
-zig build
-zig-out/bin/runtime-shaderc
+cd examples
+zig-out/bin/02-runtime-shaderc
 ```
 
 | Key | Description                 |
@@ -133,15 +137,14 @@ zig-out/bin/runtime-shaderc
 DebugDraw api usage example.
 
 ```sh
-cd examples/03-debugdraw
-zig build
-zig-out/bin/runtime-shaderc
+cd examples
+zig-out/bin/03-debugdraw
 ```
 
-| Key | Description                 |
-|-----|-----------------------------|
-| `v` | Vsync on/off                |
-| `d` | Debug on/off                |
+| Key | Description  |
+|-----|--------------|
+| `v` | Vsync on/off |
+| `d` | Debug on/off |
 
 ## License
 

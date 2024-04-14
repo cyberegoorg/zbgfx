@@ -359,3 +359,5 @@ pub extern fn zbgfx_compileShader(
     _messageWriter: writeFce,
     _messageWriterContext: *anyopaque,
 ) bool;
+
+pub extern fn shaderc_main(_argc: c_int, _argv: [*c][*:0]const u8) c_int;

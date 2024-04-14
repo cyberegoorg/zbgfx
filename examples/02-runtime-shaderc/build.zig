@@ -2,10 +2,11 @@ const std = @import("std");
 
 const zbgfx = @import("zbgfx");
 
-pub fn build(b: *std.Build) !void {
-    const target = b.standardTargetOptions(.{});
-    const optimize = b.standardOptimizeOption(.{});
-
+pub fn build(
+    b: *std.Build,
+    optimize: std.builtin.Mode,
+    target: std.Build.ResolvedTarget,
+) !void {
     //
     // OPTIONS
     //
@@ -38,8 +39,8 @@ pub fn build(b: *std.Build) !void {
     );
 
     const exe = b.addExecutable(.{
-        .name = "runtime-shaderc",
-        .root_source_file = .{ .path = "src/main.zig" },
+        .name = "02-runtime-shaderc",
+        .root_source_file = .{ .path = thisDir() ++ "/src/main.zig" },
         .target = target,
     });
     b.installArtifact(exe);
@@ -64,8 +65,12 @@ pub fn build(b: *std.Build) !void {
     const install_example_shaders = b.addInstallDirectory(.{
         .install_dir = .bin,
         .install_subdir = "shaders",
-        .source_dir = .{ .path = "src" },
+        .source_dir = .{ .path = thisDir() ++ "/src" },
         .include_extensions = &.{".sc"},
     });
     exe.step.dependOn(&install_example_shaders.step);
+}
+
+inline fn thisDir() []const u8 {
+    return comptime std.fs.path.dirname(@src().file) orelse ".";
 }

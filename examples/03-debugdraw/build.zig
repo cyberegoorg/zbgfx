@@ -2,10 +2,11 @@ const std = @import("std");
 
 const zbgfx = @import("zbgfx");
 
-pub fn build(b: *std.Build) !void {
-    const target = b.standardTargetOptions(.{});
-    const optimize = b.standardOptimizeOption(.{});
-
+pub fn build(
+    b: *std.Build,
+    optimize: std.builtin.Mode,
+    target: std.Build.ResolvedTarget,
+) !void {
     //
     // OPTIONS
     //
@@ -38,8 +39,8 @@ pub fn build(b: *std.Build) !void {
     );
 
     const exe = b.addExecutable(.{
-        .name = "debugdraw",
-        .root_source_file = .{ .path = "src/main.zig" },
+        .name = "03-debugdraw",
+        .root_source_file = .{ .path = thisDir() ++ "/src/main.zig" },
         .target = target,
     });
     b.installArtifact(exe);
@@ -50,4 +51,8 @@ pub fn build(b: *std.Build) !void {
     exe.root_module.addImport("zmath", zmath.module("root"));
     exe.root_module.addImport("zglfw", zglfw.module("root"));
     exe.linkLibrary(zglfw.artifact("glfw"));
+}
+
+inline fn thisDir() []const u8 {
+    return comptime std.fs.path.dirname(@src().file) orelse ".";
 }

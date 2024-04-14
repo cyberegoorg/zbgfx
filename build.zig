@@ -15,7 +15,6 @@ pub fn build(b: *std.Build) !void {
         .imgui_include = b.option([]const u8, "imgui_include", "Path to imgui (need for imgui bgfx backend)"),
         .multithread = b.option(bool, "multithread", "Compile with BGFX_CONFIG_MULTITHREAD") orelse true,
         .with_shaderc = b.option(bool, "with_shaderc", "Compile with shaderc executable") orelse true,
-        .with_static_shaderc = b.option(bool, "with_static_shaderc", "Compile with shaderc as static lib") orelse true,
     };
 
     const options_step = b.addOptions();
@@ -200,49 +199,56 @@ pub fn build(b: *std.Build) !void {
     defer shaderc_variant.deinit();
 
     if (options.with_shaderc) {
-        const shaderc = b.addExecutable(.{
-            .name = "shaderc",
-            .target = target,
-            .optimize = optimize,
-        });
-        try shaderc_variant.append(shaderc);
-    }
-
-    if (options.with_static_shaderc) {
-        const shaderc = b.addStaticLibrary(.{
+        //
+        // Static shaderc
+        //
+        const shaderc_static = b.addStaticLibrary(.{
             .name = "shaderc-static",
             .target = target,
             .optimize = optimize,
         });
-        shaderc.defineCMacro("ZBGFX_EMBED_SHADERC", null);
-        shaderc.defineCMacro("bgfx", "bgfx_shader"); // Tricky&Dirty (without this is problem with duplicate symbols).
+        shaderc_static.defineCMacro("ZBGFX_EMBED_SHADERC", null);
+        shaderc_static.defineCMacro("bgfx", "bgfx_shader"); // Tricky&Dirty (without this is problem with duplicate symbols).
+        b.installArtifact(shaderc_static);
+        shaderc_static.linkLibCpp();
+
+        //
+        // Shaderc executable
+        //
+        const shaderc = b.addExecutable(.{
+            .name = "shaderc",
+            .root_source_file = .{ .path = "src/shaderc_main.zig" },
+            .target = target,
+            .optimize = optimize,
+        });
+
         b.installArtifact(shaderc);
+        shaderc.linkLibrary(shaderc_static);
 
-        try shaderc_variant.append(shaderc);
-    }
-
-    for (shaderc_variant.items) |shaderc| {
-        if (shaderc.kind == .exe) {
-            b.installArtifact(shaderc);
+        if (target.result.os.tag.isDarwin()) {
+            shaderc.linkFramework("CoreFoundation");
+            shaderc.linkFramework("Foundation");
         }
+        shaderc.linkLibrary(bx);
+        shaderc.linkLibCpp();
 
-        bxInclude(shaderc, target, optimize);
+        bxInclude(shaderc_static, target, optimize);
 
-        shaderc.addIncludePath(.{ .path = "libs/bimg/include" });
-        shaderc.addIncludePath(.{ .path = bgfx_path ++ "include" });
-        shaderc.addIncludePath(.{ .path = bgfx_path ++ "src" });
-        shaderc.addIncludePath(.{ .path = bgfx_path ++ "3rdparty/dxsdk/include" });
-        shaderc.addIncludePath(.{ .path = bgfx_path ++ "3rdparty/fcpp" });
-        shaderc.addIncludePath(.{ .path = bgfx_path ++ "3rdparty/glslang/glslang/Public" });
-        shaderc.addIncludePath(.{ .path = bgfx_path ++ "3rdparty/glslang/glslang/Include" });
-        shaderc.addIncludePath(.{ .path = bgfx_path ++ "3rdparty/glslang" });
-        shaderc.addIncludePath(.{ .path = bgfx_path ++ "3rdparty/glsl-optimizer/include" });
-        shaderc.addIncludePath(.{ .path = bgfx_path ++ "3rdparty/glsl-optimizer/src/glsl" });
-        shaderc.addIncludePath(.{ .path = bgfx_path ++ "3rdparty/spirv-cross" });
-        shaderc.addIncludePath(.{ .path = bgfx_path ++ "3rdparty/spirv-tools/include" });
-        shaderc.addIncludePath(.{ .path = bgfx_path ++ "3rdparty/webgpu/include" });
+        shaderc_static.addIncludePath(.{ .path = "libs/bimg/include" });
+        shaderc_static.addIncludePath(.{ .path = bgfx_path ++ "include" });
+        shaderc_static.addIncludePath(.{ .path = bgfx_path ++ "src" });
+        shaderc_static.addIncludePath(.{ .path = bgfx_path ++ "3rdparty/dxsdk/include" });
+        shaderc_static.addIncludePath(.{ .path = bgfx_path ++ "3rdparty/fcpp" });
+        shaderc_static.addIncludePath(.{ .path = bgfx_path ++ "3rdparty/glslang/glslang/Public" });
+        shaderc_static.addIncludePath(.{ .path = bgfx_path ++ "3rdparty/glslang/glslang/Include" });
+        shaderc_static.addIncludePath(.{ .path = bgfx_path ++ "3rdparty/glslang" });
+        shaderc_static.addIncludePath(.{ .path = bgfx_path ++ "3rdparty/glsl-optimizer/include" });
+        shaderc_static.addIncludePath(.{ .path = bgfx_path ++ "3rdparty/glsl-optimizer/src/glsl" });
+        shaderc_static.addIncludePath(.{ .path = bgfx_path ++ "3rdparty/spirv-cross" });
+        shaderc_static.addIncludePath(.{ .path = bgfx_path ++ "3rdparty/spirv-tools/include" });
+        shaderc_static.addIncludePath(.{ .path = bgfx_path ++ "3rdparty/webgpu/include" });
 
-        shaderc.addCSourceFiles(.{
+        shaderc_static.addCSourceFiles(.{
             .files = &.{
                 bgfx_path ++ "src/shader.cpp",
                 bgfx_path ++ "src/shader_dxbc.cpp",
@@ -258,88 +264,78 @@ pub fn build(b: *std.Build) !void {
             .flags = &cxx_options,
         });
 
-        if (target.result.os.tag.isDarwin()) {
-            shaderc.linkFramework("CoreFoundation");
-            shaderc.linkFramework("Foundation");
-        }
+        //
+        // Imgui .bin.h shader embeding step.
+        //
+        const shader_includes = .{ .path = "shaders" };
+        const fs_imgui_image_bin_h = try zbgfx.build.compileBasicBinH(
+            b,
+            target,
+            shaderc,
+            combine_bin_h,
+            .{
+                .shaderType = .fragment,
+                .input = .{ .path = "src/imgui_impl_bgfx/fs_imgui_image.sc" },
+            },
+            .{
+                .bin2c = "fs_imgui_image",
+                .output = "src/imgui_impl_bgfx/fs_imgui_image.bin.h",
+                .includes = &.{shader_includes},
+            },
+        );
 
-        if (shaderc.kind == .exe) {
-            shaderc.linkLibrary(bx);
-            shaderc.linkLibC();
-            shaderc.linkLibCpp();
-        }
+        //
+        const fs_ocornut_imgui_bin_h = try zbgfx.build.compileBasicBinH(
+            b,
+            target,
+            shaderc,
+            combine_bin_h,
+            .{
+                .shaderType = .fragment,
+                .input = .{ .path = "src/imgui_impl_bgfx/fs_ocornut_imgui.sc" },
+            },
+            .{
+                .bin2c = "fs_ocornut_imgui",
+                .output = "src/imgui_impl_bgfx/fs_ocornut_imgui.bin.h",
+                .includes = &.{shader_includes},
+            },
+        );
 
-        if (shaderc.kind == .exe) {
-            const shader_includes = .{ .path = "shaders" };
-            const fs_imgui_image_bin_h = try zbgfx.build.compileBasicBinH(
-                b,
-                target,
-                shaderc,
-                combine_bin_h,
-                .{
-                    .shaderType = .fragment,
-                    .input = .{ .path = "src/imgui_impl_bgfx/fs_imgui_image.sc" },
-                },
-                .{
-                    .bin2c = "fs_imgui_image",
-                    .output = "src/imgui_impl_bgfx/fs_imgui_image.bin.h",
-                    .includes = &.{shader_includes},
-                },
-            );
+        const vs_imgui_image_bin_h = try zbgfx.build.compileBasicBinH(
+            b,
+            target,
+            shaderc,
+            combine_bin_h,
+            .{
+                .shaderType = .vertex,
+                .input = .{ .path = "src/imgui_impl_bgfx/vs_imgui_image.sc" },
+            },
+            .{
+                .bin2c = "vs_imgui_image",
+                .output = "src/imgui_impl_bgfx/vs_imgui_image.bin.h",
+                .includes = &.{shader_includes},
+            },
+        );
 
-            //
-            const fs_ocornut_imgui_bin_h = try zbgfx.build.compileBasicBinH(
-                b,
-                target,
-                shaderc,
-                combine_bin_h,
-                .{
-                    .shaderType = .fragment,
-                    .input = .{ .path = "src/imgui_impl_bgfx/fs_ocornut_imgui.sc" },
-                },
-                .{
-                    .bin2c = "fs_ocornut_imgui",
-                    .output = "src/imgui_impl_bgfx/fs_ocornut_imgui.bin.h",
-                    .includes = &.{shader_includes},
-                },
-            );
-
-            const vs_imgui_image_bin_h = try zbgfx.build.compileBasicBinH(
-                b,
-                target,
-                shaderc,
-                combine_bin_h,
-                .{
-                    .shaderType = .vertex,
-                    .input = .{ .path = "src/imgui_impl_bgfx/vs_imgui_image.sc" },
-                },
-                .{
-                    .bin2c = "vs_imgui_image",
-                    .output = "src/imgui_impl_bgfx/vs_imgui_image.bin.h",
-                    .includes = &.{shader_includes},
-                },
-            );
-
-            const vs_ocornut_imgui_bin_h = try zbgfx.build.compileBasicBinH(
-                b,
-                target,
-                shaderc,
-                combine_bin_h,
-                .{
-                    .shaderType = .vertex,
-                    .input = .{ .path = "src/imgui_impl_bgfx/vs_ocornut_imgui.sc" },
-                },
-                .{
-                    .bin2c = "vs_ocornut_imgui",
-                    .output = "src/imgui_impl_bgfx/vs_ocornut_imgui.bin.h",
-                    .includes = &.{shader_includes},
-                },
-            );
-            compile_imgui_shaders.dependOn(fs_imgui_image_bin_h);
-            compile_imgui_shaders.dependOn(fs_ocornut_imgui_bin_h);
-            compile_imgui_shaders.dependOn(vs_imgui_image_bin_h);
-            compile_imgui_shaders.dependOn(vs_ocornut_imgui_bin_h);
-        }
+        const vs_ocornut_imgui_bin_h = try zbgfx.build.compileBasicBinH(
+            b,
+            target,
+            shaderc,
+            combine_bin_h,
+            .{
+                .shaderType = .vertex,
+                .input = .{ .path = "src/imgui_impl_bgfx/vs_ocornut_imgui.sc" },
+            },
+            .{
+                .bin2c = "vs_ocornut_imgui",
+                .output = "src/imgui_impl_bgfx/vs_ocornut_imgui.bin.h",
+                .includes = &.{shader_includes},
+            },
+        );
+        compile_imgui_shaders.dependOn(fs_imgui_image_bin_h);
+        compile_imgui_shaders.dependOn(fs_ocornut_imgui_bin_h);
+        compile_imgui_shaders.dependOn(vs_imgui_image_bin_h);
+        compile_imgui_shaders.dependOn(vs_ocornut_imgui_bin_h);
 
         //
         // fcpp
@@ -470,10 +466,16 @@ pub fn build(b: *std.Build) !void {
         );
 
         if (target.result.os.tag == .windows) {
-            glslang_lib.addCSourceFile(.{ .file = .{ .path = glslang_path ++ "glslang/OSDependent/Windows/ossource.cpp" }, .flags = &glslang_cxx_options });
+            glslang_lib.addCSourceFile(.{
+                .file = .{ .path = glslang_path ++ "glslang/OSDependent/Windows/ossource.cpp" },
+                .flags = &glslang_cxx_options,
+            });
         }
         if (target.result.os.tag == .linux or target.result.isDarwin()) {
-            glslang_lib.addCSourceFile(.{ .file = .{ .path = glslang_path ++ "glslang/OSDependent/Unix/ossource.cpp" }, .flags = &glslang_cxx_options });
+            glslang_lib.addCSourceFile(.{
+                .file = .{ .path = glslang_path ++ "glslang/OSDependent/Unix/ossource.cpp" },
+                .flags = &glslang_cxx_options,
+            });
         }
 
         glslang_lib.linkLibCpp();
@@ -550,11 +552,11 @@ pub fn build(b: *std.Build) !void {
 
         glsl_optimizer_lib.linkLibCpp();
 
-        shaderc.linkLibrary(fcpp_lib);
-        shaderc.linkLibrary(glslang_lib);
-        shaderc.linkLibrary(glsl_optimizer_lib);
-        shaderc.linkLibrary(spirv_opt_lib);
-        shaderc.linkLibrary(spirv_cross_lib);
+        shaderc_static.linkLibrary(fcpp_lib);
+        shaderc_static.linkLibrary(glslang_lib);
+        shaderc_static.linkLibrary(glsl_optimizer_lib);
+        shaderc_static.linkLibrary(spirv_opt_lib);
+        shaderc_static.linkLibrary(spirv_cross_lib);
     }
 }
 

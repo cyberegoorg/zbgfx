@@ -2,9 +2,11 @@ const std = @import("std");
 
 const zbgfx = @import("zbgfx");
 
-pub fn build(b: *std.Build) !void {
-    const target = b.standardTargetOptions(.{});
-    const optimize = b.standardOptimizeOption(.{});
+pub fn build(
+    b: *std.Build,
+    optimize: std.builtin.Mode,
+    target: std.Build.ResolvedTarget,
+) !void {
 
     //
     // OPTIONS
@@ -43,8 +45,8 @@ pub fn build(b: *std.Build) !void {
     );
 
     const exe = b.addExecutable(.{
-        .name = "zgui",
-        .root_source_file = .{ .path = "src/main.zig" },
+        .name = "01-zgui",
+        .root_source_file = .{ .path = thisDir() ++ "/src/main.zig" },
         .target = target,
     });
     b.installArtifact(exe);
@@ -56,4 +58,8 @@ pub fn build(b: *std.Build) !void {
     exe.linkLibrary(zglfw.artifact("glfw"));
     exe.linkLibrary(zgui.artifact("imgui"));
     exe.linkLibrary(zbgfx_dep.artifact("bgfx"));
+}
+
+inline fn thisDir() []const u8 {
+    return comptime std.fs.path.dirname(@src().file) orelse ".";
 }

@@ -3031,6 +3031,10 @@ extern "C" {
         return bgfx::compileShader(_varying, _comment, _shader, _shaderLen, options, &shaderWriter,&messageWriter);
     }
 
+	int shaderc_main(int _argc, const char* _argv[])
+	{
+		return bgfx::compileShader(_argc, _argv);
+	}
 }
 #else
 int main(int _argc, const char* _argv[])
