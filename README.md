@@ -29,6 +29,14 @@ When [zig](https://github.com/ziglang/zig) meets [bgfx](https://github.com/bkara
 > - If you build shaders/app and see something like `run shaderc (shader.bin.h) stderr`.
     Remember is not "true" error but only in debug build shader print some stuff to stderr and zig build catch it.
 
+## License
+
+Folders `libs`, `shaders` is copy&paste from [bgfx](https://github.com/bkaradzic/bgfx) for more sell-contained
+experience and is licensed by [LICENSEE](https://github.com/bkaradzic/bgfx/blob/master/LICENSE)
+
+Zig binding is licensed by [WTFPL](LICENSE)
+
+
 ## Zig version
 
 Minimal is `0.12.0`. But you know.. try your version and believe.
@@ -141,8 +149,3 @@ examples/zig-out/bin/03-debugdraw
 | `v` | Vsync on/off |
 | `d` | Debug on/off |
 
-## License
-
-Folders `libs`, `shaders` is copy&paste from [bgfx](https://github.com/bkaradzic/bgfx) for more sell-contained
-experience and is licensed by [LICENSEE](https://github.com/bkaradzic/bgfx/blob/master/LICENSE)
-Zig binding is licensed by [WTFPL](LICENSE)
