@@ -4,8 +4,6 @@
 
 When [zig](https://github.com/ziglang/zig) meets [bgfx](https://github.com/bkaradzic/bgfx).
 
-REMEMBER: This is only zig binding. For BGFX stuff goto [bgfx](https://github.com/bkaradzic/bgfx).
-
 ## Features
 
 - [x] Zig api.
@@ -18,17 +16,18 @@ REMEMBER: This is only zig binding. For BGFX stuff goto [bgfx](https://github.co
 - [x] `imgui` render backend. Use build option `imgui_include` to enable. ex. for
   zgui: `.imgui_include = zgui.path("libs").getPath(b),`
 
-## Warnings
+> [!IMPORTANT]  
+> This is only zig binding. For BGFX stuff goto [bgfx](https://github.com/bkaradzic/bgfx).
 
-- Shader compile/shaderc api is first draft and need cleanup.
-- Binding for DebugDraw is first draft and need cleanup.
-- `shaderc` and `shaderc-static` need some time to compile.
+> [!WARNING]
+> - Shader compile/shaderc api is first draft and need cleanup.
+> - Binding for DebugDraw is first draft and need cleanup.
+> - `shaderc` need some time to compile.
 
-## Know problems
-
-- On retina/hidpi display imgui rendering is broken but is probably simple to fix. (WIP)
-- If you build shaders/app and see something like `run shaderc (shader.bin.h) stderr`.
-  Remember is not "true" error but only in debug build shader print some stuff to stderr and zig build catch it.
+> [!CAUTION]
+> - On retina/hidpi display imgui rendering is broken but is probably simple to fix. (WIP)
+> - If you build shaders/app and see something like `run shaderc (shader.bin.h) stderr`.
+    Remember is not "true" error but only in debug build shader print some stuff to stderr and zig build catch it.
 
 ## Zig version
 
