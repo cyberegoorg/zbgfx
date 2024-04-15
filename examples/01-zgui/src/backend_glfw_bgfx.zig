@@ -22,10 +22,11 @@ pub fn newFrame(fb_width: u32, fb_height: u32) void {
     const w = fb_width;
     const h = fb_height;
 
+    zgui.backend.newFrame();
+
     zgui.io.setDisplaySize(@floatFromInt(w), @floatFromInt(h));
     zgui.io.setDisplayFramebufferScale(1.0, 1.0);
 
-    zgui.backend.newFrame();
     backend_bgfx.newFrame(255);
 }
 

@@ -10,6 +10,8 @@ const bgfx = zbgfx.bgfx;
 
 const backend_glfw_bgfx = @import("backend_glfw_bgfx.zig");
 
+const MAIN_FONT = @embedFile("Roboto-Medium.ttf");
+
 const WIDTH = 1280;
 const HEIGHT = 720;
 
@@ -50,8 +52,10 @@ pub fn main() anyerror!u8 {
     // This force renderer type.
     // bgfx_init.type = .Vulkan
 
-    bgfx_init.resolution.width = WIDTH;
-    bgfx_init.resolution.height = HEIGHT;
+    const framebufferSize = window.getFramebufferSize();
+
+    bgfx_init.resolution.width = @intCast(framebufferSize[0]);
+    bgfx_init.resolution.height = @intCast(framebufferSize[1]);
     bgfx_init.platformData.ndt = null;
     bgfx_init.debug = true;
 
@@ -96,7 +100,7 @@ pub fn main() anyerror!u8 {
     //
     // Reset and clear
     //
-    bgfx.reset(WIDTH, HEIGHT, reset_flags, bgfx_init.resolution.format);
+    bgfx.reset(@intCast(framebufferSize[0]), @intCast(framebufferSize[1]), reset_flags, bgfx_init.resolution.format);
 
     // Set view 0 clear state.
     bgfx.setViewClear(0, bgfx.ClearFlags_Color | bgfx.ClearFlags_Depth, 0x303030ff, 1.0, 0);
@@ -111,8 +115,21 @@ pub fn main() anyerror!u8 {
     const gpa_allocator = gpa.allocator();
     defer _ = gpa.deinit();
 
+    const scale_factor = scale_factor: {
+        const scale = window.getContentScale();
+        break :scale_factor @max(scale[0], scale[1]);
+    };
+
     zgui.init(gpa_allocator);
     defer zgui.deinit();
+
+    // Load main font
+    var main_cfg = zgui.FontConfig.init();
+    main_cfg.font_data_owned_by_atlas = false;
+    _ = zgui.io.addFontFromMemoryWithConfig(MAIN_FONT, std.math.floor(16 * scale_factor), main_cfg, null);
+
+    zgui.getStyle().scaleAllSizes(scale_factor);
+
     backend_glfw_bgfx.init(window);
     defer backend_glfw_bgfx.deinit();
 
@@ -159,7 +176,7 @@ pub fn main() anyerror!u8 {
         //
         // If resolution or flags is changed reset.
         //
-        const size = window.getSize();
+        const size = window.getFramebufferSize();
         if (old_flags != reset_flags or old_size[0] != size[0] or old_size[1] != size[1]) {
             bgfx.reset(
                 @intCast(size[0]),

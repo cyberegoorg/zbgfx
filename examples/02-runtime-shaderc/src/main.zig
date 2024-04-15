@@ -155,8 +155,9 @@ pub fn main() anyerror!u8 {
     // This force renderer type.
     // bgfx_init.type = .Vulkan;
 
-    bgfx_init.resolution.width = WIDTH;
-    bgfx_init.resolution.height = HEIGHT;
+    const framebufferSize = window.getFramebufferSize();
+    bgfx_init.resolution.width = @intCast(framebufferSize[0]);
+    bgfx_init.resolution.height = @intCast(framebufferSize[1]);
     bgfx_init.platformData.ndt = null;
     bgfx_init.debug = true;
 
@@ -237,7 +238,7 @@ pub fn main() anyerror!u8 {
     //
     // Reset and clear
     //
-    bgfx.reset(WIDTH, HEIGHT, reset_flags, bgfx_init.resolution.format);
+    bgfx.reset(@intCast(framebufferSize[0]), @intCast(framebufferSize[1]), reset_flags, bgfx_init.resolution.format);
 
     // Set view 0 clear state.
     bgfx.setViewClear(0, bgfx.ClearFlags_Color | bgfx.ClearFlags_Depth, 0x303030ff, 1.0, 0);
@@ -305,7 +306,7 @@ pub fn main() anyerror!u8 {
         //
         // If resolution or flags is changed set new matrix and reset.
         //
-        const size = window.getSize();
+        const size = window.getFramebufferSize();
         if (old_flags != reset_flags or old_size[0] != size[0] or old_size[1] != size[1]) {
             const aspect_ratio = @as(f32, @floatFromInt(size[0])) / @as(f32, @floatFromInt(size[1]));
             projMtx = zm.perspectiveFovRhGl(
