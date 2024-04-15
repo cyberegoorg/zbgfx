@@ -19,21 +19,14 @@ pub fn deinit() void {
 }
 
 pub fn newFrame(fb_width: u32, fb_height: u32) void {
-    var w = fb_width;
-    var h = fb_height;
-
-    // Headless mode
-    // Set some default imgui screen size
-    if (fb_width == 0 and fb_height == 0) {
-        w = 1024;
-        h = 768;
-    }
+    const w = fb_width;
+    const h = fb_height;
 
     zgui.io.setDisplaySize(@floatFromInt(w), @floatFromInt(h));
     zgui.io.setDisplayFramebufferScale(1.0, 1.0);
 
     zgui.backend.newFrame();
-    backend_bgfx.newFrame(@truncate(fb_width), @truncate(fb_height), 255);
+    backend_bgfx.newFrame(255);
 }
 
 pub fn draw() void {

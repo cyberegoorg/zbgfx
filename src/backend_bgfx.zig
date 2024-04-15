@@ -8,8 +8,8 @@ pub fn deinit() void {
     ImGui_ImplBgfx_Shutdown();
 }
 
-pub fn newFrame(fb_width: u32, fb_height: u32, viewid: bgfx.ViewId) void {
-    ImGui_ImplBgfx_NewFrame(@truncate(fb_width), @truncate(fb_height), viewid);
+pub fn newFrame(viewid: bgfx.ViewId) void {
+    ImGui_ImplBgfx_NewFrame(viewid);
 }
 
 pub fn draw() void {
@@ -18,5 +18,5 @@ pub fn draw() void {
 
 extern fn ImGui_ImplBgfx_Init() void;
 extern fn ImGui_ImplBgfx_Shutdown() void;
-extern fn ImGui_ImplBgfx_NewFrame(_width: u16, _height: u16, _viewId: bgfx.ViewId) void;
+extern fn ImGui_ImplBgfx_NewFrame(_viewId: bgfx.ViewId) void;
 extern fn ImGui_ImplBgfx_RenderDrawData() void;
