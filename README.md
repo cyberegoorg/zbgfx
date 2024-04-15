@@ -24,10 +24,10 @@ When [zig](https://github.com/ziglang/zig) meets [bgfx](https://github.com/bkara
 > - Binding for DebugDraw is first draft and need cleanup.
 > - `shaderc` need some time to compile.
 
-> [!CAUTION]
-> - On retina/hidpi display imgui rendering is broken but is probably simple to fix. (WIP)
+> [!NOTE]
 > - If you build shaders/app and see something like `run shaderc (shader.bin.h) stderr`.
-    Remember is not "true" error but only in debug build shader print some stuff to stderr and zig build catch it.
+    This is not "true" error (build success), but only in debug build shader print some stuff to stderr and zig
+    build catch it.
 
 ## License
 
@@ -35,7 +35,6 @@ Folders `libs`, `shaders` is copy&paste from [bgfx](https://github.com/bkaradzic
 experience and is licensed by [LICENSEE](https://github.com/bkaradzic/bgfx/blob/master/LICENSE)
 
 Zig binding is licensed by [WTFPL](LICENSE)
-
 
 ## Zig version
 
