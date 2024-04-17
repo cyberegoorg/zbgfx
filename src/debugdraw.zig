@@ -117,7 +117,7 @@ pub const Encoder = opaque {
     extern fn zbgfx_EncoderSetState(dde: *Encoder, _depthTest: bool, _depthWrite: bool, _clockwise: bool) void;
 
     //
-    fn setColor(dde: *Encoder, _abgr: u32) void {
+    pub fn setColor(dde: *Encoder, _abgr: u32) void {
         zbgfx_EncoderSetColor(dde, _abgr);
     }
     extern fn zbgfx_EncoderSetColor(dde: *Encoder, _abgr: u32) void;
