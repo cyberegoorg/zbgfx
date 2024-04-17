@@ -74,7 +74,7 @@ See examples for binding usage and [bgfx](https://github.com/bkaradzic/bgfx) for
 | Build option    | Default | Description                                          |
 |-----------------|---------|------------------------------------------------------|
 | `imgui_include` | `null`  | Path to ImGui includes (need for imgui bgfx backend) |
-| `multithread`   | `true`  | Compile with BGFX_CONFIG_MULTITHREAD                 |
+| `multithread`   | `true`  | Compile with `BGFX_CONFIG_MULTITHREADED`             |
 | `with_shaderc`  | `true`  | Compile with `shaderc`                               |
 
 ## Examples

@@ -13,7 +13,7 @@ pub fn build(b: *std.Build) !void {
 
     const options = .{
         .imgui_include = b.option([]const u8, "imgui_include", "Path to imgui (need for imgui bgfx backend)"),
-        .multithread = b.option(bool, "multithread", "Compile with BGFX_CONFIG_MULTITHREAD") orelse true,
+        .multithread = b.option(bool, "multithread", "Compile with BGFX_CONFIG_MULTITHREADED") orelse true,
         .with_shaderc = b.option(bool, "with_shaderc", "Compile with shaderc executable") orelse true,
     };
 
@@ -125,9 +125,7 @@ pub fn build(b: *std.Build) !void {
     bgfx.linkLibrary(bx);
     bgfx.linkLibrary(bimg);
 
-    if (options.multithread) {
-        bgfx.defineCMacro("BGFX_CONFIG_MULTITHREAD", "1");
-    }
+    bgfx.defineCMacro("BGFX_CONFIG_MULTITHREADED", if (options.multithread) "1" else "0");
 
     bgfx.addIncludePath(.{ .path = "includes" });
 

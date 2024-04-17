@@ -103,7 +103,7 @@ extern "C"
     }
 
     ///
-    void bgfx_EncoderSetWireframe(DebugDrawEncoder *dde, bool _wireframe)
+    void zbgfx_EncoderSetWireframe(DebugDrawEncoder *dde, bool _wireframe)
     {
         dde->setWireframe(_wireframe);
     }
