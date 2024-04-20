@@ -16,6 +16,7 @@ on:
       - "tools/**"
       - "build.zig"
       - "build.zig.zon"
+      - ".zigversion"
 
   push:
     branches:
@@ -28,6 +29,7 @@ on:
       - "tools/**"
       - "build.zig"
       - "build.zig.zon"
+      - ".zigversion"
 
 concurrency:
   # Cancels pending runs when a PR gets updated.
