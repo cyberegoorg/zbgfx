@@ -20,8 +20,6 @@ When [zig](https://github.com/ziglang/zig) meets [bgfx](https://github.com/bkara
 > This is only zig binding. For BGFX stuff goto [bgfx](https://github.com/bkaradzic/bgfx).
 
 > [!WARNING]
-> - Shader compile/shaderc api is first draft and need cleanup.
-> - Binding for DebugDraw is first draft and need cleanup.
 > - `shaderc` need some time to compile.
 
 > [!NOTE]
@@ -38,8 +36,7 @@ Zig binding is licensed by [WTFPL](LICENSE)
 
 ## Zig version
 
-Minimal is `0.12.0`. But you know.. try your version and believe.
-I am open to make some backward compatibility changes but not older version then `0.12.0`.
+Minimal is `0.12.0` or `0.13.0-dev.46+3648d7df1`. But you know.. try your version and believe.
 
 ## Getting started
 
