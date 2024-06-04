@@ -46,7 +46,7 @@ pub fn build(
 
     const exe = b.addExecutable(.{
         .name = "01-zgui",
-        .root_source_file = .{ .path = thisDir() ++ "/src/main.zig" },
+        .root_source_file = b.path("01-zgui/src/main.zig"),
         .target = target,
     });
     b.installArtifact(exe);

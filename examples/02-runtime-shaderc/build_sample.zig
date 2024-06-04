@@ -40,7 +40,7 @@ pub fn build(
 
     const exe = b.addExecutable(.{
         .name = "02-runtime-shaderc",
-        .root_source_file = .{ .path = thisDir() ++ "/src/main.zig" },
+        .root_source_file = b.path("02-runtime-shaderc/src/main.zig"),
         .target = target,
     });
     b.installArtifact(exe);
@@ -65,7 +65,7 @@ pub fn build(
     const install_example_shaders = b.addInstallDirectory(.{
         .install_dir = .bin,
         .install_subdir = "shaders",
-        .source_dir = .{ .path = thisDir() ++ "/src" },
+        .source_dir = b.path("02-runtime-shaderc/src"),
         .include_extensions = &.{".sc"},
     });
     exe.step.dependOn(&install_example_shaders.step);

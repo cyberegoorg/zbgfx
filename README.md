@@ -36,7 +36,7 @@ Zig binding is licensed by [WTFPL](LICENSE)
 
 ## Zig version
 
-Minimal is `0.12.0` or `0.13.0-dev.46+3648d7df1`. But you know.. try your version and believe.
+Minimal is `0.13.0-dev.351+64ef45eb0`. But you know.. try your version and believe.
 
 ## Getting started
 
@@ -144,4 +144,3 @@ examples/zig-out/bin/03-debugdraw
 |-----|--------------|
 | `v` | Vsync on/off |
 | `d` | Debug on/off |
-

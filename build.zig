@@ -55,13 +55,13 @@ pub fn build(b: *std.Build) !void {
         .name = "combine_bin_h",
         .optimize = optimize,
         .target = target,
-        .root_source_file = .{ .path = "tools/combine_bin_h.zig" },
+        .root_source_file = b.path("tools/combine_bin_h.zig"),
     });
     const combine_bin_zig = b.addExecutable(.{
         .name = "combine_bin_zig",
         .optimize = optimize,
         .target = target,
-        .root_source_file = .{ .path = "tools/combine_bin_zig.zig" },
+        .root_source_file = b.path("tools/combine_bin_zig.zig"),
     });
 
     b.installArtifact(combine_bin_zig);
@@ -80,7 +80,7 @@ pub fn build(b: *std.Build) !void {
             "libs/bx/src/amalgamated.cpp",
         },
     });
-    bxInclude(bx, target, optimize);
+    bxInclude(b, bx, target, optimize);
     bx.linkLibCpp();
     bx.linkLibC();
 
@@ -103,8 +103,8 @@ pub fn build(b: *std.Build) !void {
             "libs/bimg/3rdparty/tinyexr/deps/miniz/miniz.c",
         },
     });
-    bxInclude(bimg, target, optimize);
-    bimgInclude(bimg);
+    bxInclude(b, bimg, target, optimize);
+    bimgInclude(b, bimg);
     bimg.linkLibCpp();
 
     //
@@ -117,9 +117,9 @@ pub fn build(b: *std.Build) !void {
         .optimize = optimize,
     });
     b.installArtifact(bgfx);
-    bxInclude(bgfx, target, optimize);
-    bgfxInclude(bgfx, target);
-    bimgInclude(bgfx);
+    bxInclude(b, bgfx, target, optimize);
+    bgfxInclude(b, bgfx, target);
+    bimgInclude(b, bgfx);
 
     bgfx.linkLibCpp();
     bgfx.linkLibrary(bx);
@@ -127,7 +127,7 @@ pub fn build(b: *std.Build) !void {
 
     bgfx.defineCMacro("BGFX_CONFIG_MULTITHREADED", if (options.multithread) "1" else "0");
 
-    bgfx.addIncludePath(.{ .path = "includes" });
+    bgfx.addIncludePath(b.path("includes"));
 
     if (target.result.isDarwin()) {
         bgfx.linkSystemLibrary("objc");
@@ -176,7 +176,7 @@ pub fn build(b: *std.Build) !void {
     //
     const bgfx_imgui_path = "libs/bgfx/examples/common/imgui/";
     if (options.imgui_include) |include| {
-        bgfx.addIncludePath(.{ .path = include });
+        bgfx.addIncludePath(.{ .cwd_relative = include });
         bgfx.addCSourceFiles(.{
             .flags = &cxx_options,
             .files = &[_][]const u8{
@@ -186,7 +186,7 @@ pub fn build(b: *std.Build) !void {
     }
 
     const zbgfx_module = b.addModule("zbgfx", .{
-        .root_source_file = .{ .path = "src/zbgfx.zig" },
+        .root_source_file = b.path("src/zbgfx.zig"),
     });
     _ = zbgfx_module; // autofix
 
@@ -216,7 +216,7 @@ pub fn build(b: *std.Build) !void {
         //
         const shaderc = b.addExecutable(.{
             .name = "shaderc",
-            .root_source_file = .{ .path = "src/shaderc_main.zig" },
+            .root_source_file = b.path("src/shaderc_main.zig"),
             .target = target,
             .optimize = optimize,
         });
@@ -231,21 +231,21 @@ pub fn build(b: *std.Build) !void {
         shaderc.linkLibrary(bx);
         shaderc.linkLibCpp();
 
-        bxInclude(shaderc_static, target, optimize);
+        bxInclude(b, shaderc_static, target, optimize);
 
-        shaderc_static.addIncludePath(.{ .path = "libs/bimg/include" });
-        shaderc_static.addIncludePath(.{ .path = bgfx_path ++ "include" });
-        shaderc_static.addIncludePath(.{ .path = bgfx_path ++ "src" });
-        shaderc_static.addIncludePath(.{ .path = bgfx_path ++ "3rdparty/dxsdk/include" });
-        shaderc_static.addIncludePath(.{ .path = bgfx_path ++ "3rdparty/fcpp" });
-        shaderc_static.addIncludePath(.{ .path = bgfx_path ++ "3rdparty/glslang/glslang/Public" });
-        shaderc_static.addIncludePath(.{ .path = bgfx_path ++ "3rdparty/glslang/glslang/Include" });
-        shaderc_static.addIncludePath(.{ .path = bgfx_path ++ "3rdparty/glslang" });
-        shaderc_static.addIncludePath(.{ .path = bgfx_path ++ "3rdparty/glsl-optimizer/include" });
-        shaderc_static.addIncludePath(.{ .path = bgfx_path ++ "3rdparty/glsl-optimizer/src/glsl" });
-        shaderc_static.addIncludePath(.{ .path = bgfx_path ++ "3rdparty/spirv-cross" });
-        shaderc_static.addIncludePath(.{ .path = bgfx_path ++ "3rdparty/spirv-tools/include" });
-        shaderc_static.addIncludePath(.{ .path = bgfx_path ++ "3rdparty/webgpu/include" });
+        shaderc_static.addIncludePath(b.path("libs/bimg/include"));
+        shaderc_static.addIncludePath(b.path(bgfx_path ++ "include"));
+        shaderc_static.addIncludePath(b.path(bgfx_path ++ "src"));
+        shaderc_static.addIncludePath(b.path(bgfx_path ++ "3rdparty/dxsdk/include"));
+        shaderc_static.addIncludePath(b.path(bgfx_path ++ "3rdparty/fcpp"));
+        shaderc_static.addIncludePath(b.path(bgfx_path ++ "3rdparty/glslang/glslang/Public"));
+        shaderc_static.addIncludePath(b.path(bgfx_path ++ "3rdparty/glslang/glslang/Include"));
+        shaderc_static.addIncludePath(b.path(bgfx_path ++ "3rdparty/glslang"));
+        shaderc_static.addIncludePath(b.path(bgfx_path ++ "3rdparty/glsl-optimizer/include"));
+        shaderc_static.addIncludePath(b.path(bgfx_path ++ "3rdparty/glsl-optimizer/src/glsl"));
+        shaderc_static.addIncludePath(b.path(bgfx_path ++ "3rdparty/spirv-cross"));
+        shaderc_static.addIncludePath(b.path(bgfx_path ++ "3rdparty/spirv-tools/include"));
+        shaderc_static.addIncludePath(b.path(bgfx_path ++ "3rdparty/webgpu/include"));
 
         shaderc_static.addCSourceFiles(.{
             .files = &.{
@@ -266,7 +266,7 @@ pub fn build(b: *std.Build) !void {
         //
         // Imgui .bin.h shader embeding step.
         //
-        const shader_includes = .{ .path = "shaders" };
+        const shader_includes = b.path("shaders");
         const fs_imgui_image_bin_h = try zbgfx.build.compileBasicBinH(
             b,
             target,
@@ -274,7 +274,7 @@ pub fn build(b: *std.Build) !void {
             combine_bin_h,
             .{
                 .shaderType = .fragment,
-                .input = .{ .path = bgfx_imgui_path ++ "fs_imgui_image.sc" },
+                .input = b.path(bgfx_imgui_path ++ "fs_imgui_image.sc"),
             },
             .{
                 .bin2c = "fs_imgui_image",
@@ -291,7 +291,7 @@ pub fn build(b: *std.Build) !void {
             combine_bin_h,
             .{
                 .shaderType = .fragment,
-                .input = .{ .path = bgfx_imgui_path ++ "fs_ocornut_imgui.sc" },
+                .input = b.path(bgfx_imgui_path ++ "fs_ocornut_imgui.sc"),
             },
             .{
                 .bin2c = "fs_ocornut_imgui",
@@ -307,7 +307,7 @@ pub fn build(b: *std.Build) !void {
             combine_bin_h,
             .{
                 .shaderType = .vertex,
-                .input = .{ .path = bgfx_imgui_path ++ "vs_imgui_image.sc" },
+                .input = b.path(bgfx_imgui_path ++ "vs_imgui_image.sc"),
             },
             .{
                 .bin2c = "vs_imgui_image",
@@ -323,7 +323,7 @@ pub fn build(b: *std.Build) !void {
             combine_bin_h,
             .{
                 .shaderType = .vertex,
-                .input = .{ .path = bgfx_imgui_path ++ "vs_ocornut_imgui.sc" },
+                .input = b.path(bgfx_imgui_path ++ "vs_ocornut_imgui.sc"),
             },
             .{
                 .bin2c = "vs_ocornut_imgui",
@@ -357,7 +357,7 @@ pub fn build(b: *std.Build) !void {
             .optimize = optimize,
         });
 
-        fcpp_lib.addIncludePath(.{ .path = fcpp_path });
+        fcpp_lib.addIncludePath(b.path(fcpp_path));
         fcpp_lib.addCSourceFiles(
             .{
                 .files = &.{
@@ -388,11 +388,11 @@ pub fn build(b: *std.Build) !void {
             .target = target,
             .optimize = optimize,
         });
-        spirv_opt_lib.addIncludePath(.{ .path = spirv_opt_path });
-        spirv_opt_lib.addIncludePath(.{ .path = spirv_opt_path ++ "include" });
-        spirv_opt_lib.addIncludePath(.{ .path = spirv_opt_path ++ "include/generated" });
-        spirv_opt_lib.addIncludePath(.{ .path = spirv_opt_path ++ "source" });
-        spirv_opt_lib.addIncludePath(.{ .path = "libs/bgfx/3rdparty/spirv-headers/include" });
+        spirv_opt_lib.addIncludePath(b.path(spirv_opt_path));
+        spirv_opt_lib.addIncludePath(b.path(spirv_opt_path ++ "include"));
+        spirv_opt_lib.addIncludePath(b.path(spirv_opt_path ++ "include/generated"));
+        spirv_opt_lib.addIncludePath(b.path(spirv_opt_path ++ "source"));
+        spirv_opt_lib.addIncludePath(b.path("libs/bgfx/3rdparty/spirv-headers/include"));
 
         spirv_opt_lib.addCSourceFiles(
             .{
@@ -420,7 +420,7 @@ pub fn build(b: *std.Build) !void {
             .target = target,
             .optimize = optimize,
         });
-        spirv_cross_lib.addIncludePath(.{ .path = spirv_cross_path ++ "include" });
+        spirv_cross_lib.addIncludePath(b.path(spirv_cross_path ++ "include"));
         spirv_cross_lib.addCSourceFiles(.{
             .files = &.{
                 spirv_cross_path ++ "spirv_cfg.cpp",
@@ -452,11 +452,11 @@ pub fn build(b: *std.Build) !void {
         };
 
         const glslang_lib = b.addStaticLibrary(.{ .name = "glslang", .target = target, .optimize = optimize });
-        glslang_lib.addIncludePath(.{ .path = "libs/bgfx/3rdparty" });
-        glslang_lib.addIncludePath(.{ .path = glslang_path });
-        glslang_lib.addIncludePath(.{ .path = glslang_path ++ "include" });
-        glslang_lib.addSystemIncludePath(.{ .path = spirv_opt_path ++ "include" });
-        glslang_lib.addSystemIncludePath(.{ .path = spirv_opt_path ++ "source" });
+        glslang_lib.addIncludePath(b.path("libs/bgfx/3rdparty"));
+        glslang_lib.addIncludePath(b.path(glslang_path));
+        glslang_lib.addIncludePath(b.path(glslang_path ++ "include"));
+        glslang_lib.addSystemIncludePath(b.path(spirv_opt_path ++ "include"));
+        glslang_lib.addSystemIncludePath(b.path(spirv_opt_path ++ "source"));
         glslang_lib.addCSourceFiles(
             .{
                 .files = &glsl_lang_files,
@@ -466,13 +466,13 @@ pub fn build(b: *std.Build) !void {
 
         if (target.result.os.tag == .windows) {
             glslang_lib.addCSourceFile(.{
-                .file = .{ .path = glslang_path ++ "glslang/OSDependent/Windows/ossource.cpp" },
+                .file = b.path(glslang_path ++ "glslang/OSDependent/Windows/ossource.cpp"),
                 .flags = &glslang_cxx_options,
             });
         }
         if (target.result.os.tag == .linux or target.result.isDarwin()) {
             glslang_lib.addCSourceFile(.{
-                .file = .{ .path = glslang_path ++ "glslang/OSDependent/Unix/ossource.cpp" },
+                .file = b.path(glslang_path ++ "glslang/OSDependent/Unix/ossource.cpp"),
                 .flags = &glslang_cxx_options,
             });
         }
@@ -520,11 +520,11 @@ pub fn build(b: *std.Build) !void {
             .target = target,
             .optimize = optimize,
         });
-        glsl_optimizer_lib.addIncludePath(.{ .path = glsl_optimizer_path ++ "include" });
-        glsl_optimizer_lib.addIncludePath(.{ .path = glsl_optimizer_path ++ "src" });
-        glsl_optimizer_lib.addIncludePath(.{ .path = glsl_optimizer_path ++ "src/mesa" });
-        glsl_optimizer_lib.addIncludePath(.{ .path = glsl_optimizer_path ++ "src/mapi" });
-        glsl_optimizer_lib.addIncludePath(.{ .path = glsl_optimizer_path ++ "src/glsl" });
+        glsl_optimizer_lib.addIncludePath(b.path(glsl_optimizer_path ++ "include"));
+        glsl_optimizer_lib.addIncludePath(b.path(glsl_optimizer_path ++ "src"));
+        glsl_optimizer_lib.addIncludePath(b.path(glsl_optimizer_path ++ "src/mesa"));
+        glsl_optimizer_lib.addIncludePath(b.path(glsl_optimizer_path ++ "src/mapi"));
+        glsl_optimizer_lib.addIncludePath(b.path(glsl_optimizer_path ++ "src/glsl"));
 
         // add C++ files
         glsl_optimizer_lib.addCSourceFiles(.{
@@ -559,7 +559,7 @@ pub fn build(b: *std.Build) !void {
     }
 }
 
-fn bxInclude(step: *std.Build.Step.Compile, target: std.Build.ResolvedTarget, optimize: std.builtin.OptimizeMode) void {
+fn bxInclude(b: *std.Build, step: *std.Build.Step.Compile, target: std.Build.ResolvedTarget, optimize: std.builtin.OptimizeMode) void {
     step.defineCMacro("__STDC_LIMIT_MACROS", null);
     step.defineCMacro("__STDC_FORMAT_MACROS", null);
     step.defineCMacro("__STDC_CONSTANT_MACROS", null);
@@ -567,42 +567,42 @@ fn bxInclude(step: *std.Build.Step.Compile, target: std.Build.ResolvedTarget, op
     step.defineCMacro("BX_CONFIG_DEBUG", if (optimize == .Debug) "1" else "0");
 
     switch (target.result.os.tag) {
-        .freebsd => step.addIncludePath(.{ .path = "libs/bx/include/compat/freebsd" }),
-        .linux => step.addIncludePath(.{ .path = "libs/bx/include/compat/linux" }),
-        .ios => step.addIncludePath(.{ .path = "libs/bx/include/compat/ios" }),
-        .macos => step.addIncludePath(.{ .path = "libs/bx/include/compat/osx" }),
+        .freebsd => step.addIncludePath(b.path("libs/bx/include/compat/freebsd")),
+        .linux => step.addIncludePath(b.path("libs/bx/include/compat/linux")),
+        .ios => step.addIncludePath(b.path("libs/bx/include/compat/ios")),
+        .macos => step.addIncludePath(b.path("libs/bx/include/compat/osx")),
         .windows => switch (target.result.abi) {
-            .gnu => step.addIncludePath(.{ .path = "libs/bx/include/compat/mingw" }),
-            .msvc => step.addIncludePath(.{ .path = "libs/bx/include/compat/msvc" }),
+            .gnu => step.addIncludePath(b.path("libs/bx/include/compat/mingw")),
+            .msvc => step.addIncludePath(b.path("libs/bx/include/compat/msvc")),
             else => {},
         },
         else => {},
     }
 
-    step.addIncludePath(.{ .path = "libs/bx/include" });
-    step.addIncludePath(.{ .path = "libs/bx/3rdparty" });
+    step.addIncludePath(b.path("libs/bx/include"));
+    step.addIncludePath(b.path("libs/bx/3rdparty"));
 }
 
-fn bimgInclude(step: *std.Build.Step.Compile) void {
-    step.addIncludePath(.{ .path = "libs/bimg/include" });
-    step.addIncludePath(.{ .path = "libs/bimg/3rdparty" });
-    step.addIncludePath(.{ .path = "libs/bimg/3rdparty/astc-encoder/include" });
-    step.addIncludePath(.{ .path = "libs/bimg/3rdparty/tinyexr/deps/miniz" });
+fn bimgInclude(b: *std.Build, step: *std.Build.Step.Compile) void {
+    step.addIncludePath(b.path("libs/bimg/include"));
+    step.addIncludePath(b.path("libs/bimg/3rdparty"));
+    step.addIncludePath(b.path("libs/bimg/3rdparty/astc-encoder/include"));
+    step.addIncludePath(b.path("libs/bimg/3rdparty/tinyexr/deps/miniz"));
 }
 
-fn bgfxInclude(step: *std.Build.Step.Compile, target: std.Build.ResolvedTarget) void {
-    step.addIncludePath(.{ .path = "libs/bgfx/include" });
-    step.addIncludePath(.{ .path = "libs/bgfx/3rdparty" });
-    step.addIncludePath(.{ .path = "libs/bgfx/3rdparty/khronos/" });
+fn bgfxInclude(b: *std.Build, step: *std.Build.Step.Compile, target: std.Build.ResolvedTarget) void {
+    step.addIncludePath(b.path("libs/bgfx/include"));
+    step.addIncludePath(b.path("libs/bgfx/3rdparty"));
+    step.addIncludePath(b.path("libs/bgfx/3rdparty/khronos/"));
 
     if (target.result.os.tag == .linux) {
-        step.addIncludePath(.{ .path = "libs/bgfx/3rdparty/directx-headers/include/directx" });
-        step.addIncludePath(.{ .path = "libs/bgfx/3rdparty/directx-headers/include" });
-        step.addIncludePath(.{ .path = "libs/bgfx/3rdparty/directx-headers/include/wsl/stubs" });
+        step.addIncludePath(b.path("libs/bgfx/3rdparty/directx-headers/include/directx"));
+        step.addIncludePath(b.path("libs/bgfx/3rdparty/directx-headers/include"));
+        step.addIncludePath(b.path("libs/bgfx/3rdparty/directx-headers/include/wsl/stubs"));
     }
 
     if (target.result.os.tag == .windows) {
-        step.addIncludePath(.{ .path = "libs/bgfx/3rdparty/directx-headers/include/directx" });
+        step.addIncludePath(b.path("libs/bgfx/3rdparty/directx-headers/include/directx"));
     }
 }
 

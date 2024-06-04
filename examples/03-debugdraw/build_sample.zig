@@ -40,7 +40,7 @@ pub fn build(
 
     const exe = b.addExecutable(.{
         .name = "03-debugdraw",
-        .root_source_file = .{ .path = thisDir() ++ "/src/main.zig" },
+        .root_source_file = b.path("03-debugdraw/src/main.zig"),
         .target = target,
     });
     b.installArtifact(exe);

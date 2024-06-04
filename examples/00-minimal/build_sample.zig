@@ -55,7 +55,7 @@ pub fn build(
         "fs_cubes.zig",
         .{
             .shaderType = .fragment,
-            .input = .{ .path = thisDir() ++ "/src/fs_cubes.sc" },
+            .input = .{ .cwd_relative = thisDir() ++ "/src/fs_cubes.sc" },
         },
         .{
             .output = thisDir() ++ "/src/fs_cubes.bin.zig",
@@ -71,7 +71,7 @@ pub fn build(
         "vs_cubes.zig",
         .{
             .shaderType = .vertex,
-            .input = .{ .path = thisDir() ++ "/src/vs_cubes.sc" },
+            .input = .{ .cwd_relative = thisDir() ++ "/src/vs_cubes.sc" },
         },
         .{
             .output = thisDir() ++ "/src/vs_cubes.bin.zig",
@@ -81,7 +81,7 @@ pub fn build(
 
     const exe = b.addExecutable(.{
         .name = "00-minimal",
-        .root_source_file = .{ .path = thisDir() ++ "/src/main.zig" },
+        .root_source_file = .{ .cwd_relative = thisDir() ++ "/src/main.zig" },
         .target = target,
     });
     b.installArtifact(exe);
