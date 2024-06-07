@@ -36,7 +36,7 @@ Zig binding is licensed by [WTFPL](LICENSE)
 
 ## Zig version
 
-Minimal is `0.13.0-dev.351+64ef45eb0`. But you know.. try your version and believe.
+Minimal is `0.13.0`. But you know try your version and believe.
 
 ## Getting started
 
