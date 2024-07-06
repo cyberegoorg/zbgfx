@@ -219,7 +219,7 @@ pub const ShadercOptions = struct {
     profile: Profile,
     inputFilePath: ?[:0]const u8 = null,
     outputFilePath: ?[:0]const u8 = null,
-    includeDirs: ?[][:0]const u8 = null,
+    includeDirs: ?[][*c]const u8 = null,
     defines: ?[][:0]const u8 = null,
     dependencies: ?[][:0]const u8 = null,
 

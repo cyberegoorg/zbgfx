@@ -103,7 +103,7 @@ pub fn buildProgram(allocator: std.mem.Allocator) !bgfx.ProgramHandle {
     const path = try std.fs.path.joinZ(allocator, &.{ exe_dir, "..", "include", "shaders" });
     defer allocator.free(path);
 
-    var includes = [_][:0]const u8{path};
+    var includes = [_][*c]const u8{path};
 
     // Compile fs shader
     var fs_shader_options = shaderc.createDefaultOptionsForRenderer(bgfx.getRendererType());
