@@ -220,8 +220,8 @@ pub const ShadercOptions = struct {
     inputFilePath: ?[:0]const u8 = null,
     outputFilePath: ?[:0]const u8 = null,
     includeDirs: ?[][*c]const u8 = null,
-    defines: ?[][:0]const u8 = null,
-    dependencies: ?[][:0]const u8 = null,
+    defines: ?[][*c]const u8 = null,
+    dependencies: ?[][*c]const u8 = null,
 
     disasm: bool = false,
     raw: bool = false,
