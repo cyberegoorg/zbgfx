@@ -399,6 +399,10 @@ void TParseContext::handlePragma(const TSourceLoc& loc, const TVector<TString>& 
         if (spvVersion.spv < glslang::EShTargetSpv_1_3)
             error(loc, "requires SPIR-V 1.3", "#pragma use_variable_pointers", "");
         intermediate.setUseVariablePointers();
+    } else if (spvVersion.spv > 0 && tokens[0].compare("use_replicated_composites") == 0) {
+        if (tokens.size() != 1)
+            error(loc, "extra tokens", "#pragma", "");
+        intermediate.setReplicatedComposites();
     } else if (tokens[0].compare("once") == 0) {
         warn(loc, "not implemented", "#pragma once", "");
     } else if (tokens[0].compare("glslang_binary_double_output") == 0) {
@@ -492,7 +496,7 @@ TIntermTyped* TParseContext::handleVariable(const TSourceLoc& loc, TSymbol* symb
                 if ((variable->getMangledName() == "gl_PrimitiveTriangleIndicesEXT" && primitiveType != ElgTriangles) ||
                     (variable->getMangledName() == "gl_PrimitiveLineIndicesEXT" && primitiveType != ElgLines) ||
                     (variable->getMangledName() == "gl_PrimitivePointIndicesEXT" && primitiveType != ElgPoints)) {
-                    error(loc, "cannot be used (ouput primitive type mismatch)", string->c_str(), "");
+                    error(loc, "cannot be used (output primitive type mismatch)", string->c_str(), "");
                     variable = nullptr;
                 }
             }
@@ -597,6 +601,10 @@ TIntermTyped* TParseContext::handleBracketDereference(const TSourceLoc& loc, TIn
             else if (base->getQualifier().builtIn == EbvCullDistance &&
                 indexValue >= resources.maxCullDistances) {
                 error(loc, "gl_CullDistance", "[", "array index out of range '%d'", indexValue);
+            }
+            else if (base->getQualifier().builtIn == EbvSampleMask &&
+                indexValue >= (resources.maxSamples + 31) / 32) {
+                error(loc, "gl_SampleMask", "[", "array index out of range '%d'", indexValue);
             }
             // For 2D per-view builtin arrays, update the inner dimension size in parent type
             if (base->getQualifier().isPerView() && base->getQualifier().builtIn != EbvNone) {
@@ -2700,7 +2708,7 @@ void TParseContext::builtInOpCheck(const TSourceLoc& loc, const TFunction& fnCan
     case EOpEmitStreamVertex:
     case EOpEndStreamPrimitive:
         if (version == 150)
-            requireExtensions(loc, 1, &E_GL_ARB_gpu_shader5, "if the verison is 150 , the EmitStreamVertex and EndStreamPrimitive only support at extension GL_ARB_gpu_shader5");
+            requireExtensions(loc, 1, &E_GL_ARB_gpu_shader5, "if the version is 150 , the EmitStreamVertex and EndStreamPrimitive only support at extension GL_ARB_gpu_shader5");
         intermediate.setMultiStream();
         break;
 
@@ -3607,6 +3615,19 @@ bool TParseContext::constructorError(const TSourceLoc& loc, TIntermNode* node, T
                 // This was the list of valid ones, if they aren't converting from int
                 // and aren't making an array.
                 makeSpecConst = ! intArgument && !type.isArray();
+                break;
+
+            case EOpConstructCooperativeMatrixNV:
+            case EOpConstructCooperativeMatrixKHR:
+            case EOpConstructStruct:
+                {
+                    const char *specConstantCompositeExt[] = { E_GL_EXT_spec_constant_composites };
+                    if (checkExtensionsRequested(loc, 1, specConstantCompositeExt, "spec constant aggregate constructor")) {
+                        makeSpecConst = true;
+                    } else {
+                        makeSpecConst = false;
+                    }
+                }
                 break;
 
             default:
@@ -6564,10 +6585,10 @@ void TParseContext::layoutTypeCheck(const TSourceLoc& loc, const TType& type)
         int repeated = intermediate.addUsedLocation(qualifier, type, typeCollision);
         if (repeated >= 0 && ! typeCollision)
             error(loc, "overlapping use of location", "location", "%d", repeated);
-        // "fragment-shader outputs/tileImageEXT ... if two variables are placed within the same
-        // location, they must have the same underlying type (floating-point or integer)"
-        if (typeCollision && language == EShLangFragment && (qualifier.isPipeOutput() || qualifier.storage == EvqTileImageEXT))
-            error(loc, "fragment outputs or tileImageEXTs sharing the same location", "location", "%d must be the same basic type", repeated);
+        // When location aliasing, the aliases sharing the location must have the same underlying numerical type and bit width(
+        // floating - point or integer, 32 - bit versus 64 - bit,etc.)
+        if (typeCollision && (qualifier.isPipeInput() || qualifier.isPipeOutput() || qualifier.storage == EvqTileImageEXT))
+            error(loc, "the aliases sharing the location", "location", "%d must be the same basic type and interpolation qualification", repeated);
     }
 
     if (qualifier.hasXfbOffset() && qualifier.hasXfbBuffer()) {
@@ -7413,6 +7434,7 @@ void TParseContext::coopMatTypeParametersCheck(const TSourceLoc& loc, const TPub
         case EbtUint:
         case EbtUint8:
         case EbtUint16:
+        case EbtSpirvType:
             break;
         default:
             error(loc, "coopmat invalid basic type", TType::getBasicString(publicType.typeParameters->basicType), "");
@@ -7636,6 +7658,7 @@ struct AccessChainTraverser : public TIntermTraverser {
     {}
 
     TString path = "";
+    TStorageQualifier topLevelStorageQualifier = TStorageQualifier::EvqLast;
 
     bool visitBinary(TVisit, TIntermBinary* binary) override {
         if (binary->getOp() == EOpIndexDirectStruct)
@@ -7666,6 +7689,8 @@ struct AccessChainTraverser : public TIntermTraverser {
     }
 
     void visitSymbol(TIntermSymbol* symbol) override {
+        if (symbol->getType().isOpaque())
+            topLevelStorageQualifier = symbol->getQualifier().storage;
         if (!IsAnonymous(symbol->getName()))
             path.append(symbol->getName());
     }
@@ -7675,6 +7700,15 @@ TIntermNode* TParseContext::vkRelaxedRemapFunctionArgument(const TSourceLoc& loc
 {
     AccessChainTraverser accessChainTraverser{};
     intermTyped->traverse(&accessChainTraverser);
+
+    if (accessChainTraverser.topLevelStorageQualifier == TStorageQualifier::EvqUniform)
+    {
+        TParameter param = { 0, new TType, {} };
+        param.type->shallowCopy(intermTyped->getType());
+
+        function->addParameter(param);
+        return intermTyped;
+    }
 
     TParameter param = { NewPoolTString(accessChainTraverser.path.c_str()), new TType, {} };
     param.type->shallowCopy(intermTyped->getType());
@@ -7795,7 +7829,8 @@ TIntermNode* TParseContext::declareVariable(const TSourceLoc& loc, TString& iden
             error(loc, "unexpected number type parameters", identifier.c_str(), "");
         }
         if (publicType.typeParameters) {
-            if (!isTypeFloat(publicType.typeParameters->basicType) && !isTypeInt(publicType.typeParameters->basicType)) {
+            if (!isTypeFloat(publicType.typeParameters->basicType) &&
+                !isTypeInt(publicType.typeParameters->basicType) && publicType.typeParameters->basicType != EbtSpirvType) {
                 error(loc, "expected 8, 16, 32, or 64 bit signed or unsigned integer or 16, 32, or 64 bit float type", identifier.c_str(), "");
             }
         }
@@ -8337,6 +8372,11 @@ TIntermTyped* TParseContext::addConstructor(const TSourceLoc& loc, TIntermNode* 
 
     int paramCount = 0;  // keeps track of the constructor parameter number being checked
 
+    // We don't know "top down" whether type is a specialization constant,
+    // but a const becomes a specialization constant if any of its children are.
+    bool hasSpecConst = false;
+    bool isConstConstructor = true;
+
     // for each parameter to the constructor call, check to see if the right type is passed or convert them
     // to the right type if possible (and allowed).
     // for structure constructors, just check if the right type is passed, no conversion is allowed.
@@ -8349,13 +8389,24 @@ TIntermTyped* TParseContext::addConstructor(const TSourceLoc& loc, TIntermNode* 
         else
             newNode = constructBuiltIn(type, op, (*p)->getAsTyped(), node->getLoc(), true);
 
-        if (newNode)
+        if (newNode) {
             *p = newNode;
-        else
+            if (!newNode->getType().getQualifier().isConstant())
+                isConstConstructor = false;
+            if (newNode->getType().getQualifier().isSpecConstant())
+                hasSpecConst = true;
+        } else
             return nullptr;
     }
 
-    TIntermTyped *ret_node = intermediate.setAggregateOperator(aggrNode, op, type, loc);
+    TIntermTyped* ret_node = intermediate.setAggregateOperator(aggrNode, op, type, loc);
+
+    const char *specConstantCompositeExt[] = { E_GL_EXT_spec_constant_composites };
+    if (checkExtensionsRequested(loc, 1, specConstantCompositeExt, "spec constant aggregate constructor")) {
+        if (isConstConstructor && hasSpecConst) {
+            ret_node->getWritableType().getQualifier().makeSpecConstant();
+        }
+    }
 
     TIntermAggregate *agg_node = ret_node->getAsAggregate();
     if (agg_node && (agg_node->isVector() || agg_node->isArray() || agg_node->isMatrix()))

@@ -41,6 +41,8 @@ pub fn build(b: *std.Build) !void {
 
         "-Wno-microsoft-enum-value",
         "-Wno-microsoft-const-init",
+        "-Wno-deprecated-declarations",
+        "-Wno-tautological-constant-compare",
     };
     const cxx_options = common_options ++ [_][]const u8{
         "-std=c++17",
@@ -921,6 +923,7 @@ const spirv_opt_files = .{
     spirv_opt_path ++ "source/opt/vector_dce.cpp",
     spirv_opt_path ++ "source/opt/workaround1209.cpp",
     spirv_opt_path ++ "source/opt/wrap_opkill.cpp",
+    spirv_opt_path ++ "source/opt/opextinst_forward_ref_fixup_pass.cpp",
     spirv_opt_path ++ "source/parsed_operand.cpp",
     spirv_opt_path ++ "source/print.cpp",
     spirv_opt_path ++ "source/reduce/change_operand_reduction_opportunity.cpp",

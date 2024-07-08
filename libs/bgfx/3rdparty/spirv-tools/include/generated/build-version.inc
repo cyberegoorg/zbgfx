@@ -1,1 +1,1 @@
-"v2023.6", "SPIRV-Tools v2023.6 v2023.6.rc1-53-g0b935b1d"
+"v2024.2", "SPIRV-Tools v2024.2 v2024.2.rc1-28-gf2bbb12a"

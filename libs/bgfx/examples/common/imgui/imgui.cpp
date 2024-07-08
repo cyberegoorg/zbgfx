@@ -3,6 +3,9 @@
  * License: https://github.com/bkaradzic/bgfx/blob/master/LICENSE
  */
 
+// TODO: [ZBGFX]: remove all unused stuff, and move encoder up.
+// TODO: [ZBGFX]: rewrite this to zig
+
 #include <bgfx/bgfx.h>
 #include <bgfx/embedded_shader.h>
 #include <bx/allocator.h>
@@ -57,7 +60,6 @@ struct OcornutImguiContext
 		const ImVec2 clipPos = _drawData->DisplayPos;		  // (0,0) unless using multi-viewports
 		const ImVec2 clipScale = _drawData->FramebufferScale; // (1,1) unless using retina display which are often (2,2)
 
-
 		bgfx::Encoder *encoder = bgfx::begin();
 
 		// Render command lists
@@ -84,7 +86,6 @@ struct OcornutImguiContext
 
 			ImDrawIdx *indices = (ImDrawIdx *)tib.data;
 			bx::memCopy(indices, drawList->IdxBuffer.begin(), numIndices * sizeof(ImDrawIdx));
-
 
 			for (const ImDrawCmd *cmd = drawList->CmdBuffer.begin(), *cmdEnd = drawList->CmdBuffer.end(); cmd != cmdEnd; ++cmd)
 			{
@@ -148,7 +149,6 @@ struct OcornutImguiContext
 					}
 				}
 			}
-
 		}
 		bgfx::end(encoder);
 	}

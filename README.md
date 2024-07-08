@@ -11,7 +11,8 @@ When [zig](https://github.com/ziglang/zig) meets [bgfx](https://github.com/bkara
 - [x] `shaderc` as build artifact.
 - [x] Shader compile in `build.zig` to `*.bin.h`.
 - [x] Shader compile in `build.zig` and embed as zig module. (this is zig equivalent of `*.bin.h`)
-- [x] Shader compile from code (in memory solution, no tmp files).
+- [ ] Shader compile from runtime via `shaderc` as child process.
+- [x] Experimental shader compile from runtime via embeded `shaderc`.
 - [x] Binding for [DebugDraw API](https://github.com/bkaradzic/bgfx/tree/master/examples/common/debugdraw)
 - [x] `imgui` render backend. Use build option `imgui_include` to enable. ex. for
   zgui: `.imgui_include = zgui.path("libs").getPath(b),`
@@ -37,6 +38,12 @@ Zig binding is licensed by [WTFPL](LICENSE)
 ## Zig version
 
 Minimal is `0.13.0`. But you know try your version and believe.
+
+## Bgfx version
+
+- [BX](https://github.com/bkaradzic/bx/commit/e7ede513dc8b90386960587e348c73b241f7735d)
+- [BImg](https://github.com/bkaradzic/bimg/commit/2afa64c14c1e3dd5d28412ee03bee0dfe7242f03)
+- [BGFX](https://github.com/bkaradzic/bgfx/commit/74e7edccdc340a56e862c1234626dbb276e88553)
 
 ## Getting started
 
