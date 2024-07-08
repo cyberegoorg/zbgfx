@@ -13,14 +13,15 @@
 #endif
 
 #if BX_CRT_NONE
-#	include "crt0.h"
+#	include <bx/crt0.h>
 #elif  BX_PLATFORM_ANDROID \
 	|| BX_PLATFORM_LINUX   \
 	|| BX_PLATFORM_IOS     \
 	|| BX_PLATFORM_OSX     \
 	|| BX_PLATFORM_PS4     \
 	|| BX_PLATFORM_RPI     \
-	|| BX_PLATFORM_NX
+	|| BX_PLATFORM_NX      \
+	|| BX_PLATFORM_VISIONOS
 #	include <pthread.h>
 #	if BX_PLATFORM_LINUX && (BX_CRT_GLIBC < 21200)
 #		include <sys/prctl.h>
@@ -131,6 +132,16 @@ namespace bx
 		m_userData = _userData;
 		m_stackSize = _stackSize;
 
+		if (NULL != _name)
+		{
+			BX_WARN(strLen(_name) < int32_t(BX_COUNTOF(m_name) )-1, "Truncating thread name.");
+			strCopy(m_name, BX_COUNTOF(m_name), _name);
+		}
+		else
+		{
+			m_name[0] = '\0';
+		}
+
 		ThreadInternal* ti = (ThreadInternal*)m_internal;
 #if BX_CRT_NONE
 		ti->m_handle = crt0::threadCreate(&ti->threadFunc, _userData, m_stackSize, _name);
@@ -189,11 +200,6 @@ namespace bx
 		m_running = true;
 		m_sem.wait();
 
-		if (NULL != _name)
-		{
-			setThreadName(_name);
-		}
-
 		return true;
 	}
 
@@ -243,7 +249,8 @@ namespace bx
 #if BX_CRT_NONE
 		BX_UNUSED(_name);
 #elif  BX_PLATFORM_OSX \
-	|| BX_PLATFORM_IOS
+	|| BX_PLATFORM_IOS   \
+	|| BX_PLATFORM_VISIONOS
 		pthread_setname_np(_name);
 #elif (BX_CRT_GLIBC >= 21200)
 		pthread_setname_np(ti->m_handle, _name);
@@ -314,6 +321,7 @@ namespace bx
 #endif // BX_PLATFORM_WINDOWS
 
 		m_sem.post();
+		setThreadName(m_name);
 		int32_t result = m_fn(this, m_userData);
 		return result;
 	}

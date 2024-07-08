@@ -389,6 +389,17 @@ VK_DESTROY_FUNC(DescriptorSet);
 		HashMap m_hashMap;
 	};
 
+	struct StagingBufferVK
+	{
+		VkBuffer m_buffer;
+		VkDeviceMemory m_deviceMem;
+
+		uint8_t* m_data;
+		uint32_t m_size;
+		uint32_t m_offset;
+		bool     m_isFromScratch;
+	};
+
 	class ScratchBufferVK
 	{
 	public:
@@ -400,17 +411,22 @@ VK_DESTROY_FUNC(DescriptorSet);
 		{
 		}
 
-		void create(uint32_t _size, uint32_t _count);
+		void create(uint32_t _size, uint32_t _count, VkBufferUsageFlags _usage, uint32_t align);
+		void createUniform(uint32_t _size, uint32_t _count);
+		void createStaging(uint32_t _size);
 		void destroy();
 		void reset();
-		uint32_t write(const void* _data, uint32_t _size);
+		uint32_t alloc(uint32_t _size, uint32_t _minAlign = 1);
+		uint32_t write(const void* _data, uint32_t _size, uint32_t _minAlign = 1);
 		void flush();
 
 		VkBuffer m_buffer;
 		VkDeviceMemory m_deviceMem;
+
 		uint8_t* m_data;
 		uint32_t m_size;
 		uint32_t m_pos;
+		uint32_t m_align;
 	};
 
 	struct BufferVK
@@ -705,7 +721,7 @@ VK_DESTROY_FUNC(DescriptorSet);
 	{
 		SwapChainVK()
 			: m_nwh(NULL)
-			, m_swapchain(VK_NULL_HANDLE)
+			, m_swapChain(VK_NULL_HANDLE)
 			, m_lastImageRenderedSemaphore(VK_NULL_HANDLE)
 			, m_lastImageAcquiredSemaphore(VK_NULL_HANDLE)
 			, m_backBufferColorMsaaImageView(VK_NULL_HANDLE)
@@ -746,8 +762,8 @@ VK_DESTROY_FUNC(DescriptorSet);
 		TextureFormat::Enum m_depthFormat;
 
 		VkSurfaceKHR   m_surface;
-		VkSwapchainKHR m_swapchain;
-		uint32_t       m_numSwapchainImages;
+		VkSwapchainKHR m_swapChain;
+		uint32_t       m_numSwapChainImages;
 		VkImageLayout  m_backBufferColorImageLayout[kMaxBackBuffers];
 		VkImage        m_backBufferColorImage[kMaxBackBuffers];
 		VkImageView    m_backBufferColorImageView[kMaxBackBuffers];

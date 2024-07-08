@@ -254,36 +254,23 @@ spv_result_t GetLocationsForVariable(
   // equal. Also track Patch and PerTaskNV decorations.
   bool has_location = false;
   uint32_t location = 0;
-  bool has_component = false;
   uint32_t component = 0;
   bool has_index = false;
   uint32_t index = 0;
   bool has_patch = false;
   bool has_per_task_nv = false;
   bool has_per_vertex_khr = false;
+  // Duplicate Location, Component, Index are checked elsewhere.
   for (auto& dec : _.id_decorations(variable->id())) {
     if (dec.dec_type() == spv::Decoration::Location) {
-      if (has_location && dec.params()[0] != location) {
-        return _.diag(SPV_ERROR_INVALID_DATA, variable)
-               << "Variable has conflicting location decorations";
-      }
       has_location = true;
       location = dec.params()[0];
     } else if (dec.dec_type() == spv::Decoration::Component) {
-      if (has_component && dec.params()[0] != component) {
-        return _.diag(SPV_ERROR_INVALID_DATA, variable)
-               << "Variable has conflicting component decorations";
-      }
-      has_component = true;
       component = dec.params()[0];
     } else if (dec.dec_type() == spv::Decoration::Index) {
       if (!is_output || !is_fragment) {
         return _.diag(SPV_ERROR_INVALID_DATA, variable)
                << "Index can only be applied to Fragment output variables";
-      }
-      if (has_index && dec.params()[0] != index) {
-        return _.diag(SPV_ERROR_INVALID_DATA, variable)
-               << "Variable has conflicting index decorations";
       }
       has_index = true;
       index = dec.params()[0];
@@ -532,6 +519,8 @@ spv_result_t ValidateLocations(ValidationState_t& _,
   std::unordered_set<uint32_t> input_locations;
   std::unordered_set<uint32_t> output_locations_index0;
   std::unordered_set<uint32_t> output_locations_index1;
+  std::unordered_set<uint32_t> patch_locations_index0;
+  std::unordered_set<uint32_t> patch_locations_index1;
   std::unordered_set<uint32_t> seen;
   for (uint32_t i = 3; i < entry_point->operands().size(); ++i) {
     auto interface_id = entry_point->GetOperandAs<uint32_t>(i);
@@ -544,6 +533,26 @@ spv_result_t ValidateLocations(ValidationState_t& _,
     if (!seen.insert(interface_id).second) {
       // Pre-1.4 an interface variable could be listed multiple times in an
       // entry point. Validation for 1.4 or later is done elsewhere.
+      continue;
+    }
+
+    // The two Tessellation stages have a "Patch" variable that interface with
+    // the Location mechanism, but are not suppose to be tied to the "normal"
+    // input/output Location.
+    // TODO - SPIR-V allows the Patch decoration to be applied to struct
+    // members, but is not allowed in GLSL/HLSL
+    bool has_patch = false;
+    for (auto& dec : _.id_decorations(interface_var->id())) {
+      if (dec.dec_type() == spv::Decoration::Patch) {
+        has_patch = true;
+        if (auto error = GetLocationsForVariable(_, entry_point, interface_var,
+                                                 &patch_locations_index0,
+                                                 &patch_locations_index1))
+          return error;
+        break;
+      }
+    }
+    if (has_patch) {
       continue;
     }
 

@@ -76,6 +76,7 @@ ModuleLayoutSection InstructionLayoutSection(
       if (current_section == kLayoutTypes) return kLayoutTypes;
       return kLayoutFunctionDefinitions;
     case spv::Op::OpExtInst:
+    case spv::Op::OpExtInstWithForwardRefsKHR:
       // spv::Op::OpExtInst is only allowed in types section for certain
       // extended instruction sets. This will be checked separately.
       if (current_section == kLayoutTypes) return kLayoutTypes;
@@ -615,7 +616,8 @@ void ValidationState_t::RegisterQCOMImageProcessingTextureConsumer(
     uint32_t texture_id, const Instruction* consumer0,
     const Instruction* consumer1) {
   if (HasDecoration(texture_id, spv::Decoration::WeightTextureQCOM) ||
-      HasDecoration(texture_id, spv::Decoration::BlockMatchTextureQCOM)) {
+      HasDecoration(texture_id, spv::Decoration::BlockMatchTextureQCOM) ||
+      HasDecoration(texture_id, spv::Decoration::BlockMatchSamplerQCOM)) {
     qcom_image_processing_consumers_.insert(consumer0->id());
     if (consumer1) {
       qcom_image_processing_consumers_.insert(consumer1->id());
@@ -2350,6 +2352,12 @@ std::string ValidationState_t::VkErrorID(uint32_t id,
       return VUID_WRAP(VUID-StandaloneSpirv-OpEntryPoint-08722);
     case 8973:
       return VUID_WRAP(VUID-StandaloneSpirv-Pointer-08973);
+    case 9638:
+      return VUID_WRAP(VUID-StandaloneSpirv-OpTypeImage-09638);
+    case 9658:
+      return VUID_WRAP(VUID-StandaloneSpirv-OpEntryPoint-09658);
+    case 9659:
+      return VUID_WRAP(VUID-StandaloneSpirv-OpEntryPoint-09659);
     default:
       return "";  // unknown id
   }

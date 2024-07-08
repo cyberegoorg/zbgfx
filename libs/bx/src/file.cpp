@@ -14,7 +14,7 @@
 #endif // BX_CONFIG_CRT_DIRECTORY_READER
 
 #if BX_CRT_NONE
-#	include "crt0.h"
+#	include <bx/crt0.h>
 #else
 #	if BX_CONFIG_CRT_DIRECTORY_READER
 #		include <dirent.h>
@@ -74,7 +74,8 @@ namespace bx
 	  || BX_PLATFORM_ANDROID    \
 	  || BX_PLATFORM_EMSCRIPTEN \
 	  || BX_PLATFORM_IOS        \
-	  || BX_PLATFORM_OSX
+	  || BX_PLATFORM_OSX        \
+	  || BX_PLATFORM_VISIONOS
 #		define fseeko64 fseeko
 #		define ftello64 ftello
 #	elif BX_PLATFORM_PS4
@@ -799,7 +800,7 @@ namespace bx
 #if BX_CRT_MSVC
 		int32_t result = ::_mkdir(_filePath.getCPtr() );
 #elif BX_CRT_MINGW
-		int32_t result = ::mkdir(_filePath.getCPtr());
+		int32_t result = ::mkdir(_filePath.getCPtr() );
 #elif BX_CRT_NONE
 		BX_UNUSED(_filePath);
 		int32_t result = -1;

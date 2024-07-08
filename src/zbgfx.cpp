@@ -255,33 +255,39 @@ extern "C"
     }
 
     ///
-    void zbgfx_EncoderDrawQuad(DebugDrawEncoder *dde, float _normal[3], float _center[3], float _size) {
+    void zbgfx_EncoderDrawQuad(DebugDrawEncoder *dde, float _normal[3], float _center[3], float _size)
+    {
         dde->drawQuad(*(bx::Vec3 *)(_normal), *(bx::Vec3 *)(_center), _size);
     }
 
     ///
-    void zbgfx_EncoderDrawQuadSprite(DebugDrawEncoder *dde, SpriteHandle _handle, float _normal[3],float _center[3], float _size) {
+    void zbgfx_EncoderDrawQuadSprite(DebugDrawEncoder *dde, SpriteHandle _handle, float _normal[3], float _center[3], float _size)
+    {
         dde->drawQuad(_handle, *(bx::Vec3 *)(_normal), *(bx::Vec3 *)(_center), _size);
     }
 
     ///
-    void zbgfx_EncoderDrawQuadTexture(DebugDrawEncoder *dde, bgfx::TextureHandle _handle, float _normal[3],float _center[3], float _size) {
+    void zbgfx_EncoderDrawQuadTexture(DebugDrawEncoder *dde, bgfx::TextureHandle _handle, float _normal[3], float _center[3], float _size)
+    {
         dde->drawQuad(_handle, *(bx::Vec3 *)(_normal), *(bx::Vec3 *)(_center), _size);
     }
 
     ///
-    void zbgfx_EncoderDrawAxis(DebugDrawEncoder *dde, float _x, float _y, float _z, float _len = 1.0f, Axis::Enum _highlight = Axis::Count, float _thickness = 0.0f) {
+    void zbgfx_EncoderDrawAxis(DebugDrawEncoder *dde, float _x, float _y, float _z, float _len = 1.0f, Axis::Enum _highlight = Axis::Count, float _thickness = 0.0f)
+    {
         dde->drawAxis(_x, _y, _z, _len, _highlight, _thickness);
     }
 
     ///
-    void zbgfx_EncoderDrawGrid(DebugDrawEncoder *dde, float _normal[3], float _center[3], uint32_t _size = 20, float _step = 1.0f) {
-        dde->drawGrid( *(bx::Vec3 *)(_normal), *(bx::Vec3 *)(_center), _size, _step);
+    void zbgfx_EncoderDrawGrid(DebugDrawEncoder *dde, float _normal[3], float _center[3], uint32_t _size = 20, float _step = 1.0f)
+    {
+        dde->drawGrid(*(bx::Vec3 *)(_normal), *(bx::Vec3 *)(_center), _size, _step);
     }
 
     ///
-    void zbgfx_EncoderDrawGridAxis(DebugDrawEncoder *dde, Axis::Enum _axis, float _center[3], uint32_t _size = 20, float _step = 1.0f) {
-        dde->drawGrid( _axis, *(bx::Vec3 *)(_center), _size, _step);
+    void zbgfx_EncoderDrawGridAxis(DebugDrawEncoder *dde, Axis::Enum _axis, float _center[3], uint32_t _size = 20, float _step = 1.0f)
+    {
+        dde->drawGrid(_axis, *(bx::Vec3 *)(_center), _size, _step);
     }
 
     ///

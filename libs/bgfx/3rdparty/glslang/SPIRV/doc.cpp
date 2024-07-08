@@ -319,6 +319,7 @@ const char* DecorationString(int decoration)
 
     case DecorationWeightTextureQCOM:           return "DecorationWeightTextureQCOM";
     case DecorationBlockMatchTextureQCOM:       return "DecorationBlockMatchTextureQCOM";
+    case DecorationBlockMatchSamplerQCOM:       return "DecorationBlockMatchSamplerQCOM";
     case DecorationExplicitInterpAMD:           return "ExplicitInterpAMD";
     case DecorationOverrideCoverageNV:          return "OverrideCoverageNV";
     case DecorationPassthroughNV:               return "PassthroughNV";
@@ -1034,6 +1035,8 @@ const char* CapabilityString(int info)
     case CapabilityTileImageDepthReadAccessEXT:           return "TileImageDepthReadAccessEXT";
     case CapabilityTileImageStencilReadAccessEXT:         return "TileImageStencilReadAccessEXT";
 
+    case CapabilityCooperativeMatrixLayoutsARM:             return "CooperativeMatrixLayoutsARM";
+
     case CapabilityFragmentShadingRateKHR:                  return "FragmentShadingRateKHR";
 
     case CapabilityDemoteToHelperInvocationEXT:             return "DemoteToHelperInvocationEXT";
@@ -1063,6 +1066,9 @@ const char* CapabilityString(int info)
     case CapabilityTextureSampleWeightedQCOM:           return "TextureSampleWeightedQCOM";
     case CapabilityTextureBoxFilterQCOM:                return "TextureBoxFilterQCOM";
     case CapabilityTextureBlockMatchQCOM:               return "TextureBlockMatchQCOM";
+    case CapabilityTextureBlockMatch2QCOM:              return "TextureBlockMatch2QCOM";
+
+    case CapabilityReplicatedCompositesEXT:             return "CapabilityReplicatedCompositesEXT";
 
     default: return "Bad";
     }
@@ -1441,6 +1447,7 @@ const char* OpcodeString(int op)
     case 4429: return "OpSubgroupAnyKHR";
     case 4430: return "OpSubgroupAllEqualKHR";
     case 4432: return "OpSubgroupReadInvocationKHR";
+    case 4433: return "OpExtInstWithForwardRefsKHR";
 
     case OpGroupNonUniformQuadAllKHR: return "OpGroupNonUniformQuadAllKHR";
     case OpGroupNonUniformQuadAnyKHR: return "OpGroupNonUniformQuadAnyKHR";
@@ -1577,6 +1584,14 @@ const char* OpcodeString(int op)
     case OpImageBoxFilterQCOM:              return "OpImageBoxFilterQCOM";
     case OpImageBlockMatchSADQCOM:          return "OpImageBlockMatchSADQCOM";
     case OpImageBlockMatchSSDQCOM:          return "OpImageBlockMatchSSDQCOM";
+    case OpImageBlockMatchWindowSSDQCOM:    return "OpImageBlockMatchWindowSSDQCOM";
+    case OpImageBlockMatchWindowSADQCOM:    return "OpImageBlockMatchWindowSADQCOM";
+    case OpImageBlockMatchGatherSSDQCOM:    return "OpImageBlockMatchGatherSSDQCOM";
+    case OpImageBlockMatchGatherSADQCOM:    return "OpImageBlockMatchGatherSADQCOM";
+
+    case OpConstantCompositeReplicateEXT: return "OpConstantCompositeReplicateEXT";
+    case OpSpecConstantCompositeReplicateEXT: return "OpSpecConstantCompositeReplicateEXT";
+    case OpCompositeConstructReplicateEXT: return "OpCompositeConstructReplicateEXT";
 
     default:
         return "Bad";
@@ -1883,6 +1898,10 @@ void Parameterize()
         InstructionDesc[OpExtInst].operands.push(OperandId, "'Set'");
         InstructionDesc[OpExtInst].operands.push(OperandLiteralNumber, "'Instruction'");
         InstructionDesc[OpExtInst].operands.push(OperandVariableIds, "'Operand 1', +\n'Operand 2', +\n...");
+
+        InstructionDesc[OpExtInstWithForwardRefsKHR].operands.push(OperandId, "'Set'");
+        InstructionDesc[OpExtInstWithForwardRefsKHR].operands.push(OperandLiteralNumber, "'Instruction'");
+        InstructionDesc[OpExtInstWithForwardRefsKHR].operands.push(OperandVariableIds, "'Operand 1', +\n'Operand 2', +\n...");
 
         InstructionDesc[OpLoad].operands.push(OperandId, "'Pointer'");
         InstructionDesc[OpLoad].operands.push(OperandMemoryAccess, "", true);
@@ -3433,6 +3452,42 @@ void Parameterize()
         InstructionDesc[OpImageBlockMatchSSDQCOM].operands.push(OperandId, "'block size'");
         InstructionDesc[OpImageBlockMatchSSDQCOM].operands.push(OperandImageOperands, "", true);
         InstructionDesc[OpImageBlockMatchSSDQCOM].setResultAndType(true, true);
+
+        InstructionDesc[OpImageBlockMatchWindowSSDQCOM].operands.push(OperandId, "'target texture'");
+        InstructionDesc[OpImageBlockMatchWindowSSDQCOM].operands.push(OperandId, "'target coordinates'");
+        InstructionDesc[OpImageBlockMatchWindowSSDQCOM].operands.push(OperandId, "'reference texture'");
+        InstructionDesc[OpImageBlockMatchWindowSSDQCOM].operands.push(OperandId, "'reference coordinates'");
+        InstructionDesc[OpImageBlockMatchWindowSSDQCOM].operands.push(OperandId, "'block size'");
+        InstructionDesc[OpImageBlockMatchWindowSSDQCOM].operands.push(OperandImageOperands, "", true);
+        InstructionDesc[OpImageBlockMatchWindowSSDQCOM].setResultAndType(true, true);
+
+        InstructionDesc[OpImageBlockMatchWindowSADQCOM].operands.push(OperandId, "'target texture'");
+        InstructionDesc[OpImageBlockMatchWindowSADQCOM].operands.push(OperandId, "'target coordinates'");
+        InstructionDesc[OpImageBlockMatchWindowSADQCOM].operands.push(OperandId, "'reference texture'");
+        InstructionDesc[OpImageBlockMatchWindowSADQCOM].operands.push(OperandId, "'reference coordinates'");
+        InstructionDesc[OpImageBlockMatchWindowSADQCOM].operands.push(OperandId, "'block size'");
+        InstructionDesc[OpImageBlockMatchWindowSADQCOM].operands.push(OperandImageOperands, "", true);
+        InstructionDesc[OpImageBlockMatchWindowSADQCOM].setResultAndType(true, true);
+
+        InstructionDesc[OpImageBlockMatchGatherSSDQCOM].operands.push(OperandId, "'target texture'");
+        InstructionDesc[OpImageBlockMatchGatherSSDQCOM].operands.push(OperandId, "'target coordinates'");
+        InstructionDesc[OpImageBlockMatchGatherSSDQCOM].operands.push(OperandId, "'reference texture'");
+        InstructionDesc[OpImageBlockMatchGatherSSDQCOM].operands.push(OperandId, "'reference coordinates'");
+        InstructionDesc[OpImageBlockMatchGatherSSDQCOM].operands.push(OperandId, "'block size'");
+        InstructionDesc[OpImageBlockMatchGatherSSDQCOM].operands.push(OperandImageOperands, "", true);
+        InstructionDesc[OpImageBlockMatchGatherSSDQCOM].setResultAndType(true, true);
+
+        InstructionDesc[OpImageBlockMatchGatherSADQCOM].operands.push(OperandId, "'target texture'");
+        InstructionDesc[OpImageBlockMatchGatherSADQCOM].operands.push(OperandId, "'target coordinates'");
+        InstructionDesc[OpImageBlockMatchGatherSADQCOM].operands.push(OperandId, "'reference texture'");
+        InstructionDesc[OpImageBlockMatchGatherSADQCOM].operands.push(OperandId, "'reference coordinates'");
+        InstructionDesc[OpImageBlockMatchGatherSADQCOM].operands.push(OperandId, "'block size'");
+        InstructionDesc[OpImageBlockMatchGatherSADQCOM].operands.push(OperandImageOperands, "", true);
+        InstructionDesc[OpImageBlockMatchGatherSADQCOM].setResultAndType(true, true);
+
+        InstructionDesc[OpConstantCompositeReplicateEXT].operands.push(OperandId, "'Value'");
+        InstructionDesc[OpSpecConstantCompositeReplicateEXT].operands.push(OperandId, "'Value'");
+        InstructionDesc[OpCompositeConstructReplicateEXT].operands.push(OperandId, "'Value'");
     });
 }
 
