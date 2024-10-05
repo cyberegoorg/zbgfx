@@ -102,7 +102,7 @@ pub fn combineBinHStep(
         run.addFileArg(path);
     }
 
-    const wf = b.addWriteFiles();
+    const wf = b.addUpdateSourceFiles();
     wf.addCopyFileToSource(final_h, options.output);
 
     return &wf.step;
