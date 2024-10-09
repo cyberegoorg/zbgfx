@@ -609,6 +609,59 @@ Switch and PlayStation 4.
 
 ![Crypt of the NecroDancer screenshot](https://raw.githubusercontent.com/Marukyu/marukyu.github.io/misc-assets/247080_20240322072858_1.png)
 
+## Tomb4Plus
+
+https://www.github.com/SaracenOne/Tomb4Plus - Tomb4Plus is an open source
+reimplementation of the Tomb Raider: The Last Revelation engine. It is an
+enhanced fork of the original [Tomb4](https://github.com/Trxyebeep/TOMB4)
+reimplementation project which focuses on supporting the Level Editor runtime
+and aims for full compatibility with the unofficial binary-patched scripting
+extensions used by many custom levels. Tomb4Plus also replaces the original
+legacy Direct3D renderer with bgfx.
+
+![Tomb4Plus screenshot](https://raw.githubusercontent.com/SaracenOne/Tomb4Plus/level_editor_v2/.github/images/preview.png)
+
+## Braid, Anniversary Edition
+
+https://play.google.com/store/apps/details?id=com.netflix.NGP.BraidAnniversaryEdition - 
+bgfx is used only in Android version of the game.
+
+<a href="http://www.youtube.com/watch?feature=player_embedded&v=U738YZG1k1I" 
+target="_blank"><img src="http://img.youtube.com/vi/U738YZG1k1I/0.jpg" 
+alt="Braid, Anniversary Edition"
+width="640" height="480" border="0" /></a>
+
+## Rotwood
+
+https://store.steampowered.com/app/2015270/Rotwood/ - Rotwood is an upcoming
+beat'em up, rogouelike video game developed and published by Klei Entertainment.
+
+<a href="http://www.youtube.com/watch?feature=player_embedded&v=SoTNhVPzmC8" 
+target="_blank"><img src="http://img.youtube.com/vi/SoTNhVPzmC8/0.jpg" 
+alt="Rotwood"
+width="640" height="480" border="0" /></a>
+
+## Cubzh
+
+https://app.cu.bzh/ - Cubzh is a User Generated Social Universe, an online
+platform where all items, avatars, games, and experiences are made by users
+from the community.
+
+Source: https://github.com/cubzh/cubzh
+
+![Cubzh screenshot](https://camo.githubusercontent.com/154159f42f526cc87357d24419133d99d8996ee2a16513ae5b5d31bd7e06bc5d/68747470733a2f2f6672616d657275736572636f6e74656e742e636f6d2f696d616765732f4957384c7147575239496e696b7542534a6c5a664578647631412e77656270)
+
+## World Of Goo 2
+
+https://store.epicgames.com/en-US/p/world-of-goo-2 - Build bridges, 
+grow towers, terraform terrain, and fuel flying machines in 
+the stunning followup to the multi-award winning World of Goo.
+
+<a href="http://www.youtube.com/watch?feature=player_embedded&v=q3XVl53Ajsk" 
+target="_blank"><img src="http://img.youtube.com/vi/q3XVl53Ajsk/0.jpg" 
+alt="World Of Goo 2"
+width="640" height="480" border="0" /></a>
+
 [License (BSD 2-clause)](https://bkaradzic.github.io/bgfx/license.html)
 -----------------------------------------------------------------------
 

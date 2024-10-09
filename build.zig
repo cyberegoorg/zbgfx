@@ -739,6 +739,7 @@ const glsl_lang_files = .{
     glslang_path ++ "SPIRV/SpvTools.cpp",
     glslang_path ++ "SPIRV/disassemble.cpp",
     glslang_path ++ "SPIRV/doc.cpp",
+    glslang_path ++ "glslang/stub.cpp",
     glslang_path ++ "glslang/GenericCodeGen/CodeGen.cpp",
     glslang_path ++ "glslang/GenericCodeGen/Link.cpp",
     glslang_path ++ "glslang/HLSL/hlslAttributes.cpp",
