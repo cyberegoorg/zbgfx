@@ -45,7 +45,8 @@ pub fn build(
     });
     b.installArtifact(exe);
     exe.linkLibrary(zbgfx_dep.artifact("bgfx"));
-    exe.linkLibrary(zbgfx_dep.artifact("shaderc-static"));
+
+    b.installArtifact(zbgfx_dep.artifact("shaderc"));
 
     exe.root_module.addImport("zbgfx", zbgfx_dep.module("zbgfx"));
     exe.root_module.addImport("zmath", zmath.module("root"));
@@ -69,8 +70,4 @@ pub fn build(
         .include_extensions = &.{".sc"},
     });
     exe.step.dependOn(&install_example_shaders.step);
-}
-
-inline fn thisDir() []const u8 {
-    return comptime std.fs.path.dirname(@src().file) orelse ".";
 }

@@ -59,7 +59,3 @@ pub fn build(
     exe.linkLibrary(zgui.artifact("imgui"));
     exe.linkLibrary(zbgfx_dep.artifact("bgfx"));
 }
-
-inline fn thisDir() []const u8 {
-    return comptime std.fs.path.dirname(@src().file) orelse ".";
-}

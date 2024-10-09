@@ -11,11 +11,11 @@ When [zig](https://github.com/ziglang/zig) meets [bgfx](https://github.com/bkara
 - [x] `shaderc` as build artifact.
 - [x] Shader compile in `build.zig` to `*.bin.h`.
 - [x] Shader compile in `build.zig` and embed as zig module. (this is zig equivalent of `*.bin.h`)
-- [ ] Shader compile from runtime via `shaderc` as child process.
-- [x] Experimental shader compile from runtime via embeded `shaderc`.
+- [x] Shader compile from runtime via `shaderc` as child process.
 - [x] Binding for [DebugDraw API](https://github.com/bkaradzic/bgfx/tree/master/examples/common/debugdraw)
 - [x] `imgui` render backend. Use build option `imgui_include` to enable. ex. for
   zgui: `.imgui_include = zgui.path("libs").getPath(b),`
+- [ ] Zig based allocator.
 
 > [!IMPORTANT]  
 > This is only zig binding. For BGFX stuff goto [bgfx](https://github.com/bkaradzic/bgfx).
@@ -47,11 +47,13 @@ Minimal is `0.14.0-dev.1710+8ee52f99c`. But you know try your version and believ
 
 ## Getting started
 
-Copy `zbgfx` to a subdirectory of your project and add the following to your `build.zig.zon` .dependencies:
+Copy `zbgfx` to a subdirectory of your project and then add the following to your `build.zig.zon` .dependencies:
 
 ```zig
     .zbgfx = .{ .path = "path/to/zbgfx" },
 ```
+
+or use `zig fetch --save ...` way.
 
 Then in your `build.zig` add:
 
