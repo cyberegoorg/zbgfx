@@ -1,5 +1,9 @@
 const std = @import("std");
+const builtin = @import("builtin");
+
 const bgfx = @import("bgfx.zig");
+
+const ArgsList = std.ArrayList([]const u8);
 
 pub const ShaderType = enum {
     vertex,
@@ -16,6 +20,10 @@ pub const ShaderType = enum {
 
     pub fn addAsArg(t: ShaderType, step: *std.Build.Step.Run) void {
         step.addArgs(&.{ "--type", t.toStr() });
+    }
+
+    pub fn appendArg(t: ShaderType, args: *ArgsList) !void {
+        try args.appendSlice(&.{ "--type", t.toStr() });
     }
 };
 
@@ -34,6 +42,10 @@ pub const Optimize = enum(u32) {
 
     pub fn addAsArg(t: Optimize, step: *std.Build.Step.Run) void {
         step.addArgs(&.{ "-O", t.toStr() });
+    }
+
+    pub fn appendArg(t: Optimize, args: *ArgsList) !void {
+        try args.appendSlice(&.{ "-O", t.toStr() });
     }
 };
 
@@ -55,6 +67,10 @@ pub const Platform = enum {
 
     pub fn addAsArg(platform: Platform, step: *std.Build.Step.Run) void {
         step.addArgs(&.{ "--platform", platform.toStr() });
+    }
+
+    pub fn appendArg(platform: Platform, args: *ArgsList) !void {
+        try args.appendSlice(&.{ "--platform", platform.toStr() });
     }
 };
 
@@ -144,6 +160,10 @@ pub const Profile = enum {
     pub fn addAsArg(profile: Profile, step: *std.Build.Step.Run) void {
         step.addArgs(&.{ "-p", profile.toStr() });
     }
+
+    pub fn appendArg(profile: Profile, args: *ArgsList) !void {
+        try args.appendSlice(&.{ "-p", profile.toStr() });
+    }
 };
 
 pub fn createDefaultOptionsForRenderer(renderer: bgfx.RendererType) ShadercOptions {
@@ -194,170 +214,206 @@ pub fn createDefaultOptionsForRenderer(renderer: bgfx.RendererType) ShadercOptio
     };
 }
 
-// TEMP SHIT
-const ShaderOutput = std.ArrayList(u8);
-const ShaderWriter = struct {
-    pub fn write(ctx: *anyopaque, _data: [*]const u8, _size: i32) callconv(.C) i32 {
-        var shader_out: *ShaderOutput = @alignCast(@ptrCast(ctx));
-        shader_out.appendSlice(_data[0..@intCast(_size)]) catch undefined;
-        return _size;
-    }
-};
-
-const MessageWriter = struct {
-    pub fn write(ctx: *anyopaque, _data: [*]const u8, _size: i32) callconv(.C) i32 {
-        _ = ctx; // autofix
-        const result = std.io.getStdOut().write(_data[0..@intCast(_size)]) catch undefined;
-        return @intCast(result);
-    }
-};
-
 pub const ShadercOptions = struct {
     shaderType: ShaderType,
 
     platform: Platform,
     profile: Profile,
-    inputFilePath: ?[:0]const u8 = null,
-    outputFilePath: ?[:0]const u8 = null,
-    includeDirs: ?[][*c]const u8 = null,
-    defines: ?[][*c]const u8 = null,
-    dependencies: ?[][*c]const u8 = null,
 
-    disasm: bool = false,
-    raw: bool = false,
-    preprocessOnly: bool = false,
-    depends: bool = false,
-    debugInformation: bool = false,
-    avoidFlowControl: bool = false,
-    noPreshader: bool = false,
-    partialPrecision: bool = false,
-    preferFlowControl: bool = false,
-    backwardsCompatibility: bool = false,
-    warningsAreErrors: bool = false,
-    keepIntermediate: bool = false,
-    optimize: bool = false,
+    inputFilePath: ?[]const u8 = null,
+    outputFilePath: ?[]const u8 = null,
+    varyingFilePath: ?[]const u8 = null,
+
+    includeDirs: ?[]const []const u8 = null,
+    defines: ?[]const []const u8 = null,
+
     optimizationLevel: Optimize = .o3,
-
-    pub fn toCOptions(options: ShadercOptions) COptions {
-        return COptions{
-            .shaderType = options.shaderType.toChar(),
-            .platform = options.platform.toStr(),
-            .profile = options.profile.toStr(),
-            .inputFilePath = options.inputFilePath orelse "embed",
-            .outputFilePath = options.outputFilePath orelse "embed",
-
-            .includeDirs = if (options.includeDirs) |i| @ptrCast(i.ptr) else null,
-            .includeDirsN = if (options.includeDirs) |i| @intCast(i.len) else 0,
-
-            .defines = if (options.defines) |i| @ptrCast(i.ptr) else null,
-            .definesN = if (options.defines) |i| @intCast(i.len) else 0,
-
-            .dependencies = if (options.dependencies) |i| @ptrCast(i.ptr) else null,
-            .dependenciesN = if (options.dependencies) |i| @intCast(i.len) else 0,
-
-            .disasm = options.disasm,
-            .raw = options.raw,
-            .preprocessOnly = options.preprocessOnly,
-            .depends = options.depends,
-            .debugInformation = options.debugInformation,
-            .avoidFlowControl = options.avoidFlowControl,
-            .noPreshader = options.noPreshader,
-            .partialPrecision = options.partialPrecision,
-            .preferFlowControl = options.preferFlowControl,
-            .backwardsCompatibility = options.backwardsCompatibility,
-            .warningsAreErrors = options.warningsAreErrors,
-            .keepIntermediate = options.keepIntermediate,
-            .optimize = options.optimize,
-            .optimizationLevel = @intFromEnum(options.optimizationLevel),
-        };
-    }
 };
 
-// Caller is owner of memory.
-pub fn compileShader(allocator: std.mem.Allocator, varying: [:0]const u8, shader: []const u8, options: ShadercOptions) ![]u8 {
-    var wirteMsg = MessageWriter{};
+pub fn shadercFromExePath(allocator: std.mem.Allocator) ![]u8 {
+    const exe_dir = try std.fs.selfExeDirPathAlloc(allocator);
+    defer allocator.free(exe_dir);
 
-    // +16384  is from shaderc.cpp
-    const data = try allocator.alloc(u8, shader.len + 16384);
-    @memset(data, 0);
-    defer allocator.free(data);
+    const path = try std.fs.path.join(allocator, &.{ exe_dir, "shaderc" });
 
-    var fbs = std.io.fixedBufferStream(data);
-    const len = try fbs.write(shader);
-
-    // Shaderc at the end do delete [] data.
-    // We need allocate it with malloc.
-    var data2: [*]u8 = @ptrCast(std.c.malloc(data.len).?);
-    std.mem.copyBackwards(u8, data2[0..data.len], data);
-
-    var out = ShaderOutput.init(allocator);
-    errdefer out.deinit();
-
-    const coptions = options.toCOptions();
-
-    const shader_result = zbgfx_compileShader(
-        varying.ptr,
-        "",
-        data2,
-        @intCast(len),
-        &coptions,
-        ShaderWriter.write,
-        &out,
-        MessageWriter.write,
-        &wirteMsg,
-    );
-
-    if (!shader_result) {
-        return error.ShaderCompileFail;
+    if (builtin.os.tag == .windows) {
+        return try std.fmt.allocPrint(allocator, "{s}.exe", .{path});
     }
 
-    return out.toOwnedSlice();
+    return path;
 }
 
-pub const COptions = extern struct {
-    shaderType: u8 = ' ',
+// Caller is owner of memory.
+pub fn compileShader(
+    allocator: std.mem.Allocator,
+    executable_path: []const u8,
+    varying: []const u8,
+    shader: []const u8,
+    options: ShadercOptions,
+) ![]u8 {
+    const system_tmp_dir_path = try getSysTmpDir(allocator);
+    defer allocator.free(system_tmp_dir_path);
 
-    platform: [*c]const u8,
-    profile: [*c]const u8,
+    const tmp_dir_path = try std.fs.path.join(allocator, &.{ system_tmp_dir_path, "shaderc" });
+    defer allocator.free(tmp_dir_path);
 
-    inputFilePath: [*c]const u8,
-    outputFilePath: [*c]const u8,
+    std.fs.makeDirAbsolute(tmp_dir_path) catch |err| {
+        if (err != error.PathAlreadyExists) return err;
+    };
 
-    includeDirs: ?[*][*c]const u8,
-    includeDirsN: u32,
+    // Write source
+    var in_random_path: [RANDOM_PATH_LEN]u8 = undefined;
+    generateRandomFileName(&in_random_path);
 
-    defines: ?[*][*c]const u8,
-    definesN: u32,
+    const source_file_path = try std.fs.path.join(allocator, &.{ tmp_dir_path, &in_random_path });
+    defer allocator.free(source_file_path);
+    const in_f = try std.fs.createFileAbsolute(source_file_path, .{});
+    try in_f.writeAll(shader);
+    in_f.close();
+    defer std.fs.deleteFileAbsolute(source_file_path) catch undefined;
 
-    dependencies: ?[*][*c]const u8,
-    dependenciesN: u32,
+    // Write varying
+    var varying_random_path: [RANDOM_PATH_LEN]u8 = undefined;
+    generateRandomFileName(&varying_random_path);
 
-    disasm: bool = false,
-    raw: bool = false,
-    preprocessOnly: bool = false,
-    depends: bool = false,
-    debugInformation: bool = false,
-    avoidFlowControl: bool = false,
-    noPreshader: bool = false,
-    partialPrecision: bool = false,
-    preferFlowControl: bool = false,
-    backwardsCompatibility: bool = false,
-    warningsAreErrors: bool = false,
-    keepIntermediate: bool = false,
-    optimize: bool = false,
-    optimizationLevel: u32 = 3,
-};
-pub const writeFce = *const fn (ctx: *anyopaque, _data: [*]const u8, _size: i32) callconv(.C) i32;
-pub extern fn zbgfx_compileShader(
-    _varying: [*]const u8,
-    _comment: [*]const u8,
-    _shader: [*]const u8,
-    _shaderLen: u32,
-    _options: *const COptions,
-    _shaderWriter: writeFce,
-    _shaderWriterContext: *anyopaque,
-    _messageWriter: writeFce,
-    _messageWriterContext: *anyopaque,
-) bool;
+    const varying_file_path = try std.fs.path.join(allocator, &.{ tmp_dir_path, &varying_random_path });
+    defer allocator.free(varying_file_path);
+    const varying_f = try std.fs.createFileAbsolute(varying_file_path, .{});
+    try varying_f.writeAll(varying);
+    varying_f.close();
 
-pub extern fn shaderc_main(_argc: c_int, _argv: [*c][*:0]const u8) c_int;
+    defer std.fs.deleteFileAbsolute(varying_file_path) catch undefined;
+
+    // Create shader output path
+    var out_random_path: [RANDOM_PATH_LEN]u8 = undefined;
+    generateRandomFileName(&out_random_path);
+    const out_file_path = try std.fs.path.join(allocator, &.{ tmp_dir_path, &out_random_path });
+    defer allocator.free(out_file_path);
+
+    var new_options = options;
+    new_options.inputFilePath = source_file_path;
+    new_options.varyingFilePath = varying_file_path;
+    new_options.outputFilePath = out_file_path;
+
+    var shadercp = try shadercProcess(allocator, executable_path, new_options);
+    const term = try shadercp.wait();
+    if (term.Exited != 0) return error.ShaderCompileError;
+
+    defer std.fs.deleteFileAbsolute(out_file_path) catch undefined;
+
+    const out_f = try std.fs.openFileAbsolute(out_file_path, .{ .mode = .read_only });
+    defer out_f.close();
+
+    const size = try out_f.getEndPos();
+    const shader_data = try allocator.alloc(u8, size);
+    _ = try out_f.readAll(shader_data);
+
+    return shader_data;
+}
+
+pub fn shadercProcess(allocator: std.mem.Allocator, executablePath: []const u8, options: ShadercOptions) !std.process.Child {
+    var args = ArgsList.init(allocator);
+    defer args.deinit();
+    try args.append(executablePath);
+
+    try options.shaderType.appendArg(&args);
+    try options.platform.appendArg(&args);
+    try options.profile.appendArg(&args);
+    try options.optimizationLevel.appendArg(&args);
+
+    if (options.inputFilePath) |path| {
+        try args.appendSlice(&.{ "-f", path });
+    }
+
+    if (options.outputFilePath) |path| {
+        try args.appendSlice(&.{ "-o", path });
+    }
+
+    if (options.varyingFilePath) |path| {
+        try args.appendSlice(&.{ "--varyingdef", path });
+    }
+
+    if (options.includeDirs) |includes| {
+        for (includes) |include| {
+            try args.appendSlice(&.{ "-i", include });
+        }
+    }
+
+    var all_defines = std.ArrayList(u8).init(allocator);
+    defer all_defines.deinit();
+
+    if (options.defines) |defines| {
+        const last_idx = defines.len - 1;
+
+        for (defines, 0..) |define, idx| {
+            try all_defines.appendSlice(define);
+            if (idx != last_idx) {
+                try all_defines.appendSlice(";");
+            }
+        }
+
+        try args.appendSlice(&.{ "--define", all_defines.items });
+    }
+
+    var process = std.process.Child.init(args.items, allocator);
+    try process.spawn();
+    return process;
+}
+
+const RANDOM_BYTES_COUNT = 12;
+const RANDOM_PATH_LEN = std.fs.base64_encoder.calcSize(RANDOM_BYTES_COUNT);
+
+fn generateRandomFileName(out: []u8) void {
+    var in_random_bytes: [RANDOM_BYTES_COUNT]u8 = undefined;
+    std.crypto.random.bytes(&in_random_bytes);
+    _ = std.fs.base64_encoder.encode(out, &in_random_bytes);
+}
+
+// https://github.com/liyu1981/tmpfile.zig/blob/master/src/tmpfile.zig#L11
+fn getSysTmpDir(a: std.mem.Allocator) ![]const u8 {
+    const Impl = switch (builtin.os.tag) {
+        .linux, .macos => struct {
+            pub fn get(allocator: std.mem.Allocator) ![]const u8 {
+                // cpp17's temp_directory_path gives good reference
+                // https://en.cppreference.com/w/cpp/filesystem/temp_directory_path
+                // POSIX standard, https://en.wikipedia.org/wiki/TMPDIR
+                return std.process.getEnvVarOwned(allocator, "TMPDIR") catch {
+                    return std.process.getEnvVarOwned(allocator, "TMP") catch {
+                        return std.process.getEnvVarOwned(allocator, "TEMP") catch {
+                            return std.process.getEnvVarOwned(allocator, "TEMPDIR") catch {
+                                std.debug.print("tried env TMPDIR/TMP/TEMP/TEMPDIR but not found, fallback to /tmp, caution it may not work!", .{});
+                                return try allocator.dupe(u8, "/tmp");
+                            };
+                        };
+                    };
+                };
+            }
+        },
+        .windows => struct {
+            const DWORD = std.os.windows.DWORD;
+            const LPWSTR = std.os.windows.LPWSTR;
+            const MAX_PATH = std.os.windows.MAX_PATH;
+            const WCHAR = std.os.windows.WCHAR;
+
+            pub extern "C" fn GetTempPath2W(BufferLength: DWORD, Buffer: LPWSTR) DWORD;
+
+            pub fn get(allocator: std.mem.Allocator) ![]const u8 {
+                // use GetTempPathW2, https://learn.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-gettemppathw
+                var wchar_buf: [MAX_PATH + 2:0]WCHAR = undefined;
+                wchar_buf[MAX_PATH + 1] = 0;
+                const ret = GetTempPath2W(MAX_PATH + 1, &wchar_buf);
+                if (ret != 0) {
+                    const path = wchar_buf[0..ret];
+                    return std.unicode.utf16LeToUtf8Alloc(allocator, path);
+                } else {
+                    return error.GetTempPath2WFailed;
+                }
+            }
+        },
+        else => {
+            @panic(@tagName(std.builtin.os.tag) ++ " is not support");
+        },
+    };
+
+    return Impl.get(a);
+}

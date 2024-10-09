@@ -201,30 +201,15 @@ pub fn build(b: *std.Build) !void {
 
     if (options.with_shaderc) {
         //
-        // Static shaderc
-        //
-        const shaderc_static = b.addStaticLibrary(.{
-            .name = "shaderc-static",
-            .target = target,
-            .optimize = optimize,
-        });
-        shaderc_static.defineCMacro("ZBGFX_EMBED_SHADERC", null);
-        shaderc_static.defineCMacro("bgfx", "bgfx_shader"); // Tricky&Dirty (without this is problem with duplicate symbols).
-        b.installArtifact(shaderc_static);
-        shaderc_static.linkLibCpp();
-
-        //
         // Shaderc executable
         //
         const shaderc = b.addExecutable(.{
             .name = "shaderc",
-            .root_source_file = b.path("src/shaderc_main.zig"),
             .target = target,
             .optimize = optimize,
         });
 
         b.installArtifact(shaderc);
-        shaderc.linkLibrary(shaderc_static);
 
         if (target.result.os.tag.isDarwin()) {
             shaderc.linkFramework("CoreFoundation");
@@ -233,23 +218,23 @@ pub fn build(b: *std.Build) !void {
         shaderc.linkLibrary(bx);
         shaderc.linkLibCpp();
 
-        bxInclude(b, shaderc_static, target, optimize);
+        bxInclude(b, shaderc, target, optimize);
 
-        shaderc_static.addIncludePath(b.path("libs/bimg/include"));
-        shaderc_static.addIncludePath(b.path(bgfx_path ++ "include"));
-        shaderc_static.addIncludePath(b.path(bgfx_path ++ "src"));
-        shaderc_static.addIncludePath(b.path(bgfx_path ++ "3rdparty/dxsdk/include"));
-        shaderc_static.addIncludePath(b.path(bgfx_path ++ "3rdparty/fcpp"));
-        shaderc_static.addIncludePath(b.path(bgfx_path ++ "3rdparty/glslang/glslang/Public"));
-        shaderc_static.addIncludePath(b.path(bgfx_path ++ "3rdparty/glslang/glslang/Include"));
-        shaderc_static.addIncludePath(b.path(bgfx_path ++ "3rdparty/glslang"));
-        shaderc_static.addIncludePath(b.path(bgfx_path ++ "3rdparty/glsl-optimizer/include"));
-        shaderc_static.addIncludePath(b.path(bgfx_path ++ "3rdparty/glsl-optimizer/src/glsl"));
-        shaderc_static.addIncludePath(b.path(bgfx_path ++ "3rdparty/spirv-cross"));
-        shaderc_static.addIncludePath(b.path(bgfx_path ++ "3rdparty/spirv-tools/include"));
-        shaderc_static.addIncludePath(b.path(bgfx_path ++ "3rdparty/webgpu/include"));
+        shaderc.addIncludePath(b.path("libs/bimg/include"));
+        shaderc.addIncludePath(b.path(bgfx_path ++ "include"));
+        shaderc.addIncludePath(b.path(bgfx_path ++ "src"));
+        shaderc.addIncludePath(b.path(bgfx_path ++ "3rdparty/dxsdk/include"));
+        shaderc.addIncludePath(b.path(bgfx_path ++ "3rdparty/fcpp"));
+        shaderc.addIncludePath(b.path(bgfx_path ++ "3rdparty/glslang/glslang/Public"));
+        shaderc.addIncludePath(b.path(bgfx_path ++ "3rdparty/glslang/glslang/Include"));
+        shaderc.addIncludePath(b.path(bgfx_path ++ "3rdparty/glslang"));
+        shaderc.addIncludePath(b.path(bgfx_path ++ "3rdparty/glsl-optimizer/include"));
+        shaderc.addIncludePath(b.path(bgfx_path ++ "3rdparty/glsl-optimizer/src/glsl"));
+        shaderc.addIncludePath(b.path(bgfx_path ++ "3rdparty/spirv-cross"));
+        shaderc.addIncludePath(b.path(bgfx_path ++ "3rdparty/spirv-tools/include"));
+        shaderc.addIncludePath(b.path(bgfx_path ++ "3rdparty/webgpu/include"));
 
-        shaderc_static.addCSourceFiles(.{
+        shaderc.addCSourceFiles(.{
             .files = &.{
                 bgfx_path ++ "src/shader.cpp",
                 bgfx_path ++ "src/shader_dxbc.cpp",
@@ -553,11 +538,11 @@ pub fn build(b: *std.Build) !void {
 
         glsl_optimizer_lib.linkLibCpp();
 
-        shaderc_static.linkLibrary(fcpp_lib);
-        shaderc_static.linkLibrary(glslang_lib);
-        shaderc_static.linkLibrary(glsl_optimizer_lib);
-        shaderc_static.linkLibrary(spirv_opt_lib);
-        shaderc_static.linkLibrary(spirv_cross_lib);
+        shaderc.linkLibrary(fcpp_lib);
+        shaderc.linkLibrary(glslang_lib);
+        shaderc.linkLibrary(glsl_optimizer_lib);
+        shaderc.linkLibrary(spirv_opt_lib);
+        shaderc.linkLibrary(spirv_cross_lib);
     }
 }
 

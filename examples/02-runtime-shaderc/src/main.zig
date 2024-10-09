@@ -85,7 +85,7 @@ var last_r = zglfw.Action.release;
 var old_flags = bgfx.ResetFlags_None;
 var old_size = [2]i32{ WIDTH, HEIGHT };
 
-pub fn buildProgram(allocator: std.mem.Allocator) !bgfx.ProgramHandle {
+pub fn buildProgram(allocator: std.mem.Allocator, shaderc_path: []const u8) !bgfx.ProgramHandle {
     // Load varying from file
     const varying_data = try readFileFromShaderDirs(allocator, "varying.def.sc");
     defer allocator.free(varying_data);
@@ -100,25 +100,24 @@ pub fn buildProgram(allocator: std.mem.Allocator) !bgfx.ProgramHandle {
 
     const exe_dir = try std.fs.selfExeDirPathAlloc(allocator);
     defer allocator.free(exe_dir);
-    const path = try std.fs.path.joinZ(allocator, &.{ exe_dir, "..", "include", "shaders" });
-    defer allocator.free(path);
 
-    var includes = [_][*c]const u8{path};
+    const path = try std.fs.path.join(allocator, &.{ exe_dir, "..", "include", "shaders" });
+    defer allocator.free(path);
 
     // Compile fs shader
     var fs_shader_options = shaderc.createDefaultOptionsForRenderer(bgfx.getRendererType());
     fs_shader_options.shaderType = .fragment;
-    fs_shader_options.includeDirs = &includes;
+    fs_shader_options.includeDirs = &.{path};
 
-    const fs_shader = try shaderc.compileShader(allocator, varying_data, fs_cube_data, fs_shader_options);
+    const fs_shader = try shaderc.compileShader(allocator, shaderc_path, varying_data, fs_cube_data, fs_shader_options);
     defer allocator.free(fs_shader);
 
     // Compile vs shader
     var vs_shader_options = shaderc.createDefaultOptionsForRenderer(bgfx.getRendererType());
     vs_shader_options.shaderType = .vertex;
-    vs_shader_options.includeDirs = &includes;
+    vs_shader_options.includeDirs = &.{path};
 
-    const vs_shader = try shaderc.compileShader(allocator, varying_data, vs_cube_data, vs_shader_options);
+    const vs_shader = try shaderc.compileShader(allocator, shaderc_path, varying_data, vs_cube_data, vs_shader_options);
     defer allocator.free(vs_shader);
 
     //
@@ -220,7 +219,11 @@ pub fn main() anyerror!u8 {
     const gpa_allocator = gpa.allocator();
     defer _ = gpa.deinit();
 
-    var programHandle = buildProgram(gpa_allocator) catch |err| {
+    const shaderc_path = try shaderc.shadercFromExePath(gpa_allocator);
+
+    defer gpa_allocator.free(shaderc_path);
+
+    var programHandle = buildProgram(gpa_allocator, shaderc_path) catch |err| {
         std.log.err("Build program failed => {}", .{err});
         return 1;
     };
@@ -277,7 +280,7 @@ pub fn main() anyerror!u8 {
         last_d = window.getKey(.d);
 
         if (last_r != .press and window.getKey(.r) == .press) {
-            if (buildProgram(gpa_allocator)) |program| {
+            if (buildProgram(gpa_allocator, shaderc_path)) |program| {
                 bgfx.destroyProgram(programHandle);
                 programHandle = program;
             } else |err| {
@@ -363,7 +366,7 @@ pub fn main() anyerror!u8 {
     return 0;
 }
 
-pub fn readFileFromShaderDirs(allocator: std.mem.Allocator, filename: []const u8) ![:0]u8 {
+fn readFileFromShaderDirs(allocator: std.mem.Allocator, filename: []const u8) ![:0]u8 {
     const exe_dir = try std.fs.selfExeDirPathAlloc(allocator);
     defer allocator.free(exe_dir);
 
