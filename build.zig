@@ -335,6 +335,7 @@ pub fn build(b: *std.Build) !void {
             "-DNBUFF=65536",
             "-DOLD_PREPROCESSOR=0",
             "-fno-sanitize=undefined",
+            "-Wno-error=date-time",
         };
 
         const fcpp_path = "libs/bgfx/3rdparty/fcpp/";
