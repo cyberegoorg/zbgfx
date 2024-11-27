@@ -8,8 +8,20 @@
 
     .dependencies = .{
         .zbgfx = .{ .path = "../" },
-        .zglfw = .{ .path = "libs/zig-gamedev/libs/zglfw" },
-        .zmath = .{ .path = "libs/zig-gamedev/libs/zmath" },
-        .zgui = .{ .path = "libs/zig-gamedev/libs/zgui" },
+
+        .zglfw = .{
+            .url = "https://github.com/zig-gamedev/zglfw/archive/d18b30438d630d44e50aa30e2300a96c4f4ff67d.tar.gz",
+            .hash = "1220074231fcf6556b27e0ac6a3b22a19062c0c4bc3fd77c6fdcede15303af824c27",
+        },
+
+        .zmath = .{
+            .url = "https://github.com/zig-gamedev/zmath/archive/fb075f0f2f90d6d938a5959a3a79700cdec155c2.tar.gz",
+            .hash = "1220081d55b58b968d953db1afc2fb01b2f5733929144e69522461ce25fa6450d84e",
+        },
+
+        .zgui = .{
+            .url = "https://github.com/zig-gamedev/zgui/archive/d23ed60a659d8c9c6d664b2e9bd78fae1675154e.tar.gz",
+            .hash = "1220ffffdf1d0d2aca86a1ea31ba17ee48090b38cefb2a8487d2d801eb1fdd78becb",
+        },
     },
 }

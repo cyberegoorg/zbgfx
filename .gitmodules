@@ -1,3 +1,0 @@
-[submodule "examples/libs/zig-gamedev"]
-	path = examples/libs/zig-gamedev
-	url = https://github.com/OndraVoves/zig-gamedev.git

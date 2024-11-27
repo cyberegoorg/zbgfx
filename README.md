@@ -85,15 +85,7 @@ See examples for binding usage and [bgfx](https://github.com/bkaradzic/bgfx) for
 
 ## Examples
 
-Examples use [zig-gamedev](https://github.com/zig-gamedev/zig-gamedev) as submodule.
-
-Run this to fetch `zig-gamedev`:
-
-```bash
-git submodule update --init --depth=1
-```
-
-And this for build all examples:
+Run this for build all examples:
 
 ```sh
 cd examples
