@@ -127,7 +127,7 @@ pub fn build(b: *std.Build) !void {
     bgfx.linkLibrary(bx);
     bgfx.linkLibrary(bimg);
 
-    bgfx.defineCMacro("BGFX_CONFIG_MULTITHREADED", if (options.multithread) "1" else "0");
+    bgfx.root_module.addCMacro("BGFX_CONFIG_MULTITHREADED", if (options.multithread) "1" else "0");
 
     bgfx.addIncludePath(b.path("includes"));
 
@@ -138,8 +138,8 @@ pub fn build(b: *std.Build) !void {
         bgfx.linkFramework("IOKit");
         bgfx.linkFramework("OpenGL");
         bgfx.linkFramework("QuartzCore");
-        bgfx.linkFrameworkWeak("Metal");
-        bgfx.linkFrameworkWeak("MetalKit");
+        bgfx.linkFramework("Metal");
+        bgfx.linkFramework("MetalKit");
 
         bgfx.addCSourceFiles(.{
             .flags = &mm_options,
@@ -548,11 +548,11 @@ pub fn build(b: *std.Build) !void {
 }
 
 fn bxInclude(b: *std.Build, step: *std.Build.Step.Compile, target: std.Build.ResolvedTarget, optimize: std.builtin.OptimizeMode) void {
-    step.defineCMacro("__STDC_LIMIT_MACROS", null);
-    step.defineCMacro("__STDC_FORMAT_MACROS", null);
-    step.defineCMacro("__STDC_CONSTANT_MACROS", null);
+    step.root_module.addCMacro("__STDC_LIMIT_MACROS", "1");
+    step.root_module.addCMacro("__STDC_FORMAT_MACROS", "1");
+    step.root_module.addCMacro("__STDC_CONSTANT_MACROS", "1");
 
-    step.defineCMacro("BX_CONFIG_DEBUG", if (optimize == .Debug) "1" else "0");
+    step.root_module.addCMacro("BX_CONFIG_DEBUG", if (optimize == .Debug) "1" else "0");
 
     switch (target.result.os.tag) {
         .freebsd => step.addIncludePath(b.path("libs/bx/include/compat/freebsd")),

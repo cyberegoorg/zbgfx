@@ -37,7 +37,7 @@ Zig binding is licensed by [WTFPL](LICENSE)
 
 ## Zig version
 
-Minimal is `0.14.0-dev.1911+3bf89f55c`. But you know try your version and believe.
+Minimal is `0.14.0-dev.2577+271452d22` a.k.a `2024.11.0-mach`. But you know try your version and believe.
 
 ## Bgfx version
 

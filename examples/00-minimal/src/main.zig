@@ -96,7 +96,7 @@ pub fn main() anyerror!u8 {
     //
     // Create window
     //
-    zglfw.windowHintTyped(.client_api, .no_api);
+    zglfw.windowHint(.client_api, .no_api);
     const window = try zglfw.Window.create(WIDTH, HEIGHT, "ZBgfx - minimal", null);
     defer window.destroy();
     window.setSizeLimits(400, 400, -1, -1);
