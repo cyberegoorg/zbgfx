@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2024 Branimir Karadzic. All rights reserved.
+ * Copyright 2010-2025 Branimir Karadzic. All rights reserved.
  * License: https://github.com/bkaradzic/bx/blob/master/LICENSE
  */
 
@@ -44,7 +44,7 @@ namespace bx
 
 	Mutex::Mutex()
 	{
-		BX_STATIC_ASSERT(sizeof(int32_t) <= sizeof(m_internal) );
+		static_assert(sizeof(int32_t) <= sizeof(m_internal) );
 
 		uint32_t* futex = (uint32_t*)m_internal;
 		*futex = State::Unlocked;
@@ -123,7 +123,7 @@ namespace bx
 
 	Mutex::Mutex()
 	{
-		BX_STATIC_ASSERT(sizeof(pthread_mutex_t) <= sizeof(m_internal) );
+		static_assert(sizeof(pthread_mutex_t) <= sizeof(m_internal) );
 
 		pthread_mutexattr_t attr;
 

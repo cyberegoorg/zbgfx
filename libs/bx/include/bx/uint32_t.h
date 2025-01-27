@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2024 Branimir Karadzic. All rights reserved.
+ * Copyright 2010-2025 Branimir Karadzic. All rights reserved.
  * License: https://github.com/bkaradzic/bx/blob/master/LICENSE
  */
 
@@ -263,39 +263,35 @@ namespace bx
 
 	///
 	template<typename Ty>
-	BX_CONSTEXPR_FUNC bool isAligned(Ty _a, int32_t _align);
+	BX_CONSTEXPR_FUNC bool isAligned(Ty _a, size_t _align);
+
+	///
+	template<>
+	BX_CONSTEXPR_FUNC bool isAligned(const void* _ptr, size_t _align);
 
 	///
 	template<typename Ty>
-	BX_CONSTEXPR_FUNC bool isAligned(Ty* _ptr, int32_t _align);
+	BX_CONSTEXPR_FUNC Ty alignDown(Ty _a, size_t _align);
 
 	///
 	template<typename Ty>
-	BX_CONSTEXPR_FUNC bool isAligned(const Ty* _ptr, int32_t _align);
+	BX_CONSTEXPR_FUNC Ty* alignDown(Ty* _ptr, size_t _align);
 
 	///
 	template<typename Ty>
-	BX_CONSTEXPR_FUNC Ty alignDown(Ty _a, int32_t _align);
+	BX_CONSTEXPR_FUNC const Ty* alignDown(const Ty* _ptr, size_t _align);
 
 	///
 	template<typename Ty>
-	BX_CONSTEXPR_FUNC Ty* alignDown(Ty* _ptr, int32_t _align);
+	BX_CONSTEXPR_FUNC Ty alignUp(Ty _a, size_t _align);
 
 	///
 	template<typename Ty>
-	BX_CONSTEXPR_FUNC const Ty* alignDown(const Ty* _ptr, int32_t _align);
+	BX_CONSTEXPR_FUNC Ty* alignUp(Ty* _ptr, size_t _align);
 
 	///
 	template<typename Ty>
-	BX_CONSTEXPR_FUNC Ty alignUp(Ty _a, int32_t _align);
-
-	///
-	template<typename Ty>
-	BX_CONSTEXPR_FUNC Ty* alignUp(Ty* _ptr, int32_t _align);
-
-	///
-	template<typename Ty>
-	BX_CONSTEXPR_FUNC const Ty* alignUp(const Ty* _ptr, int32_t _align);
+	BX_CONSTEXPR_FUNC const Ty* alignUp(const Ty* _ptr, size_t _align);
 
 	/// Convert float to half-float.
 	///

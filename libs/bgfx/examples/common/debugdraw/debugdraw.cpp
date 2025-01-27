@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2024 Branimir Karadzic. All rights reserved.
+ * Copyright 2011-2025 Branimir Karadzic. All rights reserved.
  * License: https://github.com/bkaradzic/bgfx/blob/master/LICENSE
  */
 
@@ -1169,7 +1169,7 @@ struct DebugDrawEncoderImpl
 		}
 		else
 		{
-			mtx = (float*)alloca(_num*64);
+			mtx = (float*)BX_STACK_ALLOC(_num*64);
 			for (uint16_t ii = 0; ii < _num; ++ii)
 			{
 				const float* mtxTransform = (const float*)_mtx;
@@ -1505,7 +1505,7 @@ struct DebugDrawEncoderImpl
 		}
 		else
 		{
-			BX_STATIC_ASSERT(sizeof(DdVertex) == sizeof(bx::Vec3), "");
+			static_assert(sizeof(DdVertex) == sizeof(bx::Vec3), "");
 
 			uint64_t old = attrib.m_state;
 			attrib.m_state &= ~BGFX_STATE_CULL_MASK;
@@ -2241,7 +2241,7 @@ struct DebugDrawEncoderImpl
 	static const uint32_t kCacheSize = 1024;
 	static const uint32_t kStackSize = 16;
 	static const uint32_t kCacheQuadSize = 1024;
-	BX_STATIC_ASSERT(kCacheSize >= 3, "Cache must be at least 3 elements.");
+	static_assert(kCacheSize >= 3, "Cache must be at least 3 elements.");
 
 	DebugVertex   m_cache[kCacheSize+1];
 	DebugUvVertex m_cacheQuad[kCacheQuadSize];
@@ -2281,7 +2281,7 @@ struct DebugDrawEncoderImpl
 };
 
 static DebugDrawEncoderImpl s_dde;
-BX_STATIC_ASSERT(sizeof(DebugDrawEncoderImpl) <= sizeof(DebugDrawEncoder), "Size must match");
+static_assert(sizeof(DebugDrawEncoderImpl) <= sizeof(DebugDrawEncoder), "Size must match");
 
 void ddInit(bx::AllocatorI* _allocator)
 {

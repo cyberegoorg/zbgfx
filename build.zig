@@ -43,6 +43,7 @@ pub fn build(b: *std.Build) !void {
         "-Wno-microsoft-const-init",
         "-Wno-deprecated-declarations",
         "-Wno-tautological-constant-compare",
+        "-Wno-error=date-time",
     };
     const cxx_options = common_options ++ [_][]const u8{
         "-std=c++17",
@@ -792,6 +793,7 @@ const spirv_opt_files = .{
     spirv_opt_path ++ "source/name_mapper.cpp",
     spirv_opt_path ++ "source/opcode.cpp",
     spirv_opt_path ++ "source/operand.cpp",
+    spirv_opt_path ++ "source/to_string.cpp",
     spirv_opt_path ++ "source/opt/aggressive_dead_code_elim_pass.cpp",
     spirv_opt_path ++ "source/opt/amd_ext_to_khr.cpp",
     spirv_opt_path ++ "source/opt/analyze_live_input_pass.cpp",
@@ -911,6 +913,7 @@ const spirv_opt_files = .{
     spirv_opt_path ++ "source/opt/workaround1209.cpp",
     spirv_opt_path ++ "source/opt/wrap_opkill.cpp",
     spirv_opt_path ++ "source/opt/opextinst_forward_ref_fixup_pass.cpp",
+    spirv_opt_path ++ "source/opt/struct_packing_pass.cpp",
     spirv_opt_path ++ "source/parsed_operand.cpp",
     spirv_opt_path ++ "source/print.cpp",
     spirv_opt_path ++ "source/reduce/change_operand_reduction_opportunity.cpp",
@@ -1000,4 +1003,5 @@ const spirv_opt_files = .{
     spirv_opt_path ++ "source/val/validate_small_type_uses.cpp",
     spirv_opt_path ++ "source/val/validate_type.cpp",
     spirv_opt_path ++ "source/val/validation_state.cpp",
+    spirv_opt_path ++ "source/val/validate_tensor_layout.cpp",
 };

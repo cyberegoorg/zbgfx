@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2024 Branimir Karadzic. All rights reserved.
+ * Copyright 2010-2025 Branimir Karadzic. All rights reserved.
  * License: https://github.com/bkaradzic/bx/blob/master/LICENSE
  */
 
@@ -554,6 +554,22 @@ namespace bx
 	StringView strTrimSpace(const StringView& _str)
 	{
 		return strLTrimSpace(strRTrimSpace(_str) );
+	}
+
+	// If offset in UTF-8 string doesn't land on rune, walk back until first byte of rune is reached.
+	static const char* fixPtrToRune(const char* _strBegin, const char* _curr)
+	{
+		for (; _curr > _strBegin && (*_curr & 0xc0) == 0x80; --_curr);
+
+		return _curr;
+	}
+
+	StringView strTail(const StringView _str, uint32_t _num)
+	{
+		return StringView(
+				  fixPtrToRune(_str.getPtr(), _str.getTerm() - min(_num, _str.getLength() ) )
+				, _str.getTerm()
+				);
 	}
 
 	constexpr uint32_t kFindStep = 1024;
@@ -1214,7 +1230,8 @@ namespace bx
 
 	int32_t vsnprintf(char* _out, int32_t _max, const char* _format, va_list _argList)
 	{
-		if (0 < _max)
+		if (   0 <  _max
+		&&  NULL != _out)
 		{
 			StaticMemoryBlockWriter writer(_out, uint32_t(_max) );
 

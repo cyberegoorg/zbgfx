@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2024 Branimir Karadzic. All rights reserved.
+ * Copyright 2011-2025 Branimir Karadzic. All rights reserved.
  * License: https://github.com/bkaradzic/bgfx/blob/master/LICENSE
  */
 
@@ -46,7 +46,7 @@ namespace bgfx { namespace d3d11
 		{ D3D11_PRIMITIVE_TOPOLOGY_POINTLIST,     1, 1, 0 },
 		{ D3D11_PRIMITIVE_TOPOLOGY_UNDEFINED,     0, 0, 0 },
 	};
-	BX_STATIC_ASSERT(Topology::Count == BX_COUNTOF(s_primInfo)-1);
+	static_assert(Topology::Count == BX_COUNTOF(s_primInfo)-1);
 
 	union Zero
 	{
@@ -300,7 +300,7 @@ namespace bgfx { namespace d3d11
 		{ DXGI_FORMAT_R32_TYPELESS,       DXGI_FORMAT_R32_FLOAT,             DXGI_FORMAT_D32_FLOAT,         DXGI_FORMAT_UNKNOWN              }, // D32F
 		{ DXGI_FORMAT_R24G8_TYPELESS,     DXGI_FORMAT_R24_UNORM_X8_TYPELESS, DXGI_FORMAT_D24_UNORM_S8_UINT, DXGI_FORMAT_UNKNOWN              }, // D0S8
 	};
-	BX_STATIC_ASSERT(TextureFormat::Count == BX_COUNTOF(s_textureFormat) );
+	static_assert(TextureFormat::Count == BX_COUNTOF(s_textureFormat) );
 
 	static const D3D11_INPUT_ELEMENT_DESC s_attrib[] =
 	{
@@ -323,7 +323,7 @@ namespace bgfx { namespace d3d11
 		{ "TEXCOORD",     6, DXGI_FORMAT_R32G32_FLOAT,    0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
 		{ "TEXCOORD",     7, DXGI_FORMAT_R32G32_FLOAT,    0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0 },
 	};
-	BX_STATIC_ASSERT(Attrib::Count == BX_COUNTOF(s_attrib) );
+	static_assert(Attrib::Count == BX_COUNTOF(s_attrib) );
 
 	static const DXGI_FORMAT s_attribType[][4][2] =
 	{
@@ -358,7 +358,7 @@ namespace bgfx { namespace d3d11
 			{ DXGI_FORMAT_R32G32B32A32_FLOAT, DXGI_FORMAT_R32G32B32A32_FLOAT },
 		},
 	};
-	BX_STATIC_ASSERT(AttribType::Count == BX_COUNTOF(s_attribType) );
+	static_assert(AttribType::Count == BX_COUNTOF(s_attribType) );
 
 	static D3D11_INPUT_ELEMENT_DESC* fillVertexLayout(uint8_t _stream, D3D11_INPUT_ELEMENT_DESC* _out, const VertexLayout& _layout)
 	{
@@ -2089,7 +2089,7 @@ namespace bgfx { namespace d3d11
 			if (BX_ENABLED(BGFX_CONFIG_DEBUG_ANNOTATION) )
 			{
 				uint32_t size = _len*sizeof(wchar_t);
-				wchar_t* name = (wchar_t*)alloca(size+2);
+				wchar_t* name = (wchar_t*)BX_STACK_ALLOC(size+2);
 				name[_len] = L'\0';
 				mbstowcs(name, _marker, _len);
 				PIX_SETMARKER(kColorMarker, name);
@@ -3399,10 +3399,10 @@ namespace bgfx { namespace d3d11
 				{
 				case UniformType::Mat3:
 				case UniformType::Mat3|kUniformFragmentBit:
-					 {
+					{
 						 float* value = (float*)data;
 						 for (uint32_t ii = 0, count = num/3; ii < count; ++ii,  loc += 3*16, value += 9)
-						 {
+						{
 							 Matrix4 mtx;
 							 mtx.un.val[ 0] = value[0];
 							 mtx.un.val[ 1] = value[1];
@@ -4420,7 +4420,7 @@ namespace bgfx { namespace d3d11
 
 			const uint16_t numSides = ti.numLayers * (imageContainer.m_cubeMap ? 6 : 1);
 			const uint32_t numSrd   = numSides * ti.numMips;
-			D3D11_SUBRESOURCE_DATA* srd = (D3D11_SUBRESOURCE_DATA*)alloca(numSrd*sizeof(D3D11_SUBRESOURCE_DATA) );
+			D3D11_SUBRESOURCE_DATA* srd = (D3D11_SUBRESOURCE_DATA*)BX_STACK_ALLOC(numSrd*sizeof(D3D11_SUBRESOURCE_DATA) );
 
 			uint32_t kk = 0;
 
@@ -6622,7 +6622,6 @@ namespace bgfx { namespace d3d11
 				}
 
 				tvm.printf(10, pos++, 0x8b, "      Indices: %7d ", statsNumIndices);
-//				tvm.printf(10, pos++, 0x8b, " Uniform size: %7d, Max: %7d ", _render->m_uniformEnd, _render->m_uniformMax);
 				tvm.printf(10, pos++, 0x8b, "     DVB size: %7d ", _render->m_vboffset);
 				tvm.printf(10, pos++, 0x8b, "     DIB size: %7d ", _render->m_iboffset);
 

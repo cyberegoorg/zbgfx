@@ -41,9 +41,9 @@ Minimal is `0.14.0-dev.2577+271452d22` a.k.a `2024.11.0-mach`. But you know try 
 
 ## Bgfx version
 
-- [BX](https://github.com/bkaradzic/bx/commit/b8741eaf6f90ee3b332e36e9e9d958645e916ef0)
-- [BImg](https://github.com/bkaradzic/bimg/commit/aaf9125234e657393f504404a279289669d89fcb)
-- [BGFX](https://github.com/bkaradzic/bgfx/commit/dd4199bcb37426326e0e31419e99c10701e96c58)
+- [BX](https://github.com/bkaradzic/bx//compare/01c99ddd0912c5ecf56d9522f287c6c67aa3ad14...master)
+- [BImg](https://github.com/bkaradzic/bimg/compare/c5c7b6e1874cf60caa18b643391f5122f89a4ca8...master)
+- [BGFX](https://github.com/bkaradzic/bgfx/compare/de56398919b875b27b629c0b62f119c338c081d8...master)
 
 ## Getting started
 

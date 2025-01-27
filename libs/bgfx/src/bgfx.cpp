@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2024 Branimir Karadzic. All rights reserved.
+ * Copyright 2011-2025 Branimir Karadzic. All rights reserved.
  * License: https://github.com/bkaradzic/bgfx/blob/master/LICENSE
  */
 
@@ -97,7 +97,7 @@ namespace bgfx
 			va_end(argListCopy);
 			if ( (int32_t)sizeof(temp) < total)
 			{
-				out = (char*)alloca(total+1);
+				out = (char*)BX_STACK_ALLOC(total+1);
 				bx::memCopy(out, temp, len);
 				bx::vsnprintf(out + len, total-len, _format, _argList);
 			}
@@ -136,7 +136,7 @@ namespace bgfx
 			BX_UNUSED(_filePath, _width, _height, _pitch, _data, _size, _yflip);
 
 			const int32_t len = bx::strLen(_filePath)+5;
-			char* filePath = (char*)alloca(len);
+			char* filePath = (char*)BX_STACK_ALLOC(len);
 			bx::strCopy(filePath, len, _filePath);
 			bx::strCat(filePath, len, ".tga");
 
@@ -217,18 +217,30 @@ namespace bgfx
 					}
 #endif // BGFX_CONFIG_MEMORY_TRACKING
 
-					return ::malloc(_size);
+					void* ptr = ::malloc(_size);
+					BX_ASSERT(NULL != ptr, "Out of memory!");
+
+					return ptr;
 				}
 
-				return bx::alignedAlloc(this, _size, _align, bx::Location(_file, _line) );
+				void* ptr = bx::alignedAlloc(this, _size, _align, bx::Location(_file, _line) );
+				BX_ASSERT(NULL != ptr, "Out of memory!");
+
+				return ptr;
 			}
 
 			if (kNaturalAlignment >= _align)
 			{
-				return ::realloc(_ptr, _size);
+				void* ptr = ::realloc(_ptr, _size);
+				BX_ASSERT(NULL != ptr, "Out of memory!");
+
+				return ptr;
 			}
 
-			return bx::alignedRealloc(this, _ptr, _size, _align, bx::Location(_file, _line) );
+			void* ptr = bx::alignedRealloc(this, _ptr, _size, _align, bx::Location(_file, _line) );
+			BX_ASSERT(NULL != ptr, "Out of memory!");
+
+			return ptr;
 		}
 
 		void checkLeaks();
@@ -318,7 +330,7 @@ namespace bgfx
 		{ "VL",   "VertexLayout"        },
 		{ "?",    "?"                   },
 	};
-	BX_STATIC_ASSERT(BX_COUNTOF(s_typeName) == Handle::Count+1, "");
+	static_assert(BX_COUNTOF(s_typeName) == Handle::Count+1, "");
 
 	const Handle::TypeName& Handle::getTypeName(Handle::Enum _enum)
 	{
@@ -435,7 +447,7 @@ namespace bgfx
 		int32_t len = bx::vsnprintf(out, sizeof(temp), _format, argList);
 		if ( (int32_t)sizeof(temp) < len)
 		{
-			out = (char*)alloca(len+1);
+			out = (char*)BX_STACK_ALLOC(len+1);
 			len = bx::vsnprintf(out, len, _format, argList);
 		}
 		out[len] = '\0';
@@ -630,7 +642,7 @@ namespace bgfx
 			va_list argListCopy;
 			va_copy(argListCopy, _argList);
 			uint32_t num = bx::vsnprintf(NULL, 0, _format, argListCopy) + 1;
-			char* temp = (char*)alloca(num);
+			char* temp = (char*)BX_STACK_ALLOC(num);
 			va_copy(argListCopy, _argList);
 			num = bx::vsnprintf(temp, num, _format, argListCopy);
 
@@ -736,7 +748,7 @@ namespace bgfx
 		0xff4fe9fc, // Yellow
 		0xffeceeee, // White
 	};
-	BX_STATIC_ASSERT(BX_COUNTOF(s_paletteSrgb) == 16);
+	static_assert(BX_COUNTOF(s_paletteSrgb) == 16);
 
 	static const uint32_t s_paletteLinear[] =
 	{
@@ -757,7 +769,7 @@ namespace bgfx
 		0xff13cff8, // Yellow
 		0xffd5dada  // White
 	};
-	BX_STATIC_ASSERT(BX_COUNTOF(s_paletteLinear) == 16);
+	static_assert(BX_COUNTOF(s_paletteLinear) == 16);
 
 	void blit(RendererContextI* _renderCtx, TextVideoMemBlitter& _blitter, const TextVideoMem& _mem)
 	{
@@ -936,7 +948,7 @@ namespace bgfx
 		"mat3",
 		"mat4",
 	};
-	BX_STATIC_ASSERT(UniformType::Count == BX_COUNTOF(s_uniformTypeName) );
+	static_assert(UniformType::Count == BX_COUNTOF(s_uniformTypeName) );
 
 	const char* getUniformTypeName(UniformType::Enum _enum)
 	{
@@ -1814,7 +1826,7 @@ namespace bgfx
 		"LineStrip",
 		"Points",
 	};
-	BX_STATIC_ASSERT(Topology::Count == BX_COUNTOF(s_topologyName) );
+	static_assert(Topology::Count == BX_COUNTOF(s_topologyName) );
 
 	const char* getName(Topology::Enum _topology)
 	{
@@ -2646,7 +2658,7 @@ namespace bgfx
 		{ gl::rendererCreate,     gl::rendererDestroy,     BGFX_RENDERER_OPENGL_NAME,     !!BGFX_CONFIG_RENDERER_OPENGL     }, // OpenGL
 		{ vk::rendererCreate,     vk::rendererDestroy,     BGFX_RENDERER_VULKAN_NAME,     !!BGFX_CONFIG_RENDERER_VULKAN     }, // Vulkan
 	};
-	BX_STATIC_ASSERT(BX_COUNTOF(s_rendererCreator) == RendererType::Count);
+	static_assert(BX_COUNTOF(s_rendererCreator) == RendererType::Count);
 
 	bool windowsVersionIs(Condition::Enum _op, uint32_t _version, uint32_t _build)
 	{
@@ -5602,7 +5614,7 @@ extern "C"
 #endif // BGFX_CONFIG_PREFER_DISCRETE_GPU
 
 #define BGFX_TEXTURE_FORMAT_BIMG(_fmt) \
-	BX_STATIC_ASSERT(uint32_t(bgfx::TextureFormat::_fmt) == uint32_t(bimg::TextureFormat::_fmt) )
+	static_assert(uint32_t(bgfx::TextureFormat::_fmt) == uint32_t(bimg::TextureFormat::_fmt) )
 
 BGFX_TEXTURE_FORMAT_BIMG(BC1);
 BGFX_TEXTURE_FORMAT_BIMG(BC2);
@@ -5708,29 +5720,29 @@ BGFX_TEXTURE_FORMAT_BIMG(Count);
 
 #define FLAGS_MASK_TEST(_flags, _mask) ( (_flags) == ( (_flags) & (_mask) ) )
 
-BX_STATIC_ASSERT(FLAGS_MASK_TEST(0
+static_assert(FLAGS_MASK_TEST(0
 	| BGFX_SAMPLER_INTERNAL_DEFAULT
 	| BGFX_SAMPLER_INTERNAL_SHARED
 	, BGFX_SAMPLER_RESERVED_MASK
 	) );
 
-BX_STATIC_ASSERT(FLAGS_MASK_TEST(0
+static_assert(FLAGS_MASK_TEST(0
 	| BGFX_RESET_INTERNAL_FORCE
 	, BGFX_RESET_RESERVED_MASK
 	) );
 
-BX_STATIC_ASSERT(FLAGS_MASK_TEST(0
+static_assert(FLAGS_MASK_TEST(0
 	| BGFX_STATE_INTERNAL_SCISSOR
 	| BGFX_STATE_INTERNAL_OCCLUSION_QUERY
 	, BGFX_STATE_RESERVED_MASK
 	) );
 
-BX_STATIC_ASSERT(FLAGS_MASK_TEST(0
+static_assert(FLAGS_MASK_TEST(0
 	| BGFX_SUBMIT_INTERNAL_OCCLUSION_VISIBLE
 	, BGFX_SUBMIT_INTERNAL_RESERVED_MASK
 	) );
 
-BX_STATIC_ASSERT( (0
+static_assert( (0
 	| BGFX_STATE_ALPHA_REF_MASK
 	| BGFX_STATE_BLEND_ALPHA_TO_COVERAGE
 	| BGFX_STATE_BLEND_EQUATION_MASK
@@ -5764,9 +5776,9 @@ BX_STATIC_ASSERT( (0
 	^ BGFX_STATE_WRITE_MASK
 	) );
 
-BX_STATIC_ASSERT(FLAGS_MASK_TEST(BGFX_CAPS_TEXTURE_COMPARE_LEQUAL, BGFX_CAPS_TEXTURE_COMPARE_ALL) );
+static_assert(FLAGS_MASK_TEST(BGFX_CAPS_TEXTURE_COMPARE_LEQUAL, BGFX_CAPS_TEXTURE_COMPARE_ALL) );
 
-BX_STATIC_ASSERT( (0
+static_assert( (0
 	| BGFX_CAPS_ALPHA_TO_COVERAGE
 	| BGFX_CAPS_BLEND_INDEPENDENT
 	| BGFX_CAPS_COMPUTE

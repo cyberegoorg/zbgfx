@@ -48,6 +48,7 @@
 #define SpvBuilder_H
 
 #include "Logger.h"
+#define SPV_ENABLE_UTILITY_CODE
 #include "spirv.hpp"
 #include "spvIR.h"
 namespace spv {
@@ -108,7 +109,7 @@ public:
     spv::Id getMainFileId() const { return mainFileId; }
 
     // Initialize the main source file name
-    void setDebugSourceFile(const std::string& file)
+    void setDebugMainSourceFile(const std::string& file)
     {
         if (trackDebugInfo) {
             dirtyLineTracker = true;
@@ -246,7 +247,7 @@ public:
     Id makeDebugValue(Id const debugLocalVariable, Id const value);
     Id makeDebugFunctionType(Id returnType, const std::vector<Id>& paramTypes);
     Id makeDebugFunction(Function* function, Id nameId, Id funcTypeId);
-    Id makeDebugLexicalBlock(uint32_t line);
+    Id makeDebugLexicalBlock(uint32_t line, uint32_t column);
     std::string unmangleFunctionName(std::string const& name) const;
 
     // Initialize non-semantic debug information for a function, including those of:
@@ -287,6 +288,7 @@ public:
     bool isCooperativeMatrix(Id resultId)const { return isCooperativeMatrixType(getTypeId(resultId)); }
     bool isAggregate(Id resultId)    const { return isAggregateType(getTypeId(resultId)); }
     bool isSampledImage(Id resultId) const { return isSampledImageType(getTypeId(resultId)); }
+    bool isTensorView(Id resultId)const { return isTensorViewType(getTypeId(resultId)); }
 
     bool isBoolType(Id typeId)
         { return groupedTypes[OpTypeBool].size() > 0 && typeId == groupedTypes[OpTypeBool].back()->getResultId(); }
@@ -307,6 +309,7 @@ public:
     {
         return getTypeClass(typeId) == OpTypeCooperativeMatrixKHR || getTypeClass(typeId) == OpTypeCooperativeMatrixNV;
     }
+    bool isTensorViewType(Id typeId)   const { return getTypeClass(typeId) == OpTypeTensorViewNV; }
     bool isAggregateType(Id typeId)    const
         { return isArrayType(typeId) || isStructType(typeId) || isCooperativeMatrixType(typeId); }
     bool isImageType(Id typeId)        const { return getTypeClass(typeId) == OpTypeImage; }
@@ -371,6 +374,8 @@ public:
     // For making new constants (will return old constant if the requested one was already made).
     Id makeNullConstant(Id typeId);
     Id makeBoolConstant(bool b, bool specConstant = false);
+    Id makeIntConstant(Id typeId, unsigned value, bool specConstant);
+    Id makeInt64Constant(Id typeId, unsigned long long value, bool specConstant);
     Id makeInt8Constant(int i, bool specConstant = false)
         { return makeIntConstant(makeIntType(8),  (unsigned)i, specConstant); }
     Id makeUint8Constant(unsigned u, bool specConstant = false)
@@ -420,8 +425,7 @@ public:
     // Also reset current last DebugScope and current source line to unknown
     void setBuildPoint(Block* bp) {
         buildPoint = bp;
-        // TODO: Technically, change of build point should set line tracker dirty. But we'll have bad line info for
-        //       branch instructions. Commenting this for now because at least this matches the old behavior.
+        dirtyLineTracker = true;
         dirtyScopeTracker = true;
     }
     Block* getBuildPoint() const { return buildPoint; }
@@ -429,6 +433,11 @@ public:
     // Append an instruction to the end of the current build point.
     // Optionally, additional debug info instructions may also be prepended.
     void addInstruction(std::unique_ptr<Instruction> inst);
+
+    // Append an instruction to the end of the current build point without prepending any debug instructions.
+    // This is useful for insertion of some debug info instructions themselves or some control flow instructions
+    // that are attached to its predecessor instruction.
+    void addInstructionNoDebugInfo(std::unique_ptr<Instruction> inst);
 
     // Make the entry-point function. The returned pointer is only valid
     // for the lifetime of this builder.
@@ -446,7 +455,7 @@ public:
     void makeReturn(bool implicit, Id retVal = 0);
 
     // Initialize state and generate instructions for new lexical scope
-    void enterLexicalBlock(uint32_t line);
+    void enterLexicalBlock(uint32_t line, uint32_t column);
 
     // Set state and generate instructions to exit current lexical scope
     void leaveLexicalBlock();
@@ -604,6 +613,11 @@ public:
     // matrix constructor
     Id createMatrixConstructor(Decoration precision, const std::vector<Id>& sources, Id constructee);
 
+    // coopmat conversion
+    Id createCooperativeMatrixConversion(Id typeId, Id source);
+    Id createCooperativeMatrixReduce(Op opcode, Id typeId, Id source, unsigned int mask, Id func);
+    Id createCooperativeMatrixPerElementOp(Id typeId, const std::vector<Id>& operands);
+
     // Helper to use for building nested control flow with if-then-else.
     class If {
     public:
@@ -643,7 +657,7 @@ public:
                     const std::vector<int>& valueToSegment, int defaultSegment, std::vector<Block*>& segmentBB);
 
     // Add a branch to the innermost switch's merge block.
-    void addSwitchBreak();
+    void addSwitchBreak(bool implicit);
 
     // Move to the next code segment, passing in the return argument in makeSwitch()
     void nextSwitchSegment(std::vector<Block*>& segmentBB, int segment);
@@ -865,7 +879,9 @@ public:
 
     void dump(std::vector<unsigned int>&) const;
 
-    void createBranch(Block* block);
+    // Add a branch to the target block.
+    // If set implicit, the branch instruction shouldn't have debug source location.
+    void createBranch(bool implicit, Block* block);
     void createConditionalBranch(Id condition, Block* thenBlock, Block* elseBlock);
     void createLoopMerge(Block* mergeBlock, Block* continueBlock, unsigned int control,
         const std::vector<unsigned int>& operands);
@@ -880,8 +896,6 @@ public:
     void setUseReplicatedComposites(bool use) { useReplicatedComposites = use; }
 
  protected:
-    Id makeIntConstant(Id typeId, unsigned value, bool specConstant);
-    Id makeInt64Constant(Id typeId, unsigned long long value, bool specConstant);
     Id findScalarConstant(Op typeClass, Op opcode, Id typeId, unsigned value);
     Id findScalarConstant(Op typeClass, Op opcode, Id typeId, unsigned v1, unsigned v2);
     Id findCompositeConstant(Op typeClass, Id typeId, const std::vector<Id>& comps);
@@ -997,6 +1011,6 @@ public:
     SpvBuildLogger* logger;
 };  // end Builder class
 
-};  // end spv namespace
+} // end spv namespace
 
 #endif // SpvBuilder_H
