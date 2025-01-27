@@ -1,4 +1,5 @@
 // Copyright (c) 2018 Google LLC.
+// Copyright (c) 2024 NVIDIA Corporation
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -36,6 +37,7 @@ spv_result_t ValidateUniqueness(ValidationState_t& _, const Instruction* inst) {
   const auto opcode = inst->opcode();
   if (opcode != spv::Op::OpTypeArray && opcode != spv::Op::OpTypeRuntimeArray &&
       opcode != spv::Op::OpTypeStruct && opcode != spv::Op::OpTypePointer &&
+      opcode != spv::Op::OpTypeUntypedPointerKHR &&
       !_.RegisterUniqueTypeDeclaration(inst)) {
     return _.diag(SPV_ERROR_INVALID_DATA, inst)
            << "Duplicate non-aggregate type declarations are not allowed. "
@@ -581,6 +583,173 @@ spv_result_t ValidateTypeCooperativeMatrix(ValidationState_t& _,
     }
   }
 
+  uint64_t scope_value;
+  if (_.EvalConstantValUint64(scope_id, &scope_value)) {
+    if (scope_value == static_cast<uint32_t>(spv::Scope::Workgroup)) {
+      for (auto entry_point_id : _.entry_points()) {
+        if (!_.EntryPointHasLocalSizeOrId(entry_point_id)) {
+          return _.diag(SPV_ERROR_INVALID_ID, inst)
+                 << "OpTypeCooperativeMatrixKHR with ScopeWorkgroup "
+                 << "used without specifying LocalSize or LocalSizeId "
+                 << "for entry point <id> " << _.getIdName(entry_point_id);
+        }
+        const auto local_size = _.EntryPointLocalSizeOrId(entry_point_id);
+        const auto mode = local_size->GetOperandAs<spv::ExecutionMode>(1);
+        if (mode == spv::ExecutionMode::LocalSizeId) {
+          uint32_t local_size_ids[3] = {
+              local_size->GetOperandAs<uint32_t>(2),
+              local_size->GetOperandAs<uint32_t>(3),
+              local_size->GetOperandAs<uint32_t>(4),
+          };
+          for (auto id : local_size_ids) {
+            if (_.FindDef(id) > inst) {
+              return _.diag(SPV_ERROR_INVALID_ID, inst)
+                     << "OpTypeCooperativeMatrixKHR with ScopeWorkgroup "
+                     << "used before LocalSizeId constant value <id> "
+                     << _.getIdName(id) << " is defined.";
+            }
+          }
+        }
+      }
+    }
+  }
+
+  return SPV_SUCCESS;
+}
+
+spv_result_t ValidateTypeUntypedPointerKHR(ValidationState_t& _,
+                                           const Instruction* inst) {
+  if (spvIsVulkanEnv(_.context()->target_env)) {
+    const auto sc = inst->GetOperandAs<spv::StorageClass>(1);
+    switch (sc) {
+      case spv::StorageClass::Workgroup:
+        if (!_.HasCapability(
+                spv::Capability::WorkgroupMemoryExplicitLayoutKHR)) {
+          return _.diag(SPV_ERROR_INVALID_ID, inst)
+                 << "Workgroup storage class untyped pointers in Vulkan "
+                    "require WorkgroupMemoryExplicitLayoutKHR be declared";
+        }
+        break;
+      case spv::StorageClass::StorageBuffer:
+      case spv::StorageClass::PhysicalStorageBuffer:
+      case spv::StorageClass::Uniform:
+      case spv::StorageClass::PushConstant:
+        break;
+      default:
+        return _.diag(SPV_ERROR_INVALID_ID, inst)
+               << "In Vulkan, untyped pointers can only be used in an "
+                  "explicitly laid out storage class";
+    }
+  }
+  return SPV_SUCCESS;
+}
+
+spv_result_t ValidateTensorDim(ValidationState_t& _, const Instruction* inst) {
+  const auto dim_index = 1;
+  const auto dim_id = inst->GetOperandAs<uint32_t>(dim_index);
+  const auto dim = _.FindDef(dim_id);
+  if (!dim || !_.IsIntScalarType(dim->type_id()) ||
+      _.GetBitWidth(dim->type_id()) != 32) {
+    return _.diag(SPV_ERROR_INVALID_ID, inst)
+           << spvOpcodeString(inst->opcode()) << " Dim <id> "
+           << _.getIdName(dim_id) << " is not a 32-bit integer.";
+  }
+
+  constexpr uint32_t max_tensor_dim = 5;
+
+  uint64_t dim_value;
+  if (_.EvalConstantValUint64(dim_id, &dim_value)) {
+    if (dim_value == 0 || dim_value > max_tensor_dim) {
+      return _.diag(SPV_ERROR_INVALID_ID, inst)
+             << spvOpcodeString(inst->opcode()) << " Dim <id> "
+             << _.getIdName(dim_id) << " must be between 1 and "
+             << max_tensor_dim << ".";
+    }
+  }
+
+  return SPV_SUCCESS;
+}
+
+spv_result_t ValidateTypeTensorLayoutNV(ValidationState_t& _,
+                                        const Instruction* inst) {
+  if (auto error = ValidateTensorDim(_, inst)) return error;
+
+  const auto clamp_index = 2;
+  const auto clamp_id = inst->GetOperandAs<uint32_t>(clamp_index);
+  const auto clamp = _.FindDef(clamp_id);
+  if (!clamp || !_.IsIntScalarType(clamp->type_id()) ||
+      _.GetBitWidth(clamp->type_id()) != 32) {
+    return _.diag(SPV_ERROR_INVALID_ID, inst)
+           << spvOpcodeString(inst->opcode()) << " ClampMode <id> "
+           << _.getIdName(clamp_id) << " is not a 32-bit integer.";
+  }
+
+  uint64_t clamp_value;
+  if (_.EvalConstantValUint64(clamp_id, &clamp_value)) {
+    if (clamp_value >
+        static_cast<uint32_t>(spv::TensorClampMode::RepeatMirrored)) {
+      return _.diag(SPV_ERROR_INVALID_ID, inst)
+             << spvOpcodeString(inst->opcode()) << " ClampMode <id> "
+             << _.getIdName(clamp_id) << " must be a valid TensorClampMode.";
+    }
+  }
+
+  return SPV_SUCCESS;
+}
+
+spv_result_t ValidateTypeTensorViewNV(ValidationState_t& _,
+                                      const Instruction* inst) {
+  if (auto error = ValidateTensorDim(_, inst)) return error;
+
+  const auto has_dim_index = 2;
+  const auto has_dim_id = inst->GetOperandAs<uint32_t>(has_dim_index);
+  const auto has_dim = _.FindDef(has_dim_id);
+  if (!has_dim || !_.IsBoolScalarType(has_dim->type_id())) {
+    return _.diag(SPV_ERROR_INVALID_ID, inst)
+           << spvOpcodeString(inst->opcode()) << " HasDimensions <id> "
+           << _.getIdName(has_dim_id) << " is not a boolean value.";
+  }
+
+  uint32_t permutation_mask = 0;
+  bool all_constant = true;
+  const auto num_dim = inst->operands().size() - 3;
+  for (size_t p_index = 3; p_index < inst->operands().size(); ++p_index) {
+    auto p_id = inst->GetOperandAs<uint32_t>(p_index);
+    const auto p = _.FindDef(p_id);
+    if (!p || !_.IsIntScalarType(p->type_id()) ||
+        _.GetBitWidth(p->type_id()) != 32) {
+      return _.diag(SPV_ERROR_INVALID_ID, inst)
+             << spvOpcodeString(inst->opcode()) << " Permutation <id> "
+             << _.getIdName(p_id) << " is not a 32-bit integer.";
+    }
+
+    uint64_t p_value;
+    if (_.EvalConstantValUint64(p_id, &p_value)) {
+      if (p_value >= num_dim) {
+        return _.diag(SPV_ERROR_INVALID_ID, inst)
+               << spvOpcodeString(inst->opcode()) << " Permutation <id> "
+               << _.getIdName(p_id) << " must be a valid dimension.";
+      }
+      permutation_mask |= 1 << p_value;
+    } else {
+      all_constant = false;
+    }
+  }
+  if (all_constant && permutation_mask != (1U << num_dim) - 1U) {
+    return _.diag(SPV_ERROR_INVALID_ID, inst)
+           << spvOpcodeString(inst->opcode())
+           << " Permutation values don't form a valid permutation.";
+  }
+
+  uint64_t dim_value;
+  if (_.EvalConstantValUint64(inst->GetOperandAs<uint32_t>(1), &dim_value)) {
+    if (dim_value != num_dim) {
+      return _.diag(SPV_ERROR_INVALID_ID, inst)
+             << spvOpcodeString(inst->opcode())
+             << " Incorrect number of permutation values.";
+    }
+  }
+
   return SPV_SUCCESS;
 }
 }  // namespace
@@ -627,6 +796,15 @@ spv_result_t TypePass(ValidationState_t& _, const Instruction* inst) {
     case spv::Op::OpTypeCooperativeMatrixNV:
     case spv::Op::OpTypeCooperativeMatrixKHR:
       if (auto error = ValidateTypeCooperativeMatrix(_, inst)) return error;
+      break;
+    case spv::Op::OpTypeUntypedPointerKHR:
+      if (auto error = ValidateTypeUntypedPointerKHR(_, inst)) return error;
+      break;
+    case spv::Op::OpTypeTensorLayoutNV:
+      if (auto error = ValidateTypeTensorLayoutNV(_, inst)) return error;
+      break;
+    case spv::Op::OpTypeTensorViewNV:
+      if (auto error = ValidateTypeTensorViewNV(_, inst)) return error;
       break;
     default:
       break;

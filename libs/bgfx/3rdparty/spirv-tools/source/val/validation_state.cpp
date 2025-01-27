@@ -73,6 +73,7 @@ ModuleLayoutSection InstructionLayoutSection(
     case spv::Op::OpTypeForwardPointer:
       return kLayoutTypes;
     case spv::Op::OpVariable:
+    case spv::Op::OpUntypedVariableKHR:
       if (current_section == kLayoutTypes) return kLayoutTypes;
       return kLayoutFunctionDefinitions;
     case spv::Op::OpExtInst:
@@ -869,6 +870,9 @@ uint32_t ValidationState_t::GetComponentType(uint32_t id) const {
     case spv::Op::OpTypeBool:
       return id;
 
+    case spv::Op::OpTypeArray:
+      return inst->word(2);
+
     case spv::Op::OpTypeVector:
       return inst->word(2);
 
@@ -990,6 +994,19 @@ bool ValidationState_t::IsFloatScalarOrVectorType(uint32_t id) const {
 bool ValidationState_t::IsIntScalarType(uint32_t id) const {
   const Instruction* inst = FindDef(id);
   return inst && inst->opcode() == spv::Op::OpTypeInt;
+}
+
+bool ValidationState_t::IsIntArrayType(uint32_t id) const {
+  const Instruction* inst = FindDef(id);
+  if (!inst) {
+    return false;
+  }
+
+  if (inst->opcode() == spv::Op::OpTypeArray) {
+    return IsIntScalarType(GetComponentType(id));
+  }
+
+  return false;
 }
 
 bool ValidationState_t::IsIntVectorType(uint32_t id) const {
@@ -1169,7 +1186,9 @@ bool ValidationState_t::GetStructMemberTypes(
 
 bool ValidationState_t::IsPointerType(uint32_t id) const {
   const Instruction* inst = FindDef(id);
-  return inst && inst->opcode() == spv::Op::OpTypePointer;
+  assert(inst);
+  return inst->opcode() == spv::Op::OpTypePointer ||
+         inst->opcode() == spv::Op::OpTypeUntypedPointerKHR;
 }
 
 bool ValidationState_t::GetPointerTypeInfo(
@@ -1179,6 +1198,12 @@ bool ValidationState_t::GetPointerTypeInfo(
 
   const Instruction* inst = FindDef(id);
   assert(inst);
+  if (inst->opcode() == spv::Op::OpTypeUntypedPointerKHR) {
+    *storage_class = spv::StorageClass(inst->word(2));
+    *data_type = 0;
+    return true;
+  }
+
   if (inst->opcode() != spv::Op::OpTypePointer) return false;
 
   *storage_class = spv::StorageClass(inst->word(2));
@@ -1265,8 +1290,9 @@ bool ValidationState_t::IsUnsigned64BitHandle(uint32_t id) const {
 }
 
 spv_result_t ValidationState_t::CooperativeMatrixShapesMatch(
-    const Instruction* inst, uint32_t m1, uint32_t m2) {
-  const auto m1_type = FindDef(m1);
+    const Instruction* inst, uint32_t result_type_id, uint32_t m2,
+    bool is_conversion, bool swap_row_col) {
+  const auto m1_type = FindDef(result_type_id);
   const auto m2_type = FindDef(m2);
 
   if (m1_type->opcode() != m2_type->opcode()) {
@@ -1281,6 +1307,10 @@ spv_result_t ValidationState_t::CooperativeMatrixShapesMatch(
   uint32_t m2_scope_id = m2_type->GetOperandAs<uint32_t>(2);
   uint32_t m2_rows_id = m2_type->GetOperandAs<uint32_t>(3);
   uint32_t m2_cols_id = m2_type->GetOperandAs<uint32_t>(4);
+
+  if (swap_row_col) {
+    std::swap(m1_rows_id, m1_cols_id);
+  }
 
   bool m1_is_int32 = false, m1_is_const_int32 = false, m2_is_int32 = false,
        m2_is_const_int32 = false;
@@ -1305,7 +1335,7 @@ spv_result_t ValidationState_t::CooperativeMatrixShapesMatch(
   if (m1_is_const_int32 && m2_is_const_int32 && m1_value != m2_value) {
     return diag(SPV_ERROR_INVALID_DATA, inst)
            << "Expected rows of Matrix type and Result Type to be "
-           << "identical";
+           << (swap_row_col ? "swapped with columns" : "identical");
   }
 
   std::tie(m1_is_int32, m1_is_const_int32, m1_value) =
@@ -1316,7 +1346,7 @@ spv_result_t ValidationState_t::CooperativeMatrixShapesMatch(
   if (m1_is_const_int32 && m2_is_const_int32 && m1_value != m2_value) {
     return diag(SPV_ERROR_INVALID_DATA, inst)
            << "Expected columns of Matrix type and Result Type to be "
-           << "identical";
+           << (swap_row_col ? "swapped with rows" : "identical");
   }
 
   if (m1_type->opcode() == spv::Op::OpTypeCooperativeMatrixKHR) {
@@ -1327,7 +1357,12 @@ spv_result_t ValidationState_t::CooperativeMatrixShapesMatch(
     std::tie(m2_is_int32, m2_is_const_int32, m2_value) =
         EvalInt32IfConst(m2_use_id);
 
-    if (m1_is_const_int32 && m2_is_const_int32 && m1_value != m2_value) {
+    if (m1_is_const_int32 && m2_is_const_int32 && m1_value != m2_value &&
+        // CooperativeMatrixConversionsNV allows conversions from Acc->A/B
+        !(is_conversion &&
+          HasCapability(spv::Capability::CooperativeMatrixConversionsNV) &&
+          m2_value ==
+              (uint32_t)spv::CooperativeMatrixUse::MatrixAccumulatorKHR)) {
       return diag(SPV_ERROR_INVALID_DATA, inst)
              << "Expected Use of Matrix type and Result Type to be "
              << "identical";
@@ -1687,6 +1722,39 @@ bool ValidationState_t::ContainsRuntimeArray(uint32_t id) const {
     return inst->opcode() == spv::Op::OpTypeRuntimeArray;
   };
   return ContainsType(id, f, /* traverse_all_types = */ false);
+}
+
+bool ValidationState_t::ContainsUntypedPointer(uint32_t id) const {
+  const auto inst = FindDef(id);
+  if (!inst) return false;
+  if (!spvOpcodeGeneratesType(inst->opcode())) return false;
+  if (inst->opcode() == spv::Op::OpTypeUntypedPointerKHR) return true;
+
+  switch (inst->opcode()) {
+    case spv::Op::OpTypeArray:
+    case spv::Op::OpTypeRuntimeArray:
+    case spv::Op::OpTypeVector:
+    case spv::Op::OpTypeMatrix:
+    case spv::Op::OpTypeImage:
+    case spv::Op::OpTypeSampledImage:
+    case spv::Op::OpTypeCooperativeMatrixNV:
+      return ContainsUntypedPointer(inst->GetOperandAs<uint32_t>(1u));
+    case spv::Op::OpTypePointer:
+      if (IsForwardPointer(id)) return false;
+      return ContainsUntypedPointer(inst->GetOperandAs<uint32_t>(2u));
+    case spv::Op::OpTypeFunction:
+    case spv::Op::OpTypeStruct: {
+      for (uint32_t i = 1; i < inst->operands().size(); ++i) {
+        if (ContainsUntypedPointer(inst->GetOperandAs<uint32_t>(i)))
+          return true;
+      }
+      return false;
+    }
+    default:
+      return false;
+  }
+
+  return false;
 }
 
 bool ValidationState_t::IsValidStorageClass(
@@ -2310,6 +2378,8 @@ std::string ValidationState_t::VkErrorID(uint32_t id,
       return VUID_WRAP(VUID-StandaloneSpirv-Uniform-06807);
     case 6808:
       return VUID_WRAP(VUID-StandaloneSpirv-PushConstant-06808);
+    case 6924:
+      return VUID_WRAP(VUID-StandaloneSpirv-OpTypeImage-06924);
     case 6925:
       return VUID_WRAP(VUID-StandaloneSpirv-Uniform-06925);
     case 7041:

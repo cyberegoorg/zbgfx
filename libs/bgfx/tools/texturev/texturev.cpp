@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2024 Branimir Karadzic. All rights reserved.
+ * Copyright 2011-2025 Branimir Karadzic. All rights reserved.
  * License: https://github.com/bkaradzic/bgfx/blob/master/LICENSE
  */
 
@@ -219,7 +219,7 @@ static const char* s_bindingName[] =
 	"Help",
 	"About",
 };
-BX_STATIC_ASSERT(Binding::Count == BX_COUNTOF(s_bindingName) );
+static_assert(Binding::Count == BX_COUNTOF(s_bindingName) );
 
 static const InputBinding* s_binding[] =
 {
@@ -228,7 +228,7 @@ static const InputBinding* s_binding[] =
 	s_bindingHelp,
 	s_bindingAbout,
 };
-BX_STATIC_ASSERT(Binding::Count == BX_COUNTOF(s_binding) );
+static_assert(Binding::Count == BX_COUNTOF(s_binding) );
 
 static const char* s_filter = ""
 	"All Image Formats (bmp, dds, exr, gif, gnf, jpg, jpeg, hdr, ktx, pgm, png, ppm, psd, pvr, tga) | *.bmp *.dds *.exr *.gif *.gnf *.jpg *.jpeg *.hdr *.ktx *.pgm *.png *.ppm *.psd *.pvr *.tga\n"
@@ -1294,7 +1294,7 @@ void help(const char* _error = NULL)
 
 	bx::printf(
 		  "texturev, bgfx texture viewer tool, version %d.%d.%d.\n"
-		  "Copyright 2011-2024 Branimir Karadzic. All rights reserved.\n"
+		  "Copyright 2011-2025 Branimir Karadzic. All rights reserved.\n"
 		  "License: https://github.com/bkaradzic/bgfx/blob/master/LICENSE\n\n"
 		, BGFX_TEXTUREV_VERSION_MAJOR
 		, BGFX_TEXTUREV_VERSION_MINOR
@@ -1967,7 +1967,7 @@ int _main_(int _argc, char** _argv)
 
 				ImGui::Text(
 					"texturev, bgfx texture viewer tool " ICON_KI_WRENCH ", version %d.%d.%d.\n"
-					"Copyright 2011-2024 Branimir Karadzic. All rights reserved.\n"
+					"Copyright 2011-2025 Branimir Karadzic. All rights reserved.\n"
 					"License: https://github.com/bkaradzic/bgfx/blob/master/LICENSE\n"
 					, BGFX_TEXTUREV_VERSION_MAJOR
 					, BGFX_TEXTUREV_VERSION_MINOR

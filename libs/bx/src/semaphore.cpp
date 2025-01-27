@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2024 Branimir Karadzic. All rights reserved.
+ * Copyright 2010-2025 Branimir Karadzic. All rights reserved.
  * License: https://github.com/bkaradzic/bx/blob/master/LICENSE
  */
 
@@ -54,7 +54,7 @@ namespace bx
 #if BX_CRT_NONE
 	Semaphore::Semaphore()
 	{
-		BX_STATIC_ASSERT(sizeof(SemaphoreInternal) <= sizeof(m_internal) );
+		static_assert(sizeof(SemaphoreInternal) <= sizeof(m_internal) );
 	}
 
 	Semaphore::~Semaphore()
@@ -77,7 +77,7 @@ namespace bx
 
 	Semaphore::Semaphore()
 	{
-		BX_STATIC_ASSERT(sizeof(SemaphoreInternal) <= sizeof(m_internal) );
+		static_assert(sizeof(SemaphoreInternal) <= sizeof(m_internal) );
 
 		SemaphoreInternal* si = (SemaphoreInternal*)m_internal;
 		si->m_handle = dispatch_semaphore_create(0);
@@ -137,7 +137,7 @@ namespace bx
 
 	Semaphore::Semaphore()
 	{
-		BX_STATIC_ASSERT(sizeof(SemaphoreInternal) <= sizeof(m_internal) );
+		static_assert(sizeof(SemaphoreInternal) <= sizeof(m_internal) );
 
 		SemaphoreInternal* si = (SemaphoreInternal*)m_internal;
 		si->m_count = 0;

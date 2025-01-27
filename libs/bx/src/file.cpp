@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2024 Branimir Karadzic. All rights reserved.
+ * Copyright 2010-2025 Branimir Karadzic. All rights reserved.
  * License: https://github.com/bkaradzic/bx/blob/master/LICENSE
  */
 
@@ -494,7 +494,7 @@ namespace bx
 
 	FileReader::FileReader()
 	{
-		BX_STATIC_ASSERT(sizeof(FileReaderImpl) <= sizeof(m_internal) );
+		static_assert(sizeof(FileReaderImpl) <= sizeof(m_internal) );
 		BX_PLACEMENT_NEW(m_internal, FileReaderImpl)(NULL);
 	}
 
@@ -530,7 +530,7 @@ namespace bx
 
 	FileWriter::FileWriter()
 	{
-		BX_STATIC_ASSERT(sizeof(FileWriterImpl) <= sizeof(m_internal) );
+		static_assert(sizeof(FileWriterImpl) <= sizeof(m_internal) );
 		BX_PLACEMENT_NEW(m_internal, FileWriterImpl)(NULL);
 	}
 
@@ -711,7 +711,7 @@ namespace bx
 
 	DirectoryReader::DirectoryReader()
 	{
-		BX_STATIC_ASSERT(sizeof(DirectoryReaderImpl) <= sizeof(m_internal) );
+		static_assert(sizeof(DirectoryReaderImpl) <= sizeof(m_internal) );
 		BX_PLACEMENT_NEW(m_internal, DirectoryReaderImpl);
 	}
 
@@ -865,14 +865,18 @@ namespace bx
 			return false;
 		}
 
-#if BX_CRT_MSVC
+#if BX_CRT_MSVC || BX_CRT_MINGW
 		int32_t result = -1;
 		FileInfo fi;
 		if (stat(fi, _filePath) )
 		{
 			if (FileType::Dir == fi.type)
 			{
+#	if BX_CRT_MINGW
+				result = ::rmdir(_filePath.getCPtr() );
+#	else
 				result = ::_rmdir(_filePath.getCPtr() );
+#	endif // BX_CRT_MINGW
 			}
 			else
 			{

@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2024 Branimir Karadzic. All rights reserved.
+ * Copyright 2010-2025 Branimir Karadzic. All rights reserved.
  * License: https://github.com/bkaradzic/bx/blob/master/LICENSE
  */
 
@@ -10,7 +10,7 @@
 #if BX_CRT_MSVC
 #	include <direct.h>
 #else
-#	include <unistd.h>
+#	include <unistd.h> // syscall, _SC_PAGESIZE
 #endif // BX_CRT_MSVC
 
 #if BX_PLATFORM_WINDOWS || BX_PLATFORM_WINRT
@@ -43,15 +43,14 @@
 
 #	if BX_PLATFORM_ANDROID
 #		include <malloc.h> // mallinfo
-#	elif   BX_PLATFORM_LINUX     \
+#	elif   BX_PLATFORM_LINUX \
 		|| BX_PLATFORM_RPI
 #		include <stdio.h>  // fopen
-#		include <unistd.h> // syscall
+#		include <sys/mman.h>
 #		include <sys/syscall.h>
 #	elif BX_PLATFORM_OSX
 #		include <mach/mach.h> // mach_task_basic_info
-#	elif BX_PLATFORM_ANDROID
-#		include "debug.h" // getTid is not implemented...
+#		include <sys/mman.h>
 #	endif // BX_PLATFORM_ANDROID
 #endif // BX_PLATFORM_
 
@@ -65,7 +64,7 @@ namespace bx
 	|| BX_PLATFORM_WINRT   \
 	|| BX_CRT_NONE
 		BX_UNUSED(_ms);
-		debugOutput("sleep is not implemented"); debugBreak();
+		BX_ASSERT(false, "Function '%s' is not implemented!", BX_FUNCTION);
 #else
 		timespec req = { (time_t)_ms/1000, (long)( (_ms%1000)*1000000) };
 		timespec rem = { 0, 0 };
@@ -80,7 +79,7 @@ namespace bx
 #elif  BX_PLATFORM_XBOXONE \
 	|| BX_PLATFORM_WINRT   \
 	|| BX_CRT_NONE
-		debugOutput("yield is not implemented"); debugBreak();
+		BX_ASSERT(false, "Function '%s' is not implemented!", BX_FUNCTION);
 #else
 		::sched_yield();
 #endif // BX_PLATFORM_
@@ -97,7 +96,7 @@ namespace bx
 	|| BX_PLATFORM_OSX
 		return (mach_port_t)::pthread_mach_thread_np(pthread_self() );
 #else
-		debugOutput("getTid is not implemented"); debugBreak();
+		BX_ASSERT(false, "Function '%s' is not implemented!", BX_FUNCTION);
 		return 0;
 #endif // BX_PLATFORM_
 	}
@@ -155,6 +154,7 @@ namespace bx
 			);
 		return pmc.WorkingSetSize;
 #else
+		BX_ASSERT(false, "Function '%s' is not implemented!", BX_FUNCTION);
 		return 0;
 #endif // BX_PLATFORM_*
 	}
@@ -202,7 +202,7 @@ namespace bx
 	void* dlsym(void* _handle, const StringView& _symbol)
 	{
 		const int32_t symbolMax = _symbol.getLength()+1;
-		char* symbol = (char*)alloca(symbolMax);
+		char* symbol = (char*)BX_STACK_ALLOC(symbolMax);
 		strCopy(symbol, symbolMax, _symbol);
 
 #if BX_PLATFORM_WINDOWS
@@ -223,7 +223,7 @@ namespace bx
 	bool getEnv(char* _out, uint32_t* _inOutSize, const StringView& _name)
 	{
 		const int32_t nameMax = _name.getLength()+1;
-		char* name = (char*)alloca(nameMax);
+		char* name = (char*)BX_STACK_ALLOC(nameMax);
 		strCopy(name, nameMax, _name);
 
 #if BX_PLATFORM_WINDOWS
@@ -262,14 +262,14 @@ namespace bx
 	void setEnv(const StringView& _name, const StringView& _value)
 	{
 		const int32_t nameMax = _name.getLength()+1;
-		char* name = (char*)alloca(nameMax);
+		char* name = (char*)BX_STACK_ALLOC(nameMax);
 		strCopy(name, nameMax, _name);
 
 		char* value = NULL;
 		if (!_value.isEmpty() )
 		{
 			int32_t valueMax = _value.getLength()+1;
-			value = (char*)alloca(valueMax);
+			value = (char*)BX_STACK_ALLOC(valueMax);
 			strCopy(value, valueMax, _value);
 		}
 
@@ -336,7 +336,7 @@ namespace bx
 			total += (int32_t)strLen(_argv[ii]) + 1;
 		}
 
-		char* temp = (char*)alloca(total);
+		char* temp = (char*)BX_STACK_ALLOC(total);
 		int32_t len = 0;
 		for(uint32_t ii = 0; NULL != _argv[ii]; ++ii)
 		{
@@ -372,6 +372,88 @@ namespace bx
 	void exit(int32_t _exitCode)
 	{
 		::exit(_exitCode);
+	}
+
+	void* memoryMap(void* _address, size_t _size, Error* _err)
+	{
+		BX_ERROR_SCOPE(_err);
+
+#if BX_PLATFORM_LINUX || BX_PLATFORM_OSX
+		constexpr int32_t flags = 0
+			| MAP_ANON
+			| MAP_PRIVATE
+			;
+
+		void* result = mmap(_address, _size, PROT_READ | PROT_WRITE, flags, -1 /*fd*/, 0 /*offset*/);
+
+		if (MAP_FAILED == result)
+		{
+			BX_ERROR_SET(
+				  _err
+				, kErrorMemoryMapFailed
+				, "kErrorMemoryMapFailed"
+				);
+
+			return NULL;
+		}
+
+		return result;
+#elif BX_PLATFORM_WINDOWS
+		void* result = VirtualAlloc(_address, _size, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
+
+		return result;
+#else
+		BX_UNUSED(_address, _size);
+		BX_ERROR_SET(_err, kErrorMemoryMapFailed, "Not implemented!");
+		return NULL;
+#endif // BX_PLATFORM_*
+	}
+
+	void memoryUnmap(void* _address, size_t _size, Error* _err)
+	{
+		BX_ERROR_SCOPE(_err);
+
+#if BX_PLATFORM_LINUX || BX_PLATFORM_OSX
+		int32_t result = munmap(_address, _size);
+
+		if (-1 == result)
+		{
+			BX_ERROR_SET(
+				  _err
+				, kErrorMemoryUnmapFailed
+				, "kErrorMemoryUnmapFailed"
+				);
+		}
+#elif BX_PLATFORM_WINDOWS
+		if (!VirtualFree(_address, _size, MEM_RELEASE) )
+		{
+			BX_ERROR_SET(
+				  _err
+				, kErrorMemoryUnmapFailed
+				, "kErrorMemoryUnmapFailed"
+				);
+		}
+#else
+		BX_UNUSED(_address, _size);
+		BX_ERROR_SET(_err, kErrorMemoryUnmapFailed, "Not implemented!");
+#endif // BX_PLATFORM_*
+	}
+
+	size_t memoryPageSize()
+	{
+		size_t pageSize;
+#if BX_PLATFORM_LINUX || BX_PLATFORM_OSX
+		pageSize = sysconf(_SC_PAGESIZE);
+#elif BX_PLATFORM_WINDOWS
+		SYSTEM_INFO si;
+		memSet(&si, 0, sizeof(si) );
+		::GetSystemInfo(&si);
+		pageSize = si.dwAllocationGranularity;
+#else
+		pageSize = 16<<10;
+#endif // BX_PLATFORM_WINDOWS
+
+		return pageSize;
 	}
 
 } // namespace bx

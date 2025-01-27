@@ -240,6 +240,21 @@ class ValidationState_t {
     entry_point_to_execution_modes_[entry_point].insert(execution_mode);
   }
 
+  /// Registers that the entry point declares its local size
+  void RegisterEntryPointLocalSize(uint32_t entry_point,
+                                   const Instruction* inst) {
+    entry_point_to_local_size_or_id_[entry_point] = inst;
+  }
+  /// Returns whether the entry point declares its local size
+  bool EntryPointHasLocalSizeOrId(uint32_t entry_point) const {
+    return entry_point_to_local_size_or_id_.find(entry_point) !=
+           entry_point_to_local_size_or_id_.end();
+  }
+  /// Returns the id of the local size
+  const Instruction* EntryPointLocalSizeOrId(uint32_t entry_point) const {
+    return entry_point_to_local_size_or_id_.find(entry_point)->second;
+  }
+
   /// Returns the interface descriptions of a given entry point.
   const std::vector<EntryPointDescription>& entry_point_descriptions(
       uint32_t entry_point) {
@@ -606,6 +621,7 @@ class ValidationState_t {
   bool IsFloatScalarOrVectorType(uint32_t id) const;
   bool IsFloatMatrixType(uint32_t id) const;
   bool IsIntScalarType(uint32_t id) const;
+  bool IsIntArrayType(uint32_t id) const;
   bool IsIntVectorType(uint32_t id) const;
   bool IsIntScalarOrVectorType(uint32_t id) const;
   bool IsUnsignedIntScalarType(uint32_t id) const;
@@ -647,6 +663,9 @@ class ValidationState_t {
   bool ContainsType(uint32_t id,
                     const std::function<bool(const Instruction*)>& f,
                     bool traverse_all_types = true) const;
+
+  // Returns true if |id| is type id that contains an untyped pointer.
+  bool ContainsUntypedPointer(uint32_t id) const;
 
   // Returns type_id if id has type or zero otherwise.
   uint32_t GetTypeId(uint32_t id) const;
@@ -755,11 +774,14 @@ class ValidationState_t {
     return SpvDecorationString(uint32_t(decoration));
   }
 
-  // Returns whether type m1 and type m2 are cooperative matrices with
-  // the same "shape" (matching scope, rows, cols). If any are specialization
-  // constants, we assume they can match because we can't prove they don't.
+  // Returns whether type result_type_id and type m2 are cooperative matrices
+  // with the same "shape" (matching scope, rows, cols). If any are
+  // specialization constants, we assume they can match because we can't prove
+  // they don't.
   spv_result_t CooperativeMatrixShapesMatch(const Instruction* inst,
-                                            uint32_t m1, uint32_t m2);
+                                            uint32_t result_type_id,
+                                            uint32_t m2, bool is_conversion,
+                                            bool swap_row_col = false);
 
   // Returns true if |lhs| and |rhs| logically match and, if the decorations of
   // |rhs| are a subset of |lhs|.
@@ -944,6 +966,10 @@ class ValidationState_t {
   /// Mapping entry point -> execution modes.
   std::unordered_map<uint32_t, std::set<spv::ExecutionMode>>
       entry_point_to_execution_modes_;
+
+  // Mapping entry point -> local size execution mode instruction
+  std::unordered_map<uint32_t, const Instruction*>
+      entry_point_to_local_size_or_id_;
 
   /// Mapping function -> array of entry points inside this
   /// module which can (indirectly) call the function.
