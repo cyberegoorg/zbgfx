@@ -61,13 +61,13 @@ Then in your `build.zig` add:
 pub fn build(b: *std.Build) void {
     const exe = b.addExecutable(.{ ... });
 
-const zbgfx = b.dependency("zbgfx", .{});
-exe.root_module.addImport("zbgfx", zbgfx.module("zbgfx"));
-exe.linkLibrary(zbgfx.artifact("bgfx"));
+    const zbgfx = b.dependency("zbgfx", .{});
+    exe.root_module.addImport("zbgfx", zbgfx.module("zbgfx"));
+    exe.linkLibrary(zbgfx.artifact("bgfx"));
 
-// This install shaderc to install dir
-// For shader build in build =D check examples
-// b.installArtifact(zbgfx.artifact("shaderc"));
+    // This install shaderc to install dir
+    // For shader build in build =D check examples
+    // b.installArtifact(zbgfx.artifact("shaderc"));
 }
 ```
 
