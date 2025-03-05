@@ -1,5 +1,6 @@
 .{
-    .name = "zbgfx-minimal",
+    .name = .examples,
+    .fingerprint = 0x7bd0ad45636a9f2b,
     .version = "0.1.0",
     .paths = .{
         "build.zig",
@@ -10,13 +11,13 @@
         .zbgfx = .{ .path = "../" },
 
         .zglfw = .{
-            .url = "https://github.com/zig-gamedev/zglfw/archive/1c8f7de20bb01076c94582e22d9393a8d6bf30fe.tar.gz",
-            .hash = "1220aac39fd472cb7a70b1987249f3ac73799e702ff27516d799e1d5e566097f0a8b",
+            .url = "https://github.com/zig-gamedev/zglfw/archive/4d04fdac888c0f6c1c858ba343d33b19aa499cef.tar.gz",
+            .hash = "1220ca0fc58588dbcc38ecfb7dab23f281ba55a8dc76d6efd32afd881e96ffd13605",
         },
 
         .zgui = .{
-            .url = "https://github.com/zig-gamedev/zgui/archive/c16629e67e7bc1bca9a5c67d5123874c75f5374d.tar.gz",
-            .hash = "12202063c813c1b95affa57d83a6a4817d9a4114bd9db052f87740f81b1843ceca09",
+            .url = "https://github.com/zig-gamedev/zgui/archive/5f0e01e8cd7f423a27ad56a712e9770a81d5d272.tar.gz",
+            .hash = "12209ee39f11d6100f84b848858b4048f208f70e06091ccf603879caf0e86fbd058a",
         },
 
         .zmath = .{

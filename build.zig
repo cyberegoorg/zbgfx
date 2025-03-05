@@ -132,7 +132,7 @@ pub fn build(b: *std.Build) !void {
 
     bgfx.addIncludePath(b.path("includes"));
 
-    if (target.result.isDarwin()) {
+    if (target.result.isDarwinLibC()) {
         bgfx.linkSystemLibrary("objc");
 
         bgfx.linkFramework("Cocoa");
@@ -459,7 +459,7 @@ pub fn build(b: *std.Build) !void {
                 .flags = &glslang_cxx_options,
             });
         }
-        if (target.result.os.tag == .linux or target.result.isDarwin()) {
+        if (target.result.os.tag == .linux or target.result.isDarwinLibC()) {
             glslang_lib.addCSourceFile(.{
                 .file = b.path(glslang_path ++ "glslang/OSDependent/Unix/ossource.cpp"),
                 .flags = &glslang_cxx_options,
