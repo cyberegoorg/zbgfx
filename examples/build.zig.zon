@@ -11,18 +11,18 @@
         .zbgfx = .{ .path = "../" },
 
         .zglfw = .{
-            .url = "https://github.com/zig-gamedev/zglfw/archive/4d04fdac888c0f6c1c858ba343d33b19aa499cef.tar.gz",
-            .hash = "1220ca0fc58588dbcc38ecfb7dab23f281ba55a8dc76d6efd32afd881e96ffd13605",
+            .url = "https://github.com/zig-gamedev/zglfw/archive/dcb1dae7d4a90f88b70dbae73300ab9b19fb250c.tar.gz",
+            .hash = "zglfw-0.10.0-dev-zgVDNJmZIQCIiO_94Sp5jqrPtz4Eumk3bDcxS7dSZfIj",
         },
 
         .zgui = .{
-            .url = "https://github.com/zig-gamedev/zgui/archive/5f0e01e8cd7f423a27ad56a712e9770a81d5d272.tar.gz",
-            .hash = "12209ee39f11d6100f84b848858b4048f208f70e06091ccf603879caf0e86fbd058a",
+            .url = "https://github.com/zig-gamedev/zgui/archive/ce435610d6ba91b62f196ffa9107d8119786ccad.tar.gz",
+            .hash = "zgui-0.6.0-dev--L6sZOKHaAAOm8AcMfPrQ_qR_sKT-ACvNqpsZDYbojz_",
         },
 
         .zmath = .{
-            .url = "https://github.com/zig-gamedev/zmath/archive/f40bb8a935b4878c707c3fccfd5c234cfcb43bf2.tar.gz",
-            .hash = "1220c1ab7d1e49106f59c6adb4004befdb95525a72056364a663757aaa1365aae64a",
+            .url = "https://github.com/zig-gamedev/zmath/archive/ccf7297ef6c01e21b2d51ad81b5b6ce929e86a00.tar.gz",
+            .hash = "zmath-0.11.0-dev-wjwivZY1AwDO7yxNmZ5HWoU03f9mFBet8LN9-oYc3i29",
         },
     },
 }
