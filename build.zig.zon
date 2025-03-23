@@ -1,7 +1,7 @@
 .{
     .name = .zbgfx,
     .fingerprint = 0xc48ed871c4086e4a,
-    .version = "0.2.0",
+    .version = "0.3.0",
     .paths = .{
         "includes",
         "libs",
