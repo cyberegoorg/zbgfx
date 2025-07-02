@@ -26,7 +26,6 @@
 #include <utility>
 #include <vector>
 
-#include "source/assembly_grammar.h"
 #include "source/diagnostic.h"
 #include "source/opt/build_module.h"
 #include "source/opt/compact_ids_pass.h"
@@ -39,6 +38,7 @@
 #include "source/opt/type_manager.h"
 #include "source/spirv_constant.h"
 #include "source/spirv_target_env.h"
+#include "source/table2.h"
 #include "source/util/make_unique.h"
 #include "source/util/string_utils.h"
 #include "spirv-tools/libspirv.hpp"
@@ -103,7 +103,6 @@ spv_result_t GenerateHeader(const MessageConsumer& consumer,
 // |linked_context| should not be null.
 spv_result_t MergeModules(const MessageConsumer& consumer,
                           const std::vector<Module*>& in_modules,
-                          const AssemblyGrammar& grammar,
                           IRContext* linked_context);
 
 // Compute all pairs of import and export and return it in |linkings_to_do|.
@@ -246,7 +245,6 @@ spv_result_t GenerateHeader(const MessageConsumer& consumer,
 
 spv_result_t MergeModules(const MessageConsumer& consumer,
                           const std::vector<Module*>& input_modules,
-                          const AssemblyGrammar& grammar,
                           IRContext* linked_context) {
   spv_position_t position = {};
 
@@ -294,29 +292,33 @@ spv_result_t MergeModules(const MessageConsumer& consumer,
     const uint32_t module_addressing_model =
         memory_model_inst->GetSingleWordOperand(0u);
     if (module_addressing_model != linked_addressing_model) {
-      spv_operand_desc linked_desc = nullptr, module_desc = nullptr;
-      grammar.lookupOperand(SPV_OPERAND_TYPE_ADDRESSING_MODEL,
-                            linked_addressing_model, &linked_desc);
-      grammar.lookupOperand(SPV_OPERAND_TYPE_ADDRESSING_MODEL,
-                            module_addressing_model, &module_desc);
+      const spvtools::OperandDesc* linked_desc = nullptr;
+      const spvtools::OperandDesc* module_desc = nullptr;
+      spvtools::LookupOperand(SPV_OPERAND_TYPE_ADDRESSING_MODEL,
+                              linked_addressing_model, &linked_desc);
+      spvtools::LookupOperand(SPV_OPERAND_TYPE_ADDRESSING_MODEL,
+                              module_addressing_model, &module_desc);
       return DiagnosticStream(position, consumer, "", SPV_ERROR_INTERNAL)
-             << "Conflicting addressing models: " << linked_desc->name
+             << "Conflicting addressing models: " << linked_desc->name().data()
              << " (input modules 1 through " << i << ") vs "
-             << module_desc->name << " (input module " << (i + 1) << ").";
+             << module_desc->name().data() << " (input module " << (i + 1)
+             << ").";
     }
 
     const uint32_t module_memory_model =
         memory_model_inst->GetSingleWordOperand(1u);
     if (module_memory_model != linked_memory_model) {
-      spv_operand_desc linked_desc = nullptr, module_desc = nullptr;
-      grammar.lookupOperand(SPV_OPERAND_TYPE_MEMORY_MODEL, linked_memory_model,
-                            &linked_desc);
-      grammar.lookupOperand(SPV_OPERAND_TYPE_MEMORY_MODEL, module_memory_model,
-                            &module_desc);
+      const spvtools::OperandDesc* linked_desc = nullptr;
+      const spvtools::OperandDesc* module_desc = nullptr;
+      spvtools::LookupOperand(SPV_OPERAND_TYPE_MEMORY_MODEL,
+                              linked_memory_model, &linked_desc);
+      spvtools::LookupOperand(SPV_OPERAND_TYPE_MEMORY_MODEL,
+                              module_memory_model, &module_desc);
       return DiagnosticStream(position, consumer, "", SPV_ERROR_INTERNAL)
-             << "Conflicting memory models: " << linked_desc->name
+             << "Conflicting memory models: " << linked_desc->name().data()
              << " (input modules 1 through " << i << ") vs "
-             << module_desc->name << " (input module " << (i + 1) << ").";
+             << module_desc->name().data() << " (input module " << (i + 1)
+             << ").";
     }
   }
   linked_module->SetMemoryModel(std::unique_ptr<Instruction>(
@@ -333,11 +335,11 @@ spv_result_t MergeModules(const MessageConsumer& consumer,
             return v.first == model && v.second == name;
           });
       if (i != entry_points.end()) {
-        spv_operand_desc desc = nullptr;
-        grammar.lookupOperand(SPV_OPERAND_TYPE_EXECUTION_MODEL, model, &desc);
+        const spvtools::OperandDesc* desc = nullptr;
+        spvtools::LookupOperand(SPV_OPERAND_TYPE_EXECUTION_MODEL, model, &desc);
         return DiagnosticStream(position, consumer, "", SPV_ERROR_INTERNAL)
                << "The entry point \"" << name << "\", with execution model "
-               << desc->name << ", was already defined.";
+               << desc->name().data() << ", was already defined.";
       }
       linked_module->AddEntryPoint(
           std::unique_ptr<Instruction>(inst.Clone(linked_context)));
@@ -420,6 +422,7 @@ spv_result_t GetImportExportPairs(const MessageConsumer& consumer,
 
   std::vector<LinkageSymbolInfo> imports;
   std::unordered_map<std::string, std::vector<LinkageSymbolInfo>> exports;
+  std::unordered_map<std::string, LinkageSymbolInfo> linkonce;
 
   // Figure out the imports and exports
   for (const auto& decoration : linked_context.annotations()) {
@@ -478,10 +481,24 @@ spv_result_t GetImportExportPairs(const MessageConsumer& consumer,
              << " LinkageAttributes; " << id << " is neither of them.\n";
     }
 
-    if (spv::LinkageType(type) == spv::LinkageType::Import)
+    if (spv::LinkageType(type) == spv::LinkageType::Import) {
       imports.push_back(symbol_info);
-    else if (spv::LinkageType(type) == spv::LinkageType::Export)
+    } else if (spv::LinkageType(type) == spv::LinkageType::Export) {
       exports[symbol_info.name].push_back(symbol_info);
+    } else if (spv::LinkageType(type) == spv::LinkageType::LinkOnceODR) {
+      if (linkonce.find(symbol_info.name) == linkonce.end())
+        linkonce[symbol_info.name] = symbol_info;
+    }
+  }
+
+  for (const auto& possible_export : linkonce) {
+    if (exports.find(possible_export.first) == exports.end())
+      exports[possible_export.first].push_back(possible_export.second);
+    else
+      return DiagnosticStream(position, consumer, "", SPV_ERROR_INVALID_BINARY)
+             << "Combination of Export and LinkOnceODR is not allowed, found "
+                "for \""
+             << possible_export.second.name << "\".";
   }
 
   // Find the import/export pairs
@@ -661,8 +678,10 @@ spv_result_t RemoveLinkageSpecificInstructions(
       if (inst->opcode() == spv::Op::OpDecorate &&
           spv::Decoration(inst->GetSingleWordOperand(1u)) ==
               spv::Decoration::LinkageAttributes &&
-          spv::LinkageType(inst->GetSingleWordOperand(3u)) ==
-              spv::LinkageType::Export) {
+          (spv::LinkageType(inst->GetSingleWordOperand(3u)) ==
+               spv::LinkageType::Export ||
+           spv::LinkageType(inst->GetSingleWordOperand(3u)) ==
+               spv::LinkageType::LinkOnceODR)) {
         linked_context->KillInst(&*inst);
       }
     }
@@ -848,8 +867,7 @@ spv_result_t Link(const Context& context, const uint32_t* const* binaries,
   linked_context.module()->SetHeader(header);
 
   // Phase 3: Merge all the binaries into a single one.
-  AssemblyGrammar grammar(c_context);
-  res = MergeModules(consumer, modules, grammar, &linked_context);
+  res = MergeModules(consumer, modules, &linked_context);
   if (res != SPV_SUCCESS) return res;
 
   if (options.GetVerifyIds()) {

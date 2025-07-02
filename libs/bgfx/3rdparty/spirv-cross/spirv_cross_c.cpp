@@ -55,6 +55,7 @@
 #ifdef _MSC_VER
 #pragma warning(push)
 #pragma warning(disable : 4996)
+#pragma warning(disable : 4065) // switch with 'default' but not 'case'.
 #endif
 
 #ifndef SPIRV_CROSS_EXCEPTIONS_TO_ASSERTIONS
@@ -565,8 +566,16 @@ spvc_result spvc_compiler_options_set_uint(spvc_compiler_options options, spvc_c
 		options->msl.enable_point_size_builtin = value != 0;
 		break;
 
+	case SPVC_COMPILER_OPTION_MSL_ENABLE_POINT_SIZE_DEFAULT:
+		options->msl.enable_point_size_default = value != 0;
+		break;
+
 	case SPVC_COMPILER_OPTION_MSL_DISABLE_RASTERIZATION:
 		options->msl.disable_rasterization = value != 0;
+		break;
+
+	case SPVC_COMPILER_OPTION_MSL_AUTO_DISABLE_RASTERIZATION:
+		options->msl.auto_disable_rasterization = value != 0;
 		break;
 
 	case SPVC_COMPILER_OPTION_MSL_CAPTURE_OUTPUT_TO_BUFFER:

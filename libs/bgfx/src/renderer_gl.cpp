@@ -4420,7 +4420,7 @@ namespace bgfx { namespace gl
 					break;
 				}
 
-				UniformType::Enum type;
+				uint8_t type;
 				uint16_t ignore;
 				uint16_t num;
 				uint16_t copy;
@@ -6123,8 +6123,8 @@ namespace bgfx { namespace gl
 			GL_CHECK(glTexParameteri(target, GL_TEXTURE_WRAP_S, s_textureAddress[(flags&BGFX_SAMPLER_U_MASK)>>BGFX_SAMPLER_U_SHIFT]) );
 			GL_CHECK(glTexParameteri(target, GL_TEXTURE_WRAP_T, s_textureAddress[(flags&BGFX_SAMPLER_V_MASK)>>BGFX_SAMPLER_V_SHIFT]) );
 
-			if (BX_ENABLED(BGFX_CONFIG_RENDERER_OPENGL) || s_renderGL->m_gles3
-			||  s_extension[Extension::APPLE_texture_max_level].m_supported)
+			if (1 < numMips
+			&& (BX_ENABLED(BGFX_CONFIG_RENDERER_OPENGL) || s_renderGL->m_gles3 || s_extension[Extension::APPLE_texture_max_level].m_supported) )
 			{
 				GL_CHECK(glTexParameteri(targetMsaa, GL_TEXTURE_MAX_LEVEL, numMips-1) );
 			}

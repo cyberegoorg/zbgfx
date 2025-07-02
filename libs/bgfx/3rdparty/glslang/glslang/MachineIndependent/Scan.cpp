@@ -408,6 +408,7 @@ const std::unordered_map<const char*, int, str_hash, str_eq> KeywordMap {
     {"writeonly",WRITEONLY},
     {"atomic_uint",ATOMIC_UINT},
     {"volatile",VOLATILE},
+    {"nontemporal",NONTEMPORAL},
     {"patch",PATCH},
     {"sample",SAMPLE},
     {"subroutine",SUBROUTINE},
@@ -535,6 +536,11 @@ const std::unordered_map<const char*, int, str_hash, str_eq> KeywordMap {
     {"f16mat4x2",F16MAT4X2},
     {"f16mat4x3",F16MAT4X3},
     {"f16mat4x4",F16MAT4X4},
+
+    {"bfloat16_t",BFLOAT16_T},
+    {"bf16vec2",BF16VEC2},
+    {"bf16vec3",BF16VEC3},
+    {"bf16vec4",BF16VEC4},
 
     {"float32_t",FLOAT32_T},
     {"f32vec2",F32VEC2},
@@ -756,6 +762,8 @@ const std::unordered_map<const char*, int, str_hash, str_eq> KeywordMap {
     {"__function",FUNCTION},
     {"tensorLayoutNV",TENSORLAYOUTNV},
     {"tensorViewNV",TENSORVIEWNV},
+
+    {"coopvecNV",COOPVECNV},
 };
 const std::unordered_set<const char*, str_hash, str_eq> ReservedSet {
     "common",
@@ -1104,6 +1112,15 @@ int TScanContext::tokenizeIdentifier()
             (parseContext.version < 420 && ! parseContext.extensionTurnedOn(E_GL_ARB_shader_image_load_store))))
             reservedWord();
         return keyword;
+    case NONTEMPORAL:
+        if (parseContext.symbolTable.atBuiltInLevel())
+            return keyword;
+        if (parseContext.extensionTurnedOn(E_GL_EXT_nontemporal_keyword)) {
+            if (!parseContext.intermediate.usingVulkanMemoryModel())
+                parseContext.warn(loc, "Nontemporal without the Vulkan Memory Model is ignored", tokenText, "");
+            return keyword;
+        }
+        return identifierOrType();
     case PATCH:
         if (parseContext.symbolTable.atBuiltInLevel() ||
             (parseContext.isEsProfile() &&
@@ -1114,12 +1131,16 @@ int TScanContext::tokenizeIdentifier()
 
         return es30ReservedFromGLSL(400);
 
-    case SAMPLE:
+    case SAMPLE: 
+    {
+        const int numLayoutExts = 3;
+        const char* layoutExts[numLayoutExts] = {E_GL_OES_shader_multisample_interpolation, E_GL_ARB_gpu_shader5,
+                                                 E_GL_NV_gpu_shader5};
         if ((parseContext.isEsProfile() && parseContext.version >= 320) ||
-            parseContext.extensionsTurnedOn(1, &E_GL_OES_shader_multisample_interpolation))
+            parseContext.extensionsTurnedOn(numLayoutExts, layoutExts))
             return keyword;
         return es30ReservedFromGLSL(400);
-
+    }
     case SUBROUTINE:
         return es30ReservedFromGLSL(400);
 
@@ -1311,6 +1332,7 @@ int TScanContext::tokenizeIdentifier()
         if (parseContext.symbolTable.atBuiltInLevel() ||
             parseContext.extensionTurnedOn(E_GL_ARB_gpu_shader_int64) ||
             parseContext.extensionTurnedOn(E_GL_EXT_shader_explicit_arithmetic_types) ||
+            parseContext.extensionTurnedOn(E_GL_NV_gpu_shader5) ||
             parseContext.extensionTurnedOn(E_GL_EXT_shader_explicit_arithmetic_types_int64))
             return keyword;
         return identifierOrType();
@@ -1327,6 +1349,7 @@ int TScanContext::tokenizeIdentifier()
         if (parseContext.symbolTable.atBuiltInLevel() ||
             parseContext.extensionTurnedOn(E_GL_EXT_shader_explicit_arithmetic_types) ||
             parseContext.extensionTurnedOn(E_GL_EXT_shader_8bit_storage) ||
+            parseContext.extensionTurnedOn(E_GL_NV_gpu_shader5) ||
             parseContext.extensionTurnedOn(E_GL_EXT_shader_explicit_arithmetic_types_int8))
             return keyword;
         return identifierOrType();
@@ -1344,6 +1367,7 @@ int TScanContext::tokenizeIdentifier()
             parseContext.extensionTurnedOn(E_GL_AMD_gpu_shader_int16) ||
             parseContext.extensionTurnedOn(E_GL_EXT_shader_16bit_storage) ||
             parseContext.extensionTurnedOn(E_GL_EXT_shader_explicit_arithmetic_types) ||
+            parseContext.extensionTurnedOn(E_GL_NV_gpu_shader5) ||
             parseContext.extensionTurnedOn(E_GL_EXT_shader_explicit_arithmetic_types_int16))
             return keyword;
         return identifierOrType();
@@ -1358,6 +1382,7 @@ int TScanContext::tokenizeIdentifier()
         afterType = true;
         if (parseContext.symbolTable.atBuiltInLevel() ||
             parseContext.extensionTurnedOn(E_GL_EXT_shader_explicit_arithmetic_types) ||
+            parseContext.extensionTurnedOn(E_GL_NV_gpu_shader5) ||
             parseContext.extensionTurnedOn(E_GL_EXT_shader_explicit_arithmetic_types_int32))
             return keyword;
         return identifierOrType();
@@ -1365,6 +1390,13 @@ int TScanContext::tokenizeIdentifier()
     case F32VEC2:
     case F32VEC3:
     case F32VEC4:
+        afterType = true;
+        if (parseContext.symbolTable.atBuiltInLevel() ||
+            parseContext.extensionTurnedOn(E_GL_EXT_shader_explicit_arithmetic_types) ||
+            parseContext.extensionTurnedOn(E_GL_NV_gpu_shader5) ||
+            parseContext.extensionTurnedOn(E_GL_EXT_shader_explicit_arithmetic_types_float32))
+            return keyword;
+        return identifierOrType();
     case F32MAT2:
     case F32MAT3:
     case F32MAT4:
@@ -1388,6 +1420,14 @@ int TScanContext::tokenizeIdentifier()
     case F64VEC2:
     case F64VEC3:
     case F64VEC4:
+    afterType = true;
+    if (parseContext.symbolTable.atBuiltInLevel() ||
+        parseContext.extensionTurnedOn(E_GL_EXT_shader_explicit_arithmetic_types) ||
+        (parseContext.extensionTurnedOn(E_GL_NV_gpu_shader5) && 
+         parseContext.extensionTurnedOn(E_GL_ARB_gpu_shader_fp64)) ||
+        parseContext.extensionTurnedOn(E_GL_EXT_shader_explicit_arithmetic_types_float64))
+        return keyword;
+    return identifierOrType();
     case F64MAT2:
     case F64MAT3:
     case F64MAT4:
@@ -1416,6 +1456,7 @@ int TScanContext::tokenizeIdentifier()
             parseContext.extensionTurnedOn(E_GL_AMD_gpu_shader_half_float) ||
             parseContext.extensionTurnedOn(E_GL_EXT_shader_16bit_storage) ||
             parseContext.extensionTurnedOn(E_GL_EXT_shader_explicit_arithmetic_types) ||
+            parseContext.extensionTurnedOn(E_GL_NV_gpu_shader5) ||
             parseContext.extensionTurnedOn(E_GL_EXT_shader_explicit_arithmetic_types_float16))
             return keyword;
 
@@ -1442,6 +1483,17 @@ int TScanContext::tokenizeIdentifier()
 
         return identifierOrType();
 
+    case BFLOAT16_T:
+    case BF16VEC2:
+    case BF16VEC3:
+    case BF16VEC4:
+        afterType = true;
+        if (parseContext.symbolTable.atBuiltInLevel() ||
+            parseContext.extensionTurnedOn(E_GL_EXT_bfloat16))
+            return keyword;
+
+        return identifierOrType();
+
     case SAMPLERCUBEARRAY:
     case SAMPLERCUBEARRAYSHADOW:
     case ISAMPLERCUBEARRAY:
@@ -1450,7 +1502,9 @@ int TScanContext::tokenizeIdentifier()
         if ((parseContext.isEsProfile() && parseContext.version >= 320) ||
             parseContext.extensionsTurnedOn(Num_AEP_texture_cube_map_array, AEP_texture_cube_map_array))
             return keyword;
-        if (parseContext.isEsProfile() || (parseContext.version < 400 && ! parseContext.extensionTurnedOn(E_GL_ARB_texture_cube_map_array)))
+        if (parseContext.isEsProfile() || (parseContext.version < 400 &&
+            ! parseContext.extensionTurnedOn(E_GL_ARB_texture_cube_map_array)
+            && ! parseContext.extensionsTurnedOn(Num_AEP_core_gpu_shader5, AEP_core_gpu_shader5)))
             reservedWord();
         return keyword;
 
@@ -1731,7 +1785,9 @@ int TScanContext::tokenizeIdentifier()
     case PRECISE:
         if ((parseContext.isEsProfile() &&
              (parseContext.version >= 320 || parseContext.extensionsTurnedOn(Num_AEP_gpu_shader5, AEP_gpu_shader5))) ||
-            (!parseContext.isEsProfile() && parseContext.version >= 400))
+            (!parseContext.isEsProfile() &&
+             (parseContext.version >= 400 
+             || parseContext.extensionsTurnedOn(Num_AEP_core_gpu_shader5, AEP_core_gpu_shader5))))
             return keyword;
         if (parseContext.isEsProfile() && parseContext.version == 310) {
             reservedWord();
@@ -1773,6 +1829,13 @@ int TScanContext::tokenizeIdentifier()
         afterType = true;
         if (parseContext.symbolTable.atBuiltInLevel() ||
             parseContext.extensionTurnedOn(E_GL_KHR_cooperative_matrix))
+            return keyword;
+        return identifierOrType();
+
+    case COOPVECNV:
+        afterType = true;
+        if (parseContext.symbolTable.atBuiltInLevel() ||
+            parseContext.extensionTurnedOn(E_GL_NV_cooperative_vector))
             return keyword;
         return identifierOrType();
 

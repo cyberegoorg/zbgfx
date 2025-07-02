@@ -41,9 +41,9 @@ Minimal is `0.14.0`. But you know try your version and believe.
 
 ## Bgfx version
 
-- [BX](https://github.com/bkaradzic/bx//compare/01c99ddd0912c5ecf56d9522f287c6c67aa3ad14...master)
-- [BImg](https://github.com/bkaradzic/bimg/compare/c5c7b6e1874cf60caa18b643391f5122f89a4ca8...master)
-- [BGFX](https://github.com/bkaradzic/bgfx/compare/de56398919b875b27b629c0b62f119c338c081d8...master)
+- [BX](https://github.com/bkaradzic/bx//compare/d858859d1724fc037129318330f9c5ee5e008a08...master)
+- [BImg](https://github.com/bkaradzic/bimg/compare/446b9eb11130821fd11607c2fc94aee80976e56a...master)
+- [BGFX](https://github.com/bkaradzic/bgfx/compare/14e0aa5aff65a12df621fbc9466b42d41d01f013...master)
 
 ## Getting started
 
