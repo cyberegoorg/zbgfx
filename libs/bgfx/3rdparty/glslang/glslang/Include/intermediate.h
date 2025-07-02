@@ -387,6 +387,11 @@ enum TOperator {
     EOpSubgroupPartitionedExclusiveXor,
 
     EOpSubgroupGuardStop,
+    
+    // Integer dot product
+    EOpDotPackedEXT,
+    EOpDotAccSatEXT,
+    EOpDotPackedAccSatEXT,
 
     EOpMinInvocations,
     EOpMaxInvocations,
@@ -466,6 +471,13 @@ enum TOperator {
     EOpTensorViewSetDimensionNV,
     EOpTensorViewSetStrideNV,
     EOpTensorViewSetClipNV,
+
+    EOpCooperativeVectorMatMulNV,
+    EOpCooperativeVectorMatMulAddNV,
+    EOpCooperativeVectorLoadNV,
+    EOpCooperativeVectorStoreNV,
+    EOpCooperativeVectorOuterProductAccumulateNV,
+    EOpCooperativeVectorReduceSumAccumulateNV,
 
     EOpBeginInvocationInterlock, // Fragment only
     EOpEndInvocationInterlock, // Fragment only
@@ -599,12 +611,17 @@ enum TOperator {
     EOpConstructF16Mat4x2,
     EOpConstructF16Mat4x3,
     EOpConstructF16Mat4x4,
+    EOpConstructBFloat16,
+    EOpConstructBF16Vec2,
+    EOpConstructBF16Vec3,
+    EOpConstructBF16Vec4,
     EOpConstructStruct,
     EOpConstructTextureSampler,
     EOpConstructNonuniform,     // expected to be transformed away, not present in final AST
     EOpConstructReference,
     EOpConstructCooperativeMatrixNV,
     EOpConstructCooperativeMatrixKHR,
+    EOpConstructCooperativeVectorNV,
     EOpConstructAccStruct,
     EOpConstructGuardEnd,
 
@@ -954,6 +971,25 @@ enum TOperator {
     EOpImageBlockMatchWindowSADQCOM,
     EOpImageBlockMatchGatherSSDQCOM,
     EOpImageBlockMatchGatherSADQCOM,
+
+    // GL_NV_cluster_acceleration_structure
+    EOpRayQueryGetIntersectionClusterIdNV,
+    EOpHitObjectGetClusterIdNV,
+
+    // GL_NV_linear_swept_spheres
+    EOpRayQueryGetIntersectionSpherePositionNV,
+    EOpRayQueryGetIntersectionSphereRadiusNV,
+    EOpRayQueryGetIntersectionLSSHitValueNV,
+    EOpRayQueryGetIntersectionLSSPositionsNV,
+    EOpRayQueryGetIntersectionLSSRadiiNV,
+    EOpRayQueryIsSphereHitNV,
+    EOpRayQueryIsLSSHitNV,
+    EOpHitObjectGetSpherePositionNV,
+    EOpHitObjectGetSphereRadiusNV,
+    EOpHitObjectGetLSSPositionsNV,
+    EOpHitObjectGetLSSRadiiNV,
+    EOpHitObjectIsSphereHitNV,
+    EOpHitObjectIsLSSHitNV,
 };
 
 inline bool IsOpNumericConv(const TOperator op) {

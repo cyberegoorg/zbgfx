@@ -53,7 +53,7 @@ jobs:
         with:
           path: ./.zigversion
       - name: Install Zig
-        uses: mlugg/setup-zig@v1
+        uses: mlugg/setup-zig@v2
         with:
           version: ${{ steps.zigversion.outputs.content }}
 
@@ -89,7 +89,7 @@ jobs:
         with:
           path: ./.zigversion
       - name: Install Zig
-        uses: mlugg/setup-zig@v1
+        uses: mlugg/setup-zig@v2
         with:
           version: ${{ steps.zigversion.outputs.content }}
     

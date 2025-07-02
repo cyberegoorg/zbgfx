@@ -28,11 +28,12 @@ namespace bgfx { namespace gl
 
 	struct SwapChainGL
 	{
-		SwapChainGL(int _context, const char* _canvas)
+		SwapChainGL(EMSCRIPTEN_WEBGL_CONTEXT_HANDLE _context, const char* _canvas)
 			: m_context(_context)
 		{
-			m_canvas = (char*)bx::alloc(g_allocator, strlen(_canvas) + 1);
-			strcpy(m_canvas, _canvas);
+			size_t length = bx::strLen(_canvas) + 1;
+			m_canvas = (char*)bx::alloc(g_allocator, length);
+			bx::strCopy(m_canvas, length, _canvas);
 
 			makeCurrent();
 			GL_CHECK(glClearColor(0.0f, 0.0f, 0.0f, 0.0f) );
@@ -59,7 +60,7 @@ namespace bgfx { namespace gl
 			// to the browser.
 		}
 
-		int m_context;
+		EMSCRIPTEN_WEBGL_CONTEXT_HANDLE m_context;
 		char* m_canvas;
 	};
 
