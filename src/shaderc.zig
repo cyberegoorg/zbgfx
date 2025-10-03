@@ -22,8 +22,8 @@ pub const ShaderType = enum {
         step.addArgs(&.{ "--type", t.toStr() });
     }
 
-    pub fn appendArg(t: ShaderType, args: *ArgsList) !void {
-        try args.appendSlice(&.{ "--type", t.toStr() });
+    pub fn appendArg(t: ShaderType, alloctor: std.mem.Allocator, args: *ArgsList) !void {
+        try args.appendSlice(alloctor, &.{ "--type", t.toStr() });
     }
 };
 
@@ -44,8 +44,8 @@ pub const Optimize = enum(u32) {
         step.addArgs(&.{ "-O", t.toStr() });
     }
 
-    pub fn appendArg(t: Optimize, args: *ArgsList) !void {
-        try args.appendSlice(&.{ "-O", t.toStr() });
+    pub fn appendArg(t: Optimize, alloctor: std.mem.Allocator, args: *ArgsList) !void {
+        try args.appendSlice(alloctor, &.{ "-O", t.toStr() });
     }
 };
 
@@ -69,8 +69,8 @@ pub const Platform = enum {
         step.addArgs(&.{ "--platform", platform.toStr() });
     }
 
-    pub fn appendArg(platform: Platform, args: *ArgsList) !void {
-        try args.appendSlice(&.{ "--platform", platform.toStr() });
+    pub fn appendArg(platform: Platform, alloctor: std.mem.Allocator, args: *ArgsList) !void {
+        try args.appendSlice(alloctor, &.{ "--platform", platform.toStr() });
     }
 };
 
@@ -161,8 +161,8 @@ pub const Profile = enum {
         step.addArgs(&.{ "-p", profile.toStr() });
     }
 
-    pub fn appendArg(profile: Profile, args: *ArgsList) !void {
-        try args.appendSlice(&.{ "-p", profile.toStr() });
+    pub fn appendArg(profile: Profile, alloctor: std.mem.Allocator, args: *ArgsList) !void {
+        try args.appendSlice(alloctor, &.{ "-p", profile.toStr() });
     }
 };
 
@@ -312,47 +312,47 @@ pub fn compileShader(
 }
 
 pub fn shadercProcess(allocator: std.mem.Allocator, executablePath: []const u8, options: ShadercOptions) !std.process.Child {
-    var args = ArgsList.init(allocator);
-    defer args.deinit();
-    try args.append(executablePath);
+    var args = ArgsList{};
+    defer args.deinit(allocator);
+    try args.append(allocator, executablePath);
 
-    try options.shaderType.appendArg(&args);
-    try options.platform.appendArg(&args);
-    try options.profile.appendArg(&args);
-    try options.optimizationLevel.appendArg(&args);
+    try options.shaderType.appendArg(allocator, &args);
+    try options.platform.appendArg(allocator, &args);
+    try options.profile.appendArg(allocator, &args);
+    try options.optimizationLevel.appendArg(allocator, &args);
 
     if (options.inputFilePath) |path| {
-        try args.appendSlice(&.{ "-f", path });
+        try args.appendSlice(allocator, &.{ "-f", path });
     }
 
     if (options.outputFilePath) |path| {
-        try args.appendSlice(&.{ "-o", path });
+        try args.appendSlice(allocator, &.{ "-o", path });
     }
 
     if (options.varyingFilePath) |path| {
-        try args.appendSlice(&.{ "--varyingdef", path });
+        try args.appendSlice(allocator, &.{ "--varyingdef", path });
     }
 
     if (options.includeDirs) |includes| {
         for (includes) |include| {
-            try args.appendSlice(&.{ "-i", include });
+            try args.appendSlice(allocator, &.{ "-i", include });
         }
     }
 
-    var all_defines = std.ArrayList(u8).init(allocator);
-    defer all_defines.deinit();
+    var all_defines = std.ArrayList(u8){};
+    defer all_defines.deinit(allocator);
 
     if (options.defines) |defines| {
         const last_idx = defines.len - 1;
 
         for (defines, 0..) |define, idx| {
-            try all_defines.appendSlice(define);
+            try all_defines.appendSlice(allocator, define);
             if (idx != last_idx) {
-                try all_defines.appendSlice(";");
+                try all_defines.appendSlice(allocator, ";");
             }
         }
 
-        try args.appendSlice(&.{ "--define", all_defines.items });
+        try args.appendSlice(allocator, &.{ "--define", all_defines.items });
     }
 
     var process = std.process.Child.init(args.items, allocator);

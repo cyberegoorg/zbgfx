@@ -4,7 +4,7 @@ const zbgfx = @import("zbgfx");
 
 pub fn build(
     b: *std.Build,
-    optimize: std.builtin.Mode,
+    optimize: std.builtin.OptimizeMode,
     target: std.Build.ResolvedTarget,
 ) !void {
     //
@@ -40,8 +40,10 @@ pub fn build(
 
     const exe = b.addExecutable(.{
         .name = "03-debugdraw",
-        .root_source_file = b.path("03-debugdraw/src/main.zig"),
-        .target = target,
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("03-debugdraw/src/main.zig"),
+            .target = target,
+        }),
     });
     b.installArtifact(exe);
     exe.linkLibrary(zbgfx_dep.artifact("bgfx"));

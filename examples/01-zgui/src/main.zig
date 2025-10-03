@@ -115,7 +115,9 @@ pub fn main() anyerror!u8 {
     const gpa_allocator = gpa.allocator();
     defer _ = gpa.deinit();
 
+    // Based on: https://github.com/ocornut/imgui/blob/27a9374ef3fc6572f8dd1fa9ddf72e1802fceb8b/backends/imgui_impl_glfw.cpp#L914
     const scale_factor = scale_factor: {
+        if (builtin.os.tag.isDarwin()) break :scale_factor 1;
         const scale = window.getContentScale();
         break :scale_factor @max(scale[0], scale[1]);
     };
@@ -126,9 +128,9 @@ pub fn main() anyerror!u8 {
     // Load main font
     var main_cfg = zgui.FontConfig.init();
     main_cfg.font_data_owned_by_atlas = false;
-    _ = zgui.io.addFontFromMemoryWithConfig(MAIN_FONT, std.math.floor(16 * scale_factor), main_cfg, null);
-
+    _ = zgui.io.addFontFromMemoryWithConfig(MAIN_FONT, 16, main_cfg, null);
     zgui.getStyle().scaleAllSizes(scale_factor);
+    zgui.getStyle().font_scale_dpi = scale_factor;
 
     backend_glfw_bgfx.init(window);
     defer backend_glfw_bgfx.deinit();
@@ -193,7 +195,7 @@ pub fn main() anyerror!u8 {
         bgfx.dbgTextClear(0, false);
 
         // Do some zgui stuff
-        backend_glfw_bgfx.newFrame(@intCast(size[0]), @intCast(size[1]));
+        backend_glfw_bgfx.newFrame(255);
         zgui.showDemoWindow(null);
         backend_glfw_bgfx.draw();
 

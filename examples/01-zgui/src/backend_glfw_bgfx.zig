@@ -18,16 +18,9 @@ pub fn deinit() void {
     zgui.backend.deinit();
 }
 
-pub fn newFrame(fb_width: u32, fb_height: u32) void {
-    const w = fb_width;
-    const h = fb_height;
-
+pub fn newFrame(viewid: zbgfx.bgfx.ViewId) void {
     zgui.backend.newFrame();
-
-    zgui.io.setDisplaySize(@floatFromInt(w), @floatFromInt(h));
-    zgui.io.setDisplayFramebufferScale(1.0, 1.0);
-
-    backend_bgfx.newFrame(255);
+    backend_bgfx.newFrame(viewid);
 }
 
 pub fn draw() void {

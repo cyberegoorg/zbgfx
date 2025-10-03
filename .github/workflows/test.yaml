@@ -16,7 +16,6 @@ on:
       - "tools/**"
       - "build.zig"
       - "build.zig.zon"
-      - ".zigversion"
 
   push:
     branches:
@@ -29,7 +28,6 @@ on:
       - "tools/**"
       - "build.zig"
       - "build.zig.zon"
-      - ".zigversion"
 
 concurrency:
   # Cancels pending runs when a PR gets updated.
@@ -47,16 +45,8 @@ jobs:
         with:
           submodules: true
 
-      - name: Read .zig-version
-        id: zigversion
-        uses: juliangruber/read-file-action@v1
-        with:
-          path: ./.zigversion
       - name: Install Zig
         uses: mlugg/setup-zig@v2
-        with:
-          version: ${{ steps.zigversion.outputs.content }}
-
       - name: Lint
         run: zig fmt --check .
 
@@ -83,15 +73,8 @@ jobs:
       # - if: matrix.os == 'linux-large'
       #   run: sudo apt update && sudo apt install libx11-6
 
-      - name: Read .zig-version
-        id: zigversion
-        uses: juliangruber/read-file-action@v1
-        with:
-          path: ./.zigversion
       - name: Install Zig
         uses: mlugg/setup-zig@v2
-        with:
-          version: ${{ steps.zigversion.outputs.content }}
     
       - name: Build examples
         shell: bash

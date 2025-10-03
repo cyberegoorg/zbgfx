@@ -56,15 +56,19 @@ pub fn build(b: *std.Build) !void {
     //
     const combine_bin_h = b.addExecutable(.{
         .name = "combine_bin_h",
-        .optimize = optimize,
-        .target = target,
-        .root_source_file = b.path("tools/combine_bin_h.zig"),
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("tools/combine_bin_h.zig"),
+            .target = target,
+            .optimize = optimize,
+        }),
     });
     const combine_bin_zig = b.addExecutable(.{
         .name = "combine_bin_zig",
-        .optimize = optimize,
-        .target = target,
-        .root_source_file = b.path("tools/combine_bin_zig.zig"),
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("tools/combine_bin_zig.zig"),
+            .target = target,
+            .optimize = optimize,
+        }),
     });
 
     b.installArtifact(combine_bin_zig);
@@ -72,10 +76,13 @@ pub fn build(b: *std.Build) !void {
     //
     // Bx
     //
-    const bx = b.addStaticLibrary(.{
+    const bx = b.addLibrary(.{
+        .linkage = .static,
         .name = "bx",
-        .target = target,
-        .optimize = optimize,
+        .root_module = b.createModule(.{
+            .target = target,
+            .optimize = optimize,
+        }),
     });
     bx.addCSourceFiles(.{
         .flags = &cxx_options,
@@ -90,10 +97,13 @@ pub fn build(b: *std.Build) !void {
     //
     // Bimg
     //
-    const bimg = b.addStaticLibrary(.{
+    const bimg = b.addLibrary(.{
+        .linkage = .static,
         .name = "bimg",
-        .target = target,
-        .optimize = optimize,
+        .root_module = b.createModule(.{
+            .target = target,
+            .optimize = optimize,
+        }),
     });
     bimg.addCSourceFiles(.{
         .flags = &cxx_options,
@@ -114,10 +124,13 @@ pub fn build(b: *std.Build) !void {
     // Bgfx
     //
     const bgfx_path = "libs/bgfx/";
-    const bgfx = b.addStaticLibrary(.{
+    const bgfx = b.addLibrary(.{
+        .linkage = .static,
         .name = "bgfx",
-        .target = target,
-        .optimize = optimize,
+        .root_module = b.createModule(.{
+            .target = target,
+            .optimize = optimize,
+        }),
     });
     b.installArtifact(bgfx);
     bxInclude(b, bgfx, target, optimize);
@@ -197,17 +210,16 @@ pub fn build(b: *std.Build) !void {
     // Shaderc
     // Base steal from https://github.com/Interrupt/zig-bgfx-example/blob/main/build_shader_compiler.zig
     //
-    var shaderc_variant = std.ArrayList(*std.Build.Step.Compile).init(b.allocator);
-    defer shaderc_variant.deinit();
-
     if (options.with_shaderc) {
         //
         // Shaderc executable
         //
         const shaderc = b.addExecutable(.{
             .name = "shaderc",
-            .target = target,
-            .optimize = optimize,
+            .root_module = b.createModule(.{
+                .target = target,
+                .optimize = optimize,
+            }),
         });
 
         b.installArtifact(shaderc);
@@ -340,10 +352,13 @@ pub fn build(b: *std.Build) !void {
         };
 
         const fcpp_path = "libs/bgfx/3rdparty/fcpp/";
-        const fcpp_lib = b.addStaticLibrary(.{
+        const fcpp_lib = b.addLibrary(.{
+            .linkage = .static,
             .name = "fcpp",
-            .target = target,
-            .optimize = optimize,
+            .root_module = b.createModule(.{
+                .target = target,
+                .optimize = optimize,
+            }),
         });
 
         fcpp_lib.addIncludePath(b.path(fcpp_path));
@@ -372,10 +387,12 @@ pub fn build(b: *std.Build) !void {
             "-fno-sanitize=undefined",
         };
 
-        const spirv_opt_lib = b.addStaticLibrary(.{
+        const spirv_opt_lib = b.addLibrary(.{
             .name = "spirv-opt",
-            .target = target,
-            .optimize = optimize,
+            .root_module = b.createModule(.{
+                .target = target,
+                .optimize = optimize,
+            }),
         });
         spirv_opt_lib.addIncludePath(b.path(spirv_opt_path));
         spirv_opt_lib.addIncludePath(b.path(spirv_opt_path ++ "include"));
@@ -404,10 +421,12 @@ pub fn build(b: *std.Build) !void {
         };
 
         const spirv_cross_path = "libs/bgfx/3rdparty/spirv-cross/";
-        const spirv_cross_lib = b.addStaticLibrary(.{
+        const spirv_cross_lib = b.addLibrary(.{
             .name = "spirv-cross",
-            .target = target,
-            .optimize = optimize,
+            .root_module = b.createModule(.{
+                .target = target,
+                .optimize = optimize,
+            }),
         });
         spirv_cross_lib.addIncludePath(b.path(spirv_cross_path ++ "include"));
         spirv_cross_lib.addCSourceFiles(.{
@@ -440,7 +459,13 @@ pub fn build(b: *std.Build) !void {
             "-fno-sanitize=undefined",
         };
 
-        const glslang_lib = b.addStaticLibrary(.{ .name = "glslang", .target = target, .optimize = optimize });
+        const glslang_lib = b.addLibrary(.{
+            .name = "glslang",
+            .root_module = b.createModule(.{
+                .target = target,
+                .optimize = optimize,
+            }),
+        });
         glslang_lib.addIncludePath(b.path("libs/bgfx/3rdparty"));
         glslang_lib.addIncludePath(b.path(glslang_path));
         glslang_lib.addIncludePath(b.path(glslang_path ++ "include"));
@@ -504,10 +529,12 @@ pub fn build(b: *std.Build) !void {
             "-fno-sanitize=undefined",
         };
 
-        const glsl_optimizer_lib = b.addStaticLibrary(.{
+        const glsl_optimizer_lib = b.addLibrary(.{
             .name = "glsl-optimizer",
-            .target = target,
-            .optimize = optimize,
+            .root_module = b.createModule(.{
+                .target = target,
+                .optimize = optimize,
+            }),
         });
         glsl_optimizer_lib.addIncludePath(b.path(glsl_optimizer_path ++ "include"));
         glsl_optimizer_lib.addIncludePath(b.path(glsl_optimizer_path ++ "src"));
