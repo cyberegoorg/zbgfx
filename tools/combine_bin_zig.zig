@@ -25,7 +25,10 @@ pub fn main() !void {
     };
     defer output_file.close();
 
-    var w = output_file.writer();
+    var buffer: [1024]u8 = undefined;
+    var writer = output_file.writer(&buffer);
+    const w = &writer.interface;
+    defer w.flush() catch undefined;
 
     try w.print("//\n", .{});
     try w.print("// GENERATED - DO NOT EDIT\n", .{});

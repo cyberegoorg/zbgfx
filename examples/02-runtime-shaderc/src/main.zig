@@ -366,7 +366,7 @@ pub fn main() anyerror!u8 {
     return 0;
 }
 
-fn readFileFromShaderDirs(allocator: std.mem.Allocator, filename: []const u8) ![:0]u8 {
+fn readFileFromShaderDirs(allocator: std.mem.Allocator, filename: []const u8) ![]u8 {
     const exe_dir = try std.fs.selfExeDirPathAlloc(allocator);
     defer allocator.free(exe_dir);
 
@@ -376,8 +376,9 @@ fn readFileFromShaderDirs(allocator: std.mem.Allocator, filename: []const u8) ![
     const f = try std.fs.cwd().openFile(path, .{});
     defer f.close();
     const max_size = (try f.getEndPos()) + 1;
-    var data = std.ArrayList(u8).init(allocator);
-    try f.reader().readAllArrayList(&data, max_size);
 
-    return try data.toOwnedSliceSentinel(0);
+    var buffer: [1024]u8 = undefined;
+    var reader = f.reader(&buffer);
+    var r = &reader.interface;
+    return try r.readAlloc(allocator, max_size - 1);
 }

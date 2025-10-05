@@ -13,11 +13,11 @@ const Self = @This();
 
 pub const CAllocInterfaceT = extern struct { vtable: *const CAllocVtblT };
 pub const CAllocVtblT = extern struct {
-    realloc: *const fn (_this: *CAllocInterfaceT, _ptr: [*c]u8, _size: usize, _align: usize, _file: [*:0]const u8, _line: u32) callconv(.C) ?*anyopaque,
+    realloc: *const fn (_this: *CAllocInterfaceT, _ptr: [*c]u8, _size: usize, _align: usize, _file: [*:0]const u8, _line: u32) callconv(.c) ?*anyopaque,
 };
 
 pub const ZigAllocatorVtbl = extern struct {
-    fn realloc(_this: *CAllocInterfaceT, _ptr: [*c]u8, _size: usize, _align: usize, _file: [*:0]const u8, _line: u32) callconv(.C) ?*anyopaque {
+    fn realloc(_this: *CAllocInterfaceT, _ptr: [*c]u8, _size: usize, _align: usize, _file: [*:0]const u8, _line: u32) callconv(.c) ?*anyopaque {
         var self: *ZigAllocator = @ptrCast(_this);
         _ = _file; // autofix
         _ = _line; // autofix
@@ -54,27 +54,27 @@ pub const VaList = extern struct { _: *anyopaque }; // dirty&tricky is your best
 
 pub const CCallbackInterfaceT = extern struct { vtable: *const CCallbackVtblT };
 pub const CCallbackVtblT = extern struct {
-    fatal: *const fn (_this: *CCallbackInterfaceT, _filePath: [*:0]const u8, _line: u16, _code: bgfx.Fatal, c_str: [*:0]const u8) callconv(.C) void,
-    trace_vargs: *const fn (_this: *CCallbackInterfaceT, _filePath: [*:0]const u8, _line: u16, _format: [*:0]const u8, va_list: VaList) callconv(.C) void,
-    profiler_begin: *const fn (_this: *CCallbackInterfaceT, _name: [*:0]const u8, _abgr: u32, _filePath: [*:0]const u8, _line: u16) callconv(.C) void,
-    profiler_begin_literal: *const fn (_this: *CCallbackInterfaceT, _name: [*:0]const u8, _abgr: u32, _filePath: [*:0]const u8, _line: u16) callconv(.C) void,
-    profiler_end: *const fn (_this: *CCallbackInterfaceT) callconv(.C) void,
-    cache_read_size: *const fn (_this: *CCallbackInterfaceT, _id: u64) callconv(.C) u32,
-    cache_read: *const fn (_this: *CCallbackInterfaceT, _id: u64, _data: [*c]u8, _size: u32) callconv(.C) bool,
-    cache_write: *const fn (_this: *CCallbackInterfaceT, _id: u64, _data: [*c]u8, _size: u32) callconv(.C) void,
-    screen_shot: *const fn (_this: *CCallbackInterfaceT, _filePath: [*:0]const u8, _width: u32, _height: u32, _pitch: u32, _data: [*c]u8, _size: u32, _yflip: bool) callconv(.C) void,
-    capture_begin: *const fn (_this: *CCallbackInterfaceT, _width: u32, _height: u32, _pitch: u32, _format: bgfx.TextureFormat, _yflip: bool) callconv(.C) void,
-    capture_end: *const fn (_this: *CCallbackInterfaceT) callconv(.C) void,
-    capture_frame: *const fn (_this: *CCallbackInterfaceT, _data: [*c]u8, _size: u32) callconv(.C) void,
+    fatal: *const fn (_this: *CCallbackInterfaceT, _filePath: [*:0]const u8, _line: u16, _code: bgfx.Fatal, c_str: [*:0]const u8) callconv(.c) void,
+    trace_vargs: *const fn (_this: *CCallbackInterfaceT, _filePath: [*:0]const u8, _line: u16, _format: [*:0]const u8, va_list: VaList) callconv(.c) void,
+    profiler_begin: *const fn (_this: *CCallbackInterfaceT, _name: [*:0]const u8, _abgr: u32, _filePath: [*:0]const u8, _line: u16) callconv(.c) void,
+    profiler_begin_literal: *const fn (_this: *CCallbackInterfaceT, _name: [*:0]const u8, _abgr: u32, _filePath: [*:0]const u8, _line: u16) callconv(.c) void,
+    profiler_end: *const fn (_this: *CCallbackInterfaceT) callconv(.c) void,
+    cache_read_size: *const fn (_this: *CCallbackInterfaceT, _id: u64) callconv(.c) u32,
+    cache_read: *const fn (_this: *CCallbackInterfaceT, _id: u64, _data: [*c]u8, _size: u32) callconv(.c) bool,
+    cache_write: *const fn (_this: *CCallbackInterfaceT, _id: u64, _data: [*c]u8, _size: u32) callconv(.c) void,
+    screen_shot: *const fn (_this: *CCallbackInterfaceT, _filePath: [*:0]const u8, _width: u32, _height: u32, _pitch: u32, _data: [*c]u8, _size: u32, _yflip: bool) callconv(.c) void,
+    capture_begin: *const fn (_this: *CCallbackInterfaceT, _width: u32, _height: u32, _pitch: u32, _format: bgfx.TextureFormat, _yflip: bool) callconv(.c) void,
+    capture_end: *const fn (_this: *CCallbackInterfaceT) callconv(.c) void,
+    capture_frame: *const fn (_this: *CCallbackInterfaceT, _data: [*c]u8, _size: u32) callconv(.c) void,
 };
 
 pub const DefaultZigCallbackVTable = struct {
-    pub fn fatal(_this: *CCallbackInterfaceT, _filePath: [*:0]const u8, _line: u16, _code: bgfx.Fatal, c_str: [*:0]const u8) callconv(.C) void {
+    pub fn fatal(_this: *CCallbackInterfaceT, _filePath: [*:0]const u8, _line: u16, _code: bgfx.Fatal, c_str: [*:0]const u8) callconv(.c) void {
         _ = _this;
         const cstr = std.mem.span(c_str);
         log.err("FATAL in {s}:{d}: {s} => {s}", .{ _filePath, _line, @tagName(_code), cstr });
     }
-    pub fn trace_vargs(_this: *CCallbackInterfaceT, _filePath: [*:0]const u8, _line: u16, _format: [*:0]const u8, va_list: Self.VaList) callconv(.C) void {
+    pub fn trace_vargs(_this: *CCallbackInterfaceT, _filePath: [*:0]const u8, _line: u16, _format: [*:0]const u8, va_list: Self.VaList) callconv(.c) void {
         _ = _this;
         _ = _filePath;
         _ = _line;
@@ -87,42 +87,42 @@ pub const DefaultZigCallbackVTable = struct {
 
         log.debug("{s}", .{msg});
     }
-    pub fn profiler_begin(_this: *Self.CCallbackInterfaceT, _name: [*:0]const u8, _abgr: u32, _filePath: [*:0]const u8, _line: u16) callconv(.C) void {
+    pub fn profiler_begin(_this: *Self.CCallbackInterfaceT, _name: [*:0]const u8, _abgr: u32, _filePath: [*:0]const u8, _line: u16) callconv(.c) void {
         _ = _this;
         _ = _name;
         _ = _abgr;
         _ = _filePath;
         _ = _line;
     }
-    pub fn profiler_begin_literal(_this: *Self.CCallbackInterfaceT, _name: [*:0]const u8, _abgr: u32, _filePath: [*:0]const u8, _line: u16) callconv(.C) void {
+    pub fn profiler_begin_literal(_this: *Self.CCallbackInterfaceT, _name: [*:0]const u8, _abgr: u32, _filePath: [*:0]const u8, _line: u16) callconv(.c) void {
         _ = _this;
         _ = _name;
         _ = _abgr;
         _ = _filePath;
         _ = _line;
     }
-    pub fn profiler_end(_this: *Self.CCallbackInterfaceT) callconv(.C) void {
+    pub fn profiler_end(_this: *Self.CCallbackInterfaceT) callconv(.c) void {
         _ = _this;
     }
-    pub fn cache_read_size(_this: *Self.CCallbackInterfaceT, _id: u64) callconv(.C) u32 {
+    pub fn cache_read_size(_this: *Self.CCallbackInterfaceT, _id: u64) callconv(.c) u32 {
         _ = _this;
         _ = _id;
         return 0;
     }
-    pub fn cache_read(_this: *Self.CCallbackInterfaceT, _id: u64, _data: [*c]u8, _size: u32) callconv(.C) bool {
+    pub fn cache_read(_this: *Self.CCallbackInterfaceT, _id: u64, _data: [*c]u8, _size: u32) callconv(.c) bool {
         _ = _this;
         _ = _id;
         _ = _data;
         _ = _size;
         return false;
     }
-    pub fn cache_write(_this: *Self.CCallbackInterfaceT, _id: u64, _data: [*c]u8, _size: u32) callconv(.C) void {
+    pub fn cache_write(_this: *Self.CCallbackInterfaceT, _id: u64, _data: [*c]u8, _size: u32) callconv(.c) void {
         _ = _this;
         _ = _id;
         _ = _data;
         _ = _size;
     }
-    pub fn screen_shot(_this: *Self.CCallbackInterfaceT, _filePath: [*:0]const u8, _width: u32, _height: u32, _pitch: u32, _data: [*c]u8, _size: u32, _yflip: bool) callconv(.C) void {
+    pub fn screen_shot(_this: *Self.CCallbackInterfaceT, _filePath: [*:0]const u8, _width: u32, _height: u32, _pitch: u32, _data: [*c]u8, _size: u32, _yflip: bool) callconv(.c) void {
         _ = _this;
         _ = _filePath;
         _ = _width;
@@ -132,7 +132,7 @@ pub const DefaultZigCallbackVTable = struct {
         _ = _size;
         _ = _yflip;
     }
-    pub fn capture_begin(_this: *Self.CCallbackInterfaceT, _width: u32, _height: u32, _pitch: u32, _format: bgfx.TextureFormat, _yflip: bool) callconv(.C) void {
+    pub fn capture_begin(_this: *Self.CCallbackInterfaceT, _width: u32, _height: u32, _pitch: u32, _format: bgfx.TextureFormat, _yflip: bool) callconv(.c) void {
         _ = _this;
         _ = _width;
         _ = _height;
@@ -141,10 +141,10 @@ pub const DefaultZigCallbackVTable = struct {
         _ = _yflip;
         log.warn("{s}", .{"Using capture without callback (a.k.a. pointless)."});
     }
-    pub fn capture_end(_this: *Self.CCallbackInterfaceT) callconv(.C) void {
+    pub fn capture_end(_this: *Self.CCallbackInterfaceT) callconv(.c) void {
         _ = _this;
     }
-    pub fn capture_frame(_this: *Self.CCallbackInterfaceT, _data: [*c]u8, _size: u32) callconv(.C) void {
+    pub fn capture_frame(_this: *Self.CCallbackInterfaceT, _data: [*c]u8, _size: u32) callconv(.c) void {
         _ = _this;
         _ = _data;
         _ = _size;

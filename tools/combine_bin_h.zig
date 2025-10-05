@@ -17,16 +17,22 @@ pub fn main() !void {
     };
     defer output_file.close();
 
+    var buffer: [1024]u8 = undefined;
+    var writer = output_file.writer(&buffer);
+    const w = &writer.interface;
+    defer w.flush() catch undefined;
+
     var it: u32 = 3;
     while (it < args.len) : (it += 1) {
         const path = args[it];
 
         var f = try std.fs.cwd().openFile(path, .{});
+
         defer f.close();
-        try output_file.writeFileAll(f, .{});
+        var reader = f.reader(&.{});
+        _ = try w.sendFileAll(&reader, .unlimited);
     }
 
-    var w = output_file.writer();
     try w.print("extern const uint8_t* {s}_pssl;\n", .{name});
     try w.print("extern const uint32_t {s}_pssl_size;\n", .{name});
 }

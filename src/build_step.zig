@@ -129,8 +129,8 @@ pub fn compileBasicBinZig(
     input: BasicCompileInput,
     options: BasicCompileOptions,
 ) !*std.Build.Module {
-    var shaders = std.ArrayList(std.Build.LazyPath).init(b.allocator);
-    defer shaders.deinit();
+    var shaders = std.ArrayList(std.Build.LazyPath){};
+    defer shaders.deinit(b.allocator);
 
     try compileBasic(
         b,
@@ -141,8 +141,8 @@ pub fn compileBasicBinZig(
         options,
     );
 
-    var variants = std.ArrayList([]const u8).init(b.allocator);
-    defer variants.deinit();
+    var variants = std.ArrayList([]const u8){};
+    defer variants.deinit(b.allocator);
 
     var shaders_module = b.createModule(.{
         .imports = &.{
@@ -154,7 +154,7 @@ pub fn compileBasicBinZig(
         if (target.result.os.tag != .windows and profile == .s_5_0) continue;
         const variant_name = profileToPostfix(profile);
         shaders_module.addAnonymousImport(variant_name, .{ .root_source_file = shaders.items[idx] });
-        try variants.append(variant_name);
+        try variants.append(b.allocator, variant_name);
     }
 
     const combine_step = combineBinZigStep(
@@ -180,8 +180,8 @@ pub fn compileBasicBinH(
     input: BasicCompileInput,
     options: BasicCompileOptions,
 ) !*std.Build.Step {
-    var shaders = std.ArrayList(std.Build.LazyPath).init(b.allocator);
-    defer shaders.deinit();
+    var shaders = std.ArrayList(std.Build.LazyPath){};
+    defer shaders.deinit(b.allocator);
 
     try compileBasic(
         b,
@@ -251,6 +251,6 @@ pub fn compileBasic(
                 .includes = options.includes,
             },
         );
-        try out_shaders.append(shader_build.output);
+        try out_shaders.append(b.allocator, shader_build.output);
     }
 }

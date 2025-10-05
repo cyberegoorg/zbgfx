@@ -4,7 +4,7 @@ const zbgfx = @import("zbgfx");
 
 pub fn build(
     b: *std.Build,
-    optimize: std.builtin.Mode,
+    optimize: std.builtin.OptimizeMode,
     target: std.Build.ResolvedTarget,
 ) !void {
 
@@ -31,6 +31,7 @@ pub fn build(
             .target = target,
             .optimize = optimize,
             .backend = .glfw,
+            .disable_obsolete = false, // TODO: FIXME Assertion failed: (sz_io == sizeof(ImGuiIO) && "Mismatched struct layout!"), function DebugCheckVersionAndDataLayout, file imgui.cpp, line 11150.
         },
     );
 
@@ -46,8 +47,10 @@ pub fn build(
 
     const exe = b.addExecutable(.{
         .name = "01-zgui",
-        .root_source_file = b.path("01-zgui/src/main.zig"),
-        .target = target,
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("01-zgui/src/main.zig"),
+            .target = target,
+        }),
     });
     b.installArtifact(exe);
 
