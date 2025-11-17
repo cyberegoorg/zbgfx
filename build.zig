@@ -37,16 +37,17 @@ pub fn build(b: *std.Build) !void {
         "-fno-exceptions",
         "-fno-rtti",
         "-ffast-math",
-        "-fomit-frame-pointer",
+        // "-fomit-frame-pointer",
 
         "-Wno-microsoft-enum-value",
         "-Wno-microsoft-const-init",
         "-Wno-deprecated-declarations",
         "-Wno-tautological-constant-compare",
         "-Wno-error=date-time",
+        "-Wno-error=unused-command-line-argument",
     };
     const cxx_options = common_options ++ [_][]const u8{
-        "-std=c++17",
+        "-std=c++20",
     };
     const c_options = common_options ++ [_][]const u8{};
     const mm_options = cxx_options ++ [_][]const u8{};
@@ -61,6 +62,7 @@ pub fn build(b: *std.Build) !void {
             .target = target,
             .optimize = optimize,
         }),
+        .use_llvm = true,
     });
     const combine_bin_zig = b.addExecutable(.{
         .name = "combine_bin_zig",
@@ -69,6 +71,7 @@ pub fn build(b: *std.Build) !void {
             .target = target,
             .optimize = optimize,
         }),
+        .use_llvm = true,
     });
 
     b.installArtifact(combine_bin_zig);
@@ -83,6 +86,7 @@ pub fn build(b: *std.Build) !void {
             .target = target,
             .optimize = optimize,
         }),
+        .use_llvm = true,
     });
     bx.addCSourceFiles(.{
         .flags = &cxx_options,
@@ -104,6 +108,7 @@ pub fn build(b: *std.Build) !void {
             .target = target,
             .optimize = optimize,
         }),
+        .use_llvm = true,
     });
     bimg.addCSourceFiles(.{
         .flags = &cxx_options,
@@ -131,6 +136,7 @@ pub fn build(b: *std.Build) !void {
             .target = target,
             .optimize = optimize,
         }),
+        .use_llvm = true,
     });
     b.installArtifact(bgfx);
     bxInclude(b, bgfx, target, optimize);
@@ -220,6 +226,7 @@ pub fn build(b: *std.Build) !void {
                 .target = target,
                 .optimize = optimize,
             }),
+            .use_llvm = true,
         });
 
         b.installArtifact(shaderc);
@@ -427,6 +434,7 @@ pub fn build(b: *std.Build) !void {
                 .target = target,
                 .optimize = optimize,
             }),
+            .use_llvm = true,
         });
         spirv_cross_lib.addIncludePath(b.path(spirv_cross_path ++ "include"));
         spirv_cross_lib.addCSourceFiles(.{
@@ -465,6 +473,7 @@ pub fn build(b: *std.Build) !void {
                 .target = target,
                 .optimize = optimize,
             }),
+            .use_llvm = true,
         });
         glslang_lib.addIncludePath(b.path("libs/bgfx/3rdparty"));
         glslang_lib.addIncludePath(b.path(glslang_path));
@@ -500,7 +509,8 @@ pub fn build(b: *std.Build) !void {
             "-MP",
             "-Wall",
             "-Wextra",
-            "-ffast-math",
+            // https://github.com/bkaradzic/bgfx/commit/b4dbc129f3b69b0d6a9093f2d579b883396a839f
+            // "-ffast-math",
             "-fomit-frame-pointer",
             "-g",
             "-m64",
@@ -519,7 +529,8 @@ pub fn build(b: *std.Build) !void {
             "-MP",
             "-Wall",
             "-Wextra",
-            "-ffast-math",
+            // https://github.com/bkaradzic/bgfx/commit/b4dbc129f3b69b0d6a9093f2d579b883396a839f
+            // "-ffast-math",
             "-fomit-frame-pointer",
             "-g",
             "-m64",
@@ -535,6 +546,7 @@ pub fn build(b: *std.Build) !void {
                 .target = target,
                 .optimize = optimize,
             }),
+            .use_llvm = true,
         });
         glsl_optimizer_lib.addIncludePath(b.path(glsl_optimizer_path ++ "include"));
         glsl_optimizer_lib.addIncludePath(b.path(glsl_optimizer_path ++ "src"));
@@ -579,6 +591,13 @@ fn bxInclude(b: *std.Build, step: *std.Build.Step.Compile, target: std.Build.Res
     step.root_module.addCMacro("__STDC_LIMIT_MACROS", "1");
     step.root_module.addCMacro("__STDC_FORMAT_MACROS", "1");
     step.root_module.addCMacro("__STDC_CONSTANT_MACROS", "1");
+
+    // FIXME: problem with compile with zig.
+    if (target.result.os.tag == .windows) {
+        step.root_module.addCMacro("BX_CONFIG_EXCEPTION_HANDLING_USE_WINDOWS_SEH", "0");
+    } else if (target.result.os.tag == .linux) {
+        step.root_module.addCMacro("BX_CONFIG_EXCEPTION_HANDLING_USE_POSIX_SIGNALS", "0");
+    }
 
     step.root_module.addCMacro("BX_CONFIG_DEBUG", if (optimize == .Debug) "1" else "0");
 
@@ -820,6 +839,7 @@ const spirv_opt_files = .{
     spirv_opt_path ++ "source/opcode.cpp",
     spirv_opt_path ++ "source/operand.cpp",
     spirv_opt_path ++ "source/to_string.cpp",
+    spirv_opt_path ++ "source/opt/graph.cpp",
     spirv_opt_path ++ "source/opt/aggressive_dead_code_elim_pass.cpp",
     spirv_opt_path ++ "source/opt/amd_ext_to_khr.cpp",
     spirv_opt_path ++ "source/opt/analyze_live_input_pass.cpp",
@@ -942,6 +962,7 @@ const spirv_opt_files = .{
     spirv_opt_path ++ "source/opt/struct_packing_pass.cpp",
     spirv_opt_path ++ "source/opt/split_combined_image_sampler_pass.cpp",
     spirv_opt_path ++ "source/opt/resolve_binding_conflicts_pass.cpp",
+    spirv_opt_path ++ "source/opt/canonicalize_ids_pass.cpp",
     spirv_opt_path ++ "source/parsed_operand.cpp",
     spirv_opt_path ++ "source/print.cpp",
     spirv_opt_path ++ "source/reduce/change_operand_reduction_opportunity.cpp",
@@ -1035,4 +1056,5 @@ const spirv_opt_files = .{
     spirv_opt_path ++ "source/val/validate_tensor_layout.cpp",
     spirv_opt_path ++ "source/val/validate_tensor.cpp",
     spirv_opt_path ++ "source/val/validate_invalid_type.cpp",
+    spirv_opt_path ++ "source/val/validate_graph.cpp",
 };

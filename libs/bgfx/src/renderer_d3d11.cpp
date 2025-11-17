@@ -214,6 +214,10 @@ namespace bgfx { namespace d3d11
 		{ DXGI_FORMAT_UNKNOWN,            DXGI_FORMAT_UNKNOWN,               DXGI_FORMAT_UNKNOWN,           DXGI_FORMAT_UNKNOWN              }, // ETC2
 		{ DXGI_FORMAT_UNKNOWN,            DXGI_FORMAT_UNKNOWN,               DXGI_FORMAT_UNKNOWN,           DXGI_FORMAT_UNKNOWN              }, // ETC2A
 		{ DXGI_FORMAT_UNKNOWN,            DXGI_FORMAT_UNKNOWN,               DXGI_FORMAT_UNKNOWN,           DXGI_FORMAT_UNKNOWN              }, // ETC2A1
+		{ DXGI_FORMAT_UNKNOWN,            DXGI_FORMAT_UNKNOWN,               DXGI_FORMAT_UNKNOWN,           DXGI_FORMAT_UNKNOWN              }, // EACR11 UNORM
+		{ DXGI_FORMAT_UNKNOWN,            DXGI_FORMAT_UNKNOWN,               DXGI_FORMAT_UNKNOWN,           DXGI_FORMAT_UNKNOWN              }, // EACR11 SNORM
+		{ DXGI_FORMAT_UNKNOWN,            DXGI_FORMAT_UNKNOWN,               DXGI_FORMAT_UNKNOWN,           DXGI_FORMAT_UNKNOWN              }, // EACRG11 UNORM
+		{ DXGI_FORMAT_UNKNOWN,            DXGI_FORMAT_UNKNOWN,               DXGI_FORMAT_UNKNOWN,           DXGI_FORMAT_UNKNOWN              }, // EACRG11 SNORM
 		{ DXGI_FORMAT_UNKNOWN,            DXGI_FORMAT_UNKNOWN,               DXGI_FORMAT_UNKNOWN,           DXGI_FORMAT_UNKNOWN              }, // PTC12
 		{ DXGI_FORMAT_UNKNOWN,            DXGI_FORMAT_UNKNOWN,               DXGI_FORMAT_UNKNOWN,           DXGI_FORMAT_UNKNOWN              }, // PTC14
 		{ DXGI_FORMAT_UNKNOWN,            DXGI_FORMAT_UNKNOWN,               DXGI_FORMAT_UNKNOWN,           DXGI_FORMAT_UNKNOWN              }, // PTC12A
@@ -703,7 +707,7 @@ namespace bgfx { namespace d3d11
 			, m_timerQuerySupport(false)
 			, m_directAccessSupport(false)
 		{
-			m_fbh.idx = kInvalidHandle;
+			m_fbh = BGFX_INVALID_HANDLE;
 			bx::memSet(&m_scd, 0, sizeof(m_scd) );
 			bx::memSet(&m_windows, 0xff, sizeof(m_windows) );
 		}
@@ -732,7 +736,7 @@ namespace bgfx { namespace d3d11
 				m_renderDocDll = loadRenderDoc();
 			}
 
-			m_fbh.idx = kInvalidHandle;
+			m_fbh = BGFX_INVALID_HANDLE;
 			bx::memSet(m_uniforms, 0, sizeof(m_uniforms) );
 			bx::memSet(&m_resolution, 0, sizeof(m_resolution) );
 
@@ -1009,6 +1013,11 @@ namespace bgfx { namespace d3d11
 					}
 				}
 
+				if (NULL != findModule("Nvda.Graphics.Interception.dll") )
+				{
+					setGraphicsDebuggerPresent(true);
+				}
+
 				if (BGFX_PCI_ID_NVIDIA != m_dxgi.m_adapterDesc.VendorId)
 				{
 					m_nvapi.shutdown();
@@ -1044,7 +1053,7 @@ namespace bgfx { namespace d3d11
 					 * is incompatible with the flip presentation model, which is desirable for various reasons including
 					 * player embedding.
 					 */
-					m_scd.format = s_textureFormat[_init.resolution.format].m_fmt;
+					m_scd.format = s_textureFormat[_init.resolution.formatColor].m_fmt;
 
 					updateMsaa(m_scd.format);
 					m_scd.sampleDesc  = s_msaa[(_init.resolution.reset&BGFX_RESET_MSAA_MASK)>>BGFX_RESET_MSAA_SHIFT];
@@ -1121,7 +1130,10 @@ namespace bgfx { namespace d3d11
 							* ONLY the backbuffer from swapchain can be created without *_SRGB format, custom backbuffer should be created the same
 							* format as well as render target view.
 							*/
-							desc.Format     = (m_resolution.reset & BGFX_RESET_SRGB_BACKBUFFER) ? s_textureFormat[m_resolution.format].m_fmtSrgb : s_textureFormat[m_resolution.format].m_fmt;
+							desc.Format     = (m_resolution.reset & BGFX_RESET_SRGB_BACKBUFFER)
+								? s_textureFormat[m_resolution.formatColor].m_fmtSrgb
+								: s_textureFormat[m_resolution.formatColor].m_fmt
+								;
 							desc.SampleDesc = m_scd.sampleDesc;
 							desc.Usage      = D3D11_USAGE_DEFAULT;
 							desc.BindFlags  = D3D11_BIND_RENDER_TARGET;
@@ -1618,10 +1630,9 @@ namespace bgfx { namespace d3d11
 				DX_RELEASE(m_annotation, 1);
 				DX_RELEASE_W(m_infoQueue, 0);
 				DX_RELEASE(m_msaaRt, 0);
-#if BX_PLATFORM_WINRT
-				// Remove swap chain from SwapChainPanel (nwh) if applicable
+
 				m_dxgi.removeSwapChain(m_scd);
-#endif
+
 				DX_RELEASE(m_swapChain, 0);
 				DX_RELEASE(m_deviceCtx, 0);
 				DX_RELEASE(m_device, 0);
@@ -1709,10 +1720,9 @@ namespace bgfx { namespace d3d11
 			DX_RELEASE(m_annotation, 1);
 			DX_RELEASE_W(m_infoQueue, 0);
 			DX_RELEASE(m_msaaRt, 0);
-#if BX_PLATFORM_WINRT
-			// Remove swap chain from SwapChainPanel (nwh) if applicable
+
 			m_dxgi.removeSwapChain(m_scd);
-#endif
+
 			DX_RELEASE(m_swapChain, 0);
 			DX_RELEASE(m_deviceCtx, 0);
 			DX_RELEASE(m_device, 0);
@@ -1861,13 +1871,7 @@ namespace bgfx { namespace d3d11
 
 			uint32_t pitch = bx::uint32_min(srcPitch, dstPitch);
 
-			for (uint32_t yy = 0, height = srcHeight; yy < height; ++yy)
-			{
-				bx::memCopy(dst, src, pitch);
-
-				src += srcPitch;
-				dst += dstPitch;
-			}
+			bx::memCopy(dst, dstPitch, src, srcPitch, pitch, srcHeight);
 
 			m_deviceCtx->Unmap(texture.m_ptr, _mip);
 		}
@@ -1880,8 +1884,7 @@ namespace bgfx { namespace d3d11
 			const Memory* mem = alloc(size);
 
 			bx::StaticMemoryBlockWriter writer(mem->data, mem->size);
-			uint32_t magic = BGFX_CHUNK_MAGIC_TEX;
-			bx::write(&writer, magic, bx::ErrorAssert{});
+			bx::write(&writer, kChunkMagicTex, bx::ErrorAssert{});
 
 			TextureCreate tc;
 			tc.m_width     = _width;
@@ -1900,12 +1903,12 @@ namespace bgfx { namespace d3d11
 			release(mem);
 		}
 
-		void overrideInternal(TextureHandle _handle, uintptr_t _ptr) override
+		void overrideInternal(TextureHandle _handle, uintptr_t _ptr, uint16_t _layerIndex) override
 		{
 			// Resource ref. counts might be messed up outside of bgfx.
 			// Disabling ref. count check once texture is overridden.
 			setGraphicsDebuggerPresent(true);
-			m_textures[_handle.idx].overrideInternal(_ptr);
+			m_textures[_handle.idx].overrideInternal(_ptr, _layerIndex);
 		}
 
 		uintptr_t getInternal(TextureHandle _handle) override
@@ -2124,6 +2127,8 @@ namespace bgfx { namespace d3d11
 
 		void submitBlit(BlitState& _bs, uint16_t _view);
 
+		void submitUniformCache(UniformCacheState& _ucs, uint16_t _view);
+
 		void submit(Frame* _render, ClearQuad& _clearQuad, TextVideoMemBlitter& _textVideoMemBlitter) override;
 
 		void blitSetup(TextVideoMemBlitter& _blitter) override
@@ -2248,7 +2253,10 @@ namespace bgfx { namespace d3d11
 				 * with the srgb version. this is OK because of this:
 				 * https://docs.microsoft.com/en-us/windows/win32/direct3ddxgi/converting-data-color-space
 				 */
-				desc.Format = (m_resolution.reset & BGFX_RESET_SRGB_BACKBUFFER) ? s_textureFormat[m_resolution.format].m_fmtSrgb : s_textureFormat[m_resolution.format].m_fmt;
+				desc.Format = (m_resolution.reset & BGFX_RESET_SRGB_BACKBUFFER)
+					? s_textureFormat[m_resolution.formatColor].m_fmtSrgb
+					: s_textureFormat[m_resolution.formatColor].m_fmt
+					;
 
 				DX_CHECK(m_device->CreateRenderTargetView(NULL == m_msaaRt ? backBufferColor : m_msaaRt, &desc, &m_backBufferColor) );
 				DX_RELEASE(backBufferColor, 0);
@@ -2258,16 +2266,17 @@ namespace bgfx { namespace d3d11
 			{
 				m_gpuTimer.postReset();
 			}
+
 			m_occlusionQuery.postReset();
 
-			if (NULL == m_backBufferDepthStencil)
+			if (bimg::isDepth(bimg::TextureFormat::Enum(m_resolution.formatDepthStencil) ) )
 			{
 				D3D11_TEXTURE2D_DESC dsd;
 				dsd.Width  = bx::uint32_max(m_scd.width,  1);
 				dsd.Height = bx::uint32_max(m_scd.height,  1);
 				dsd.MipLevels  = 1;
 				dsd.ArraySize  = 1;
-				dsd.Format     = DXGI_FORMAT_D24_UNORM_S8_UINT;
+				dsd.Format     = s_textureFormat[m_resolution.formatDepthStencil].m_fmtDsv;
 				dsd.SampleDesc = m_scd.sampleDesc;
 				dsd.Usage      = D3D11_USAGE_DEFAULT;
 				dsd.BindFlags  = D3D11_BIND_DEPTH_STENCIL;
@@ -2396,7 +2405,7 @@ namespace bgfx { namespace d3d11
 #if BX_PLATFORM_WINRT
 			// SwapChainPanels can be dynamically updated
 			if (m_scd.ndt == reinterpret_cast<void*>(2)
-				&& (m_scd.nwh != g_platformData.nwh || m_scd.ndt != g_platformData.ndt))
+			&& (m_scd.nwh != g_platformData.nwh || m_scd.ndt != g_platformData.ndt) )
 			{
 				// Remove swap chain from SwapChainPanel (nwh) if applicable
 				m_dxgi.removeSwapChain(m_scd);
@@ -2462,10 +2471,12 @@ namespace bgfx { namespace d3d11
 				| BGFX_RESET_SUSPEND
 				);
 
-			if (m_resolution.width            !=  _resolution.width
-			||  m_resolution.height           !=  _resolution.height
-			||  m_resolution.format           !=  _resolution.format
-			|| (m_resolution.reset&maskFlags) != (_resolution.reset&maskFlags) )
+			if (m_resolution.width              != _resolution.width
+			||  m_resolution.height             != _resolution.height
+			||  m_resolution.formatColor        != _resolution.formatColor
+			||  m_resolution.formatDepthStencil != _resolution.formatDepthStencil
+			|| (m_resolution.reset&maskFlags)   != (_resolution.reset&maskFlags)
+			   )
 			{
 				uint32_t flags = _resolution.reset & (~BGFX_RESET_INTERNAL_FORCE);
 
@@ -2483,8 +2494,7 @@ namespace bgfx { namespace d3d11
 				m_scd.width  = _resolution.width;
 				m_scd.height = _resolution.height;
 				// see comment in init() about why we don't worry about BGFX_RESET_SRGB_BACKBUFFER here
-				m_scd.format = s_textureFormat[_resolution.format].m_fmt
-					;
+				m_scd.format = s_textureFormat[_resolution.formatColor].m_fmt;
 
 				preReset();
 
@@ -2512,10 +2522,8 @@ namespace bgfx { namespace d3d11
 						updateMsaa(m_scd.format);
 						m_scd.sampleDesc = s_msaa[(m_resolution.reset&BGFX_RESET_MSAA_MASK)>>BGFX_RESET_MSAA_SHIFT];
 
-#if BX_PLATFORM_WINRT
-						// Remove swap chain from SwapChainPanel (nwh) if applicable
 						m_dxgi.removeSwapChain(m_scd);
-#endif
+
 						DX_RELEASE(m_swapChain, 0);
 						HRESULT hr = m_dxgi.createSwapChain(m_device
 							, m_scd
@@ -2531,7 +2539,10 @@ namespace bgfx { namespace d3d11
 						desc.Height     = m_scd.height;
 						desc.MipLevels  = 1;
 						desc.ArraySize  = 1;
-						desc.Format     = (m_resolution.reset & BGFX_RESET_SRGB_BACKBUFFER) ? s_textureFormat[m_resolution.format].m_fmtSrgb : s_textureFormat[m_resolution.format].m_fmt;
+						desc.Format     = (m_resolution.reset & BGFX_RESET_SRGB_BACKBUFFER)
+							? s_textureFormat[m_resolution.formatColor].m_fmtSrgb
+							: s_textureFormat[m_resolution.formatColor].m_fmt
+							;
 						desc.SampleDesc = m_scd.sampleDesc;
 						desc.Usage      = D3D11_USAGE_DEFAULT;
 						desc.BindFlags  = D3D11_BIND_RENDER_TARGET;
@@ -4740,17 +4751,35 @@ namespace bgfx { namespace d3d11
 		}
 	}
 
-	void TextureD3D11::overrideInternal(uintptr_t _ptr)
+	void TextureD3D11::overrideInternal(uintptr_t _ptr, uint16_t _layerIndex)
 	{
 		D3D11_SHADER_RESOURCE_VIEW_DESC srvDesc{};
 
-		const bool readable = (m_srv != NULL);
+		const bool readable = NULL != m_srv;
+
 		if (readable)
 		{
 			m_srv->GetDesc(&srvDesc);
 		}
 
+		switch (srvDesc.ViewDimension)
+		{
+		case D3D11_SRV_DIMENSION_TEXTURE2DARRAY:
+			srvDesc.Texture2DArray.FirstArraySlice = _layerIndex;
+			srvDesc.Texture2DArray.ArraySize = 1;
+			break;
+
+		case D3D11_SRV_DIMENSION_TEXTURE2DMSARRAY:
+			srvDesc.Texture2DMSArray.FirstArraySlice = _layerIndex;
+			srvDesc.Texture2DMSArray.ArraySize = 1;
+			break;
+
+		default:
+			break;
+		}
+
 		destroy();
+
 		m_flags |= BGFX_SAMPLER_INTERNAL_SHARED;
 		m_ptr = (ID3D11Resource*)_ptr;
 
@@ -5566,6 +5595,16 @@ namespace bgfx { namespace d3d11
 		}
 	}
 
+	void RendererContextD3D11::submitUniformCache(UniformCacheState& _ucs, uint16_t _view)
+	{
+		while (_ucs.hasItem(_view) )
+		{
+			const UniformCacheItem& uci = _ucs.advance();
+
+			bx::memCopy(m_uniforms[uci.m_handle], &_ucs.m_frame->m_uniformCacheFrame.m_data[uci.m_offset], uci.m_size);
+		}
+	}
+
 	void RendererContextD3D11::submit(Frame* _render, ClearQuad& _clearQuad, TextVideoMemBlitter& _textVideoMemBlitter)
 	{
 		if (m_lost)
@@ -5636,6 +5675,7 @@ namespace bgfx { namespace d3d11
 		uint16_t view = UINT16_MAX;
 		FrameBufferHandle fbh = { BGFX_CONFIG_MAX_FRAME_BUFFERS };
 
+		UniformCacheState ucs(_render);
 		BlitState bs(_render);
 
 		const uint64_t primType = _render->m_debug&BGFX_DEBUG_WIREFRAME ? BGFX_STATE_PT_LINES : 0;
@@ -5736,6 +5776,7 @@ namespace bgfx { namespace d3d11
 						prim = s_primInfo[Topology::Count]; // Force primitive type update after clear quad.
 					}
 
+					submitUniformCache(ucs, view);
 					submitBlit(bs, view);
 				}
 
