@@ -170,6 +170,10 @@ namespace bgfx
 			ETC2,         //!< ETC2 RGB8
 			ETC2A,        //!< ETC2 RGBA8
 			ETC2A1,       //!< ETC2 RGB8A1
+			EACR11,       //!< EAC R11 UNORM
+			EACR11S,      //!< EAC R11 SNORM
+			EACRG11,      //!< EAC RG11 UNORM
+			EACRG11S,     //!< EAC RG11 SNORM
 			PTC12,        //!< PVRTC1 RGB 2BPP
 			PTC14,        //!< PVRTC1 RGB 4BPP
 			PTC12A,       //!< PVRTC1 RGBA 2BPP
@@ -279,6 +283,23 @@ namespace bgfx
 			Vec4,    //!< 4 floats vector.
 			Mat3,    //!< 3x3 matrix.
 			Mat4,    //!< 4x4 matrix.
+
+			Count
+		};
+	};
+
+	/// Uniform frequency enum.
+	///
+	/// @attention C99's equivalent binding is `bgfx_bgfx_uniform_freq_t`.
+	///
+	struct UniformFreq
+	{
+		/// Uniform frequency:
+		enum Enum
+		{
+			Draw,  //!< Changing per draw call.
+			View,  //!< Changing per view.
+			Frame, //!< Changing per frame.
 
 			Count
 		};
@@ -403,23 +424,43 @@ namespace bgfx
 		};
 	};
 
+	/// Shading Rate.
+	///
+	/// @attention C99's equivalent binding is `bgfx_bgfx_shading_rate_t`.
+	///
+	struct ShadingRate
+	{
+		/// Shading rate:
+		enum Enum
+		{
+			Rate1x1,
+			Rate1x2,
+			Rate2x1,
+			Rate2x2,
+			Rate2x4,
+			Rate4x2,
+			Rate4x4,
+
+			Count
+		};
+	};
+
 	/// Native window handle type.
 	///
 	/// @attention C99's equivalent binding is `bgfx_native_window_handle_type_t`.
 	///
-
 	struct NativeWindowHandleType
 	{
-		 enum Enum
-		 {
-		       Default = 0, //!< Platform default handle type (X11 on Linux).
-		       Wayland,     //!< Wayland.
+		enum Enum
+		{
+			Default = 0, //!< Platform default handle type (X11 on Linux).
+			Wayland,     //!< Wayland.
 
-		       Count
-		 };
+			Count
+		};
 	};
 
-	static const uint16_t kInvalidHandle = UINT16_MAX;
+	constexpr uint16_t kInvalidHandle = UINT16_MAX;
 
 	BGFX_HANDLE(DynamicIndexBufferHandle)
 	BGFX_HANDLE(DynamicVertexBufferHandle)
@@ -658,13 +699,14 @@ namespace bgfx
 	{
 		Resolution();
 
-		TextureFormat::Enum format; //!< Backbuffer format.
-		uint32_t width;             //!< Backbuffer width.
-		uint32_t height;            //!< Backbuffer height.
-		uint32_t reset;             //!< Reset parameters.
-		uint8_t  numBackBuffers;    //!< Number of back buffers.
-		uint8_t  maxFrameLatency;   //!< Maximum frame latency.
-		uint8_t  debugTextScale;    //!< Scale factor for debug text.
+		TextureFormat::Enum formatColor;        //!< Backbuffer color format.
+		TextureFormat::Enum formatDepthStencil; //!< Backbuffer depth/stencil format.
+		uint32_t width;                         //!< Backbuffer width.
+		uint32_t height;                        //!< Backbuffer height.
+		uint32_t reset;                         //!< Reset parameters.
+		uint8_t  numBackBuffers;                //!< Number of back buffers.
+		uint8_t  maxFrameLatency;               //!< Maximum frame latency.
+		uint8_t  debugTextScale;                //!< Scale factor for debug text.
 	};
 
 	/// Initialization parameters used by `bgfx::init`.
@@ -714,10 +756,11 @@ namespace bgfx
 		{
 			Limits();
 
-			uint16_t maxEncoders;       //!< Maximum number of encoder threads.
-			uint32_t minResourceCbSize; //!< Minimum resource command buffer size.
-			uint32_t transientVbSize;   //!< Maximum transient vertex buffer size.
-			uint32_t transientIbSize;   //!< Maximum transient index buffer size.
+			uint16_t maxEncoders;          //!< Maximum number of encoder threads.
+			uint32_t minResourceCbSize;    //!< Minimum resource command buffer size.
+			uint32_t maxTransientVbSize;   //!< Maximum transient vertex buffer size.
+			uint32_t maxTransientIbSize;   //!< Maximum transient index buffer size.
+			uint32_t minUniformBufferSize; //!< Mimimum uniform buffer size.
 		};
 
 		Limits limits; //!< Configurable runtime limits.
@@ -816,8 +859,9 @@ namespace bgfx
 			uint32_t maxOcclusionQueries;     //!< Maximum number of occlusion query handles.
 			uint32_t maxEncoders;             //!< Maximum number of encoder threads.
 			uint32_t minResourceCbSize;       //!< Minimum resource command buffer size.
-			uint32_t transientVbSize;         //!< Maximum transient vertex buffer size.
-			uint32_t transientIbSize;         //!< Maximum transient index buffer size.
+			uint32_t maxTransientVbSize;      //!< Maximum transient vertex buffer size.
+			uint32_t maxTransientIbSize;      //!< Maximum transient index buffer size.
+			uint32_t minUniformBufferSize;    //!< Mimimum uniform buffer size.
 		};
 
 		Limits limits; //!< Renderer runtime limits.
@@ -3256,6 +3300,48 @@ namespace bgfx
 		, uint16_t _num = 1
 		);
 
+	/// Create shader uniform parameter.
+	///
+	/// @param[in] _name Uniform name in shader.
+	/// @param[in] _freq Uniform change frequency (See: `bgfx::UniformFreq`).
+	/// @param[in] _type Type of uniform (See: `bgfx::UniformType`).
+	/// @param[in] _num Number of elements in array.
+	///
+	/// @returns Handle to uniform object.
+	///
+	/// @remarks
+	///   1. Uniform names are unique. It's valid to call `bgfx::createUniform`
+	///      multiple times with the same uniform name. The library will always
+	///      return the same handle, but the handle reference count will be
+	///      incremented. This means that the same number of `bgfx::destroyUniform`
+	///      must be called to properly destroy the uniform.
+	///   2. Predefined uniforms (declared in `bgfx_shader.sh`):
+	///      - `u_viewRect vec4(x, y, width, height)` - view rectangle for current
+	///        view, in pixels.
+	///      - `u_viewTexel vec4(1.0/width, 1.0/height, undef, undef)` - inverse
+	///        width and height
+	///      - `u_view mat4` - view matrix
+	///      - `u_invView mat4` - inverted view matrix
+	///      - `u_proj mat4` - projection matrix
+	///      - `u_invProj mat4` - inverted projection matrix
+	///      - `u_viewProj mat4` - concatenated view projection matrix
+	///      - `u_invViewProj mat4` - concatenated inverted view projection matrix
+	///      - `u_model mat4[BGFX_CONFIG_MAX_BONES]` - array of model matrices.
+	///      - `u_modelView mat4` - concatenated model view matrix, only first
+	///        model matrix from array is used.
+	///      - `u_invModelView mat4` - inverted concatenated model view matrix.
+	///      - `u_modelViewProj mat4` - concatenated model view projection matrix.
+	///      - `u_alphaRef float` - alpha reference value for alpha test.
+	///
+	/// @attention C99's equivalent binding is `bgfx_create_uniform_with_freq`.
+	///
+	UniformHandle createUniform(
+		  const char* _name
+		, UniformFreq::Enum _freq
+		, UniformType::Enum _type
+		, uint16_t _num = 1
+		);
+
 	/// Retrieve uniform info.
 	///
 	/// @param[in] _handle Handle to uniform object.
@@ -3544,6 +3630,19 @@ namespace bgfx
 		, const ViewId* _remap = NULL
 		);
 
+	/// Set view shading rate.
+	///
+	/// @param[in] _id View id.
+	/// @param[in] _shadingRate Shading rate.
+	///
+	/// @attention Availability depends on: `BGFX_CAPS_VARIABLE_RATE_SHADING`.
+	/// @attention C99's equivalent binding is `bgfx_set_view_shading_rate`.
+	///
+	void setViewShadingRate(
+		  ViewId _id
+		, ShadingRate::Enum _shadingRate = ShadingRate::Rate1x1
+		);
+
 	/// Reset all view settings to default.
 	///
 	/// @param[in] _id View id.
@@ -3699,6 +3798,40 @@ namespace bgfx
 	/// @attention C99's equivalent binding is `bgfx_set_uniform`.
 	///
 	void setUniform(
+		  UniformHandle _handle
+		, const void* _value
+		, uint16_t _num = 1
+		);
+
+	/// Set shader uniform parameter for view.
+	///
+	/// @param[in] _id View id.
+	/// @param[in] _handle Uniform.
+	/// @param[in] _value Pointer to uniform data.
+	/// @param[in] _num Number of elements. Passing `UINT16_MAX` will
+	///  use the _num passed on uniform creation.
+	///
+	/// @attention Uniform must be created with `bgfx::UniformFreq::View` argument.
+	/// @attention C99's equivalent binding is `bgfx_set_view_uniform`.
+	///
+	void setViewUniform(
+		  ViewId _id
+		, UniformHandle _handle
+		, const void* _value
+		, uint16_t _num = 1
+		);
+
+	/// Set shader uniform parameter for frame.
+	///
+	/// @param[in] _handle Uniform.
+	/// @param[in] _value Pointer to uniform data.
+	/// @param[in] _num Number of elements. Passing `UINT16_MAX` will
+	///  use the _num passed on uniform creation.
+	///
+	/// @attention Uniform must be created with `bgfx::UniformFreq::View` argument.
+	/// @attention C99's equivalent binding is `bgfx_set_frame_uniform`.
+	///
+	void setFrameUniform(
 		  UniformHandle _handle
 		, const void* _value
 		, uint16_t _num = 1

@@ -829,7 +829,9 @@ const analysis::Constant* FoldFPBinaryOp(
     // Build the constant object and return it.
     std::vector<uint32_t> ids;
     for (const analysis::Constant* member : results_components) {
-      ids.push_back(const_mgr->GetDefiningInstruction(member)->result_id());
+      Instruction* def = const_mgr->GetDefiningInstruction(member);
+      if (!def) return nullptr;
+      ids.push_back(def->result_id());
     }
     return const_mgr->GetConstant(vector_type, ids);
   } else {
@@ -1395,13 +1397,18 @@ ConstantFoldingRule FoldFMix() {
     if (base_type->AsFloat()->width() == 32) {
       one = const_mgr->GetConstant(base_type,
                                    utils::FloatProxy<float>(1.0f).GetWords());
-    } else {
+    } else if (base_type->AsFloat()->width() == 64) {
       one = const_mgr->GetConstant(base_type,
                                    utils::FloatProxy<double>(1.0).GetWords());
+    } else {
+      // We won't support folding half types.
+      return nullptr;
     }
 
     if (is_vector) {
-      uint32_t one_id = const_mgr->GetDefiningInstruction(one)->result_id();
+      Instruction* one_inst = const_mgr->GetDefiningInstruction(one);
+      if (one_inst == nullptr) return nullptr;
+      uint32_t one_id = one_inst->result_id();
       one =
           const_mgr->GetConstant(result_type, std::vector<uint32_t>(4, one_id));
     }
@@ -1433,14 +1440,29 @@ const analysis::Constant* FoldMin(const analysis::Type* result_type,
                                   const analysis::Constant* b,
                                   analysis::ConstantManager*) {
   if (const analysis::Integer* int_type = result_type->AsInteger()) {
-    if (int_type->width() == 32) {
+    if (int_type->width() <= 32) {
+      assert(
+          (a->AsIntConstant() != nullptr || a->AsNullConstant() != nullptr) &&
+          "Must be an integer or null constant.");
+      assert(
+          (b->AsIntConstant() != nullptr || b->AsNullConstant() != nullptr) &&
+          "Must be an integer or null constant.");
+
       if (int_type->IsSigned()) {
-        int32_t va = a->GetS32();
-        int32_t vb = b->GetS32();
+        int32_t va = (a->AsIntConstant() != nullptr)
+                         ? a->AsIntConstant()->GetS32BitValue()
+                         : 0;
+        int32_t vb = (b->AsIntConstant() != nullptr)
+                         ? b->AsIntConstant()->GetS32BitValue()
+                         : 0;
         return (va < vb ? a : b);
       } else {
-        uint32_t va = a->GetU32();
-        uint32_t vb = b->GetU32();
+        uint32_t va = (a->AsIntConstant() != nullptr)
+                          ? a->AsIntConstant()->GetU32BitValue()
+                          : 0;
+        uint32_t vb = (b->AsIntConstant() != nullptr)
+                          ? b->AsIntConstant()->GetU32BitValue()
+                          : 0;
         return (va < vb ? a : b);
       }
     } else if (int_type->width() == 64) {
@@ -1473,14 +1495,29 @@ const analysis::Constant* FoldMax(const analysis::Type* result_type,
                                   const analysis::Constant* b,
                                   analysis::ConstantManager*) {
   if (const analysis::Integer* int_type = result_type->AsInteger()) {
-    if (int_type->width() == 32) {
+    if (int_type->width() <= 32) {
+      assert(
+          (a->AsIntConstant() != nullptr || a->AsNullConstant() != nullptr) &&
+          "Must be an integer or null constant.");
+      assert(
+          (b->AsIntConstant() != nullptr || b->AsNullConstant() != nullptr) &&
+          "Must be an integer or null constant.");
+
       if (int_type->IsSigned()) {
-        int32_t va = a->GetS32();
-        int32_t vb = b->GetS32();
+        int32_t va = (a->AsIntConstant() != nullptr)
+                         ? a->AsIntConstant()->GetS32BitValue()
+                         : 0;
+        int32_t vb = (b->AsIntConstant() != nullptr)
+                         ? b->AsIntConstant()->GetS32BitValue()
+                         : 0;
         return (va > vb ? a : b);
       } else {
-        uint32_t va = a->GetU32();
-        uint32_t vb = b->GetU32();
+        uint32_t va = (a->AsIntConstant() != nullptr)
+                          ? a->AsIntConstant()->GetU32BitValue()
+                          : 0;
+        uint32_t vb = (b->AsIntConstant() != nullptr)
+                          ? b->AsIntConstant()->GetU32BitValue()
+                          : 0;
         return (va > vb ? a : b);
       }
     } else if (int_type->width() == 64) {

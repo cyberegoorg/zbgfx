@@ -93,6 +93,9 @@ void IRContext::BuildInvalidAnalyses(IRContext::Analysis set) {
   if (set & kAnalysisLiveness) {
     BuildLivenessManager();
   }
+  if (set & kAnalysisIdToGraphMapping) {
+    BuildIdToGraphMapping();
+  }
 }
 
 void IRContext::InvalidateAnalysesExceptFor(
@@ -164,6 +167,9 @@ void IRContext::InvalidateAnalyses(IRContext::Analysis analyses_to_invalidate) {
   if (analyses_to_invalidate & kAnalysisDebugInfo) {
     debug_info_mgr_.reset(nullptr);
   }
+  if (analyses_to_invalidate & kAnalysisIdToGraphMapping) {
+    id_to_graph_.clear();
+  }
 
   valid_analyses_ = Analysis(valid_analyses_ & ~analyses_to_invalidate);
 }
@@ -201,7 +207,9 @@ Instruction* IRContext::KillInst(Instruction* inst) {
     constant_mgr_->RemoveId(inst->result_id());
   }
   if (inst->opcode() == spv::Op::OpCapability ||
-      inst->opcode() == spv::Op::OpExtension) {
+      inst->opcode() == spv::Op::OpConditionalCapabilityINTEL ||
+      inst->opcode() == spv::Op::OpExtension ||
+      inst->opcode() == spv::Op::OpConditionalExtensionINTEL) {
     // We reset the feature manager, instead of updating it, because it is just
     // as much work.  We would have to remove all capabilities implied by this
     // capability that are not also implied by the remaining OpCapability
@@ -382,9 +390,18 @@ bool IRContext::IsConsistent() {
     }
   }
 
+  return true;
   if (AreAnalysesValid(kAnalysisIdToFuncMapping)) {
     for (auto& fn : *module_) {
       if (id_to_func_[fn.result_id()] != &fn) {
+        return false;
+      }
+    }
+  }
+
+  if (AreAnalysesValid(kAnalysisIdToGraphMapping)) {
+    for (auto& g : module_->graphs()) {
+      if (id_to_graph_[g->DefInst().result_id()] != g.get()) {
         return false;
       }
     }
@@ -398,8 +415,9 @@ bool IRContext::IsConsistent() {
                 return false;
               }
               return true;
-            }))
+            })) {
           return false;
+        }
       }
     }
   }

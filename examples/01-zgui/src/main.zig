@@ -100,7 +100,7 @@ pub fn main() anyerror!u8 {
     //
     // Reset and clear
     //
-    bgfx.reset(@intCast(framebufferSize[0]), @intCast(framebufferSize[1]), reset_flags, bgfx_init.resolution.format);
+    bgfx.reset(@intCast(framebufferSize[0]), @intCast(framebufferSize[1]), reset_flags, bgfx_init.resolution.formatColor);
 
     // Set view 0 clear state.
     bgfx.setViewClear(0, bgfx.ClearFlags_Color | bgfx.ClearFlags_Depth, 0x303030ff, 1.0, 0);
@@ -184,7 +184,7 @@ pub fn main() anyerror!u8 {
                 @intCast(size[0]),
                 @intCast(size[1]),
                 reset_flags,
-                bgfx_init.resolution.format,
+                bgfx_init.resolution.formatColor,
             );
             old_size = size;
             old_flags = reset_flags;

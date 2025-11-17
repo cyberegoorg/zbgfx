@@ -2,7 +2,7 @@
     .name = .zbgfx,
     .fingerprint = 0xc48ed871c4086e4a,
     .version = "0.5.0",
-    .minimum_zig_version = "0.15.1",
+    .minimum_zig_version = "0.15.2",
     .paths = .{
         "includes",
         "libs",
