@@ -8,4 +8,5 @@ pub fn build(b: *std.Build) !void {
     try @import("01-zgui/build_sample.zig").build(b, optimize, target);
     try @import("02-runtime-shaderc/build_sample.zig").build(b, optimize, target);
     try @import("03-debugdraw/build_sample.zig").build(b, optimize, target);
+    try @import("04-instancing/build_sample.zig").build(b, optimize, target);
 }
