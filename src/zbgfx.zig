@@ -1,6 +1,6 @@
 const std = @import("std");
 
-pub const bgfx = @import("bgfx.zig");
+pub const bgfx = @import("bgfx");
 pub const build = @import("build_step.zig");
 pub const callbacks = @import("callbacks.zig");
 pub const shaderc = @import("shaderc.zig");

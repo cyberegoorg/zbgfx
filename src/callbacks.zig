@@ -1,5 +1,5 @@
 const std = @import("std");
-const bgfx = @import("bgfx.zig");
+const bgfx = @import("bgfx");
 const builtin = @import("builtin");
 
 const log = std.log.scoped(.bgfx);

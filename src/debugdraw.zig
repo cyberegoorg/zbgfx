@@ -1,5 +1,5 @@
 const std = @import("std");
-const bgfx = @import("bgfx.zig");
+const bgfx = @import("bgfx");
 
 pub const Axis = enum(c_int) {
     X,

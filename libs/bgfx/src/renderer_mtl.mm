@@ -3174,8 +3174,6 @@ BX_PRAGMA_DIAGNOSTIC_POP();
 				m_ptrStencil = s_renderMtl->m_device.newTextureWithDescriptor(desc);
 			}
 
-			MTL_RELEASE(desc, 0);
-
 			uint8_t* temp = NULL;
 			if (convert)
 			{
@@ -3252,6 +3250,8 @@ BX_PRAGMA_DIAGNOSTIC_POP();
 					depth  >>= 1;
 				}
 			}
+			
+			MTL_RELEASE(desc, 0);
 
 			if (NULL != temp)
 			{
@@ -3994,7 +3994,7 @@ BX_PRAGMA_DIAGNOSTIC_POP();
 
 	bool TimerQueryMtl::get()
 	{
-		if (0 != m_control.available() )
+		if (0 != m_control.getNumUsed() )
 		{
 			uint32_t offset = m_control.m_read;
 			m_begin = m_result[offset].m_begin;
@@ -4044,7 +4044,7 @@ BX_PRAGMA_DIAGNOSTIC_POP();
 	{
 		BX_UNUSED(_wait);
 
-		while (0 != m_control.available() )
+		while (0 != m_control.getNumUsed() )
 		{
 			Query& query = m_query[m_control.m_read];
 
@@ -4062,7 +4062,7 @@ BX_PRAGMA_DIAGNOSTIC_POP();
 	{
 		const uint32_t size = m_control.m_size;
 
-		for (uint32_t ii = 0, num = m_control.available(); ii < num; ++ii)
+		for (uint32_t ii = 0, num = m_control.getNumUsed(); ii < num; ++ii)
 		{
 			Query& query = m_query[(m_control.m_read + ii) % size];
 			if (query.m_handle.idx == _handle.idx)
@@ -5280,7 +5280,7 @@ BX_PRAGMA_DIAGNOSTIC_POP();
 		}
 		while (m_gpuTimer.get() );
 
-		maxGpuLatency = bx::uint32_imax(maxGpuLatency, m_gpuTimer.m_control.available()-1);
+		maxGpuLatency = bx::uint32_imax(maxGpuLatency, m_gpuTimer.m_control.getNumUsed()-1);
 
 		const int64_t timerFreq = bx::getHPFrequency();
 

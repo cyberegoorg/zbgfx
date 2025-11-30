@@ -1,7 +1,7 @@
 const std = @import("std");
 const builtin = @import("builtin");
 
-const bgfx = @import("bgfx.zig");
+const bgfx = @import("bgfx");
 
 const ArgsList = std.ArrayList([]const u8);
 

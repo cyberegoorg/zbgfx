@@ -48,7 +48,7 @@ jobs:
       - name: Install Zig
         uses: mlugg/setup-zig@v2
       - name: Lint
-        run: zig fmt --check .
+        run: zig fmt --check . --exclude libs/
 
   build-examples:
     needs: ["validation"]
@@ -58,7 +58,7 @@ jobs:
         os: 
           # FIXME: Problem with x11 in CI (latest ubuntu). But it works on linux
           #- linux-large 
-          - macos-13-large
+          - macos-15-large
           - windows-large
 
     runs-on: ${{matrix.os}}
