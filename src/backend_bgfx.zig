@@ -1,4 +1,4 @@
-const bgfx = @import("bgfx.zig");
+const bgfx = @import("bgfx");
 
 pub fn init() void {
     ImGui_ImplBgfx_Init();

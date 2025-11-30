@@ -46,7 +46,7 @@ pub fn build(
     const combine_bin_zig = zbgfx_dep.artifact("combine_bin_zig");
     const shader_includes = zbgfx_dep.path("shaders");
 
-    const fs_cubes_zig = try zbgfx.build_shader.compileBasicBinZig(
+    const fs_cubes_zig = try zbgfx.build_step.compileBasicBinZig(
         b,
         target,
         shaderc,
@@ -62,7 +62,7 @@ pub fn build(
             .includes = &.{shader_includes},
         },
     );
-    const vs_cubes_zig = try zbgfx.build_shader.compileBasicBinZig(
+    const vs_cubes_zig = try zbgfx.build_step.compileBasicBinZig(
         b,
         target,
         shaderc,

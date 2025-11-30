@@ -1,7 +1,6 @@
 const std = @import("std");
-const zbgfx = @import("src/zbgfx.zig");
 
-pub const build_shader = zbgfx.build;
+pub const build_step = @import("src/build_step.zig");
 
 pub fn build(b: *std.Build) !void {
     const target = b.standardTargetOptions(.{});
@@ -207,9 +206,31 @@ pub fn build(b: *std.Build) !void {
         });
     }
 
-    const zbgfx_module = b.addModule("zbgfx", .{
-        .root_source_file = b.path("src/zbgfx.zig"),
-    });
+    const zbgfx_module = b.addModule(
+        "zbgfx",
+        .{
+            .root_source_file = b.path("src/zbgfx.zig"),
+            .imports = &.{
+                .{
+                    .name = "bgfx",
+                    .module = b.createModule(.{ .root_source_file = b.path("libs/bgfx/bindings/zig/bgfx.zig") }),
+                },
+
+                // .{
+                //     .name = "embed_bgfx_shader_sh",
+                //     .module = b.createModule(.{ .root_source_file = b.path("libs/bgfx/src/bgfx_shader.sh") }),
+                // },
+                // .{
+                //     .name = "embed_bgfx_compute_sh",
+                //     .module = b.createModule(.{ .root_source_file = b.path("libs/bgfx/src/bgfx_compute.sh") }),
+                // },
+                // .{
+                //     .name = "embed_shaderlib_sh",
+                //     .module = b.createModule(.{ .root_source_file = b.path("libs/bgfx/examples/common/shaderlib.sh") }),
+                // },
+            },
+        },
+    );
     _ = zbgfx_module; // autofix
 
     //
@@ -274,7 +295,7 @@ pub fn build(b: *std.Build) !void {
         // Imgui .bin.h shader embeding step.
         //
         const shader_includes = b.path("shaders");
-        const fs_imgui_image_bin_h = try zbgfx.build.compileBasicBinH(
+        const fs_imgui_image_bin_h = try build_step.compileBasicBinH(
             b,
             target,
             shaderc,
@@ -291,7 +312,7 @@ pub fn build(b: *std.Build) !void {
         );
 
         //
-        const fs_ocornut_imgui_bin_h = try zbgfx.build.compileBasicBinH(
+        const fs_ocornut_imgui_bin_h = try build_step.compileBasicBinH(
             b,
             target,
             shaderc,
@@ -307,7 +328,7 @@ pub fn build(b: *std.Build) !void {
             },
         );
 
-        const vs_imgui_image_bin_h = try zbgfx.build.compileBasicBinH(
+        const vs_imgui_image_bin_h = try build_step.compileBasicBinH(
             b,
             target,
             shaderc,
@@ -323,7 +344,7 @@ pub fn build(b: *std.Build) !void {
             },
         );
 
-        const vs_ocornut_imgui_bin_h = try zbgfx.build.compileBasicBinH(
+        const vs_ocornut_imgui_bin_h = try build_step.compileBasicBinH(
             b,
             target,
             shaderc,
@@ -595,8 +616,6 @@ fn bxInclude(b: *std.Build, step: *std.Build.Step.Compile, target: std.Build.Res
     // FIXME: problem with compile with zig.
     if (target.result.os.tag == .windows) {
         step.root_module.addCMacro("BX_CONFIG_EXCEPTION_HANDLING_USE_WINDOWS_SEH", "0");
-    } else if (target.result.os.tag == .linux) {
-        step.root_module.addCMacro("BX_CONFIG_EXCEPTION_HANDLING_USE_POSIX_SIGNALS", "0");
     }
 
     step.root_module.addCMacro("BX_CONFIG_DEBUG", if (optimize == .Debug) "1" else "0");
@@ -839,6 +858,23 @@ const spirv_opt_files = .{
     spirv_opt_path ++ "source/opcode.cpp",
     spirv_opt_path ++ "source/operand.cpp",
     spirv_opt_path ++ "source/to_string.cpp",
+    spirv_opt_path ++ "source/software_version.cpp",
+    spirv_opt_path ++ "source/spirv_endian.cpp",
+    spirv_opt_path ++ "source/spirv_optimizer_options.cpp",
+    spirv_opt_path ++ "source/spirv_reducer_options.cpp",
+    spirv_opt_path ++ "source/spirv_target_env.cpp",
+    spirv_opt_path ++ "source/spirv_validator_options.cpp",
+    spirv_opt_path ++ "source/table.cpp",
+    spirv_opt_path ++ "source/table2.cpp",
+    spirv_opt_path ++ "source/text.cpp",
+    spirv_opt_path ++ "source/text_handler.cpp",
+    spirv_opt_path ++ "source/parsed_operand.cpp",
+    spirv_opt_path ++ "source/print.cpp",
+
+    spirv_opt_path ++ "source/util/bit_vector.cpp",
+    spirv_opt_path ++ "source/util/parse_number.cpp",
+    spirv_opt_path ++ "source/util/string_utils.cpp",
+
     spirv_opt_path ++ "source/opt/graph.cpp",
     spirv_opt_path ++ "source/opt/aggressive_dead_code_elim_pass.cpp",
     spirv_opt_path ++ "source/opt/amd_ext_to_khr.cpp",
@@ -963,8 +999,7 @@ const spirv_opt_files = .{
     spirv_opt_path ++ "source/opt/split_combined_image_sampler_pass.cpp",
     spirv_opt_path ++ "source/opt/resolve_binding_conflicts_pass.cpp",
     spirv_opt_path ++ "source/opt/canonicalize_ids_pass.cpp",
-    spirv_opt_path ++ "source/parsed_operand.cpp",
-    spirv_opt_path ++ "source/print.cpp",
+
     spirv_opt_path ++ "source/reduce/change_operand_reduction_opportunity.cpp",
     spirv_opt_path ++ "source/reduce/change_operand_to_undef_reduction_opportunity.cpp",
     spirv_opt_path ++ "source/reduce/conditional_branch_to_simple_conditional_branch_opportunity_finder.cpp",
@@ -996,19 +1031,7 @@ const spirv_opt_files = .{
     spirv_opt_path ++ "source/reduce/structured_construct_to_block_reduction_opportunity_finder.cpp",
     spirv_opt_path ++ "source/reduce/structured_loop_to_selection_reduction_opportunity.cpp",
     spirv_opt_path ++ "source/reduce/structured_loop_to_selection_reduction_opportunity_finder.cpp",
-    spirv_opt_path ++ "source/software_version.cpp",
-    spirv_opt_path ++ "source/spirv_endian.cpp",
-    spirv_opt_path ++ "source/spirv_optimizer_options.cpp",
-    spirv_opt_path ++ "source/spirv_reducer_options.cpp",
-    spirv_opt_path ++ "source/spirv_target_env.cpp",
-    spirv_opt_path ++ "source/spirv_validator_options.cpp",
-    spirv_opt_path ++ "source/table.cpp",
-    spirv_opt_path ++ "source/table2.cpp",
-    spirv_opt_path ++ "source/text.cpp",
-    spirv_opt_path ++ "source/text_handler.cpp",
-    spirv_opt_path ++ "source/util/bit_vector.cpp",
-    spirv_opt_path ++ "source/util/parse_number.cpp",
-    spirv_opt_path ++ "source/util/string_utils.cpp",
+
     spirv_opt_path ++ "source/val/basic_block.cpp",
     spirv_opt_path ++ "source/val/construct.cpp",
     spirv_opt_path ++ "source/val/function.cpp",
@@ -1057,4 +1080,5 @@ const spirv_opt_files = .{
     spirv_opt_path ++ "source/val/validate_tensor.cpp",
     spirv_opt_path ++ "source/val/validate_invalid_type.cpp",
     spirv_opt_path ++ "source/val/validate_graph.cpp",
+    spirv_opt_path ++ "source/val/validate_logical_pointers.cpp",
 };
