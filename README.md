@@ -2,7 +2,7 @@
 
 [![GitHub Actions](https://github.com/cyberegoorg/zbgfx/actions/workflows/test.yaml/badge.svg)](https://github.com/cyberegoorg/zbgfx/actions/workflows/test.yaml)
 
-When [zig](https://github.com/ziglang/zig) meets [bgfx](https://github.com/bkaradzic/bgfx).
+When [zig](https://codeberg.org/ziglang/zig) meets [bgfx](https://github.com/bkaradzic/bgfx).
 
 ## Features
 
@@ -18,7 +18,8 @@ When [zig](https://github.com/ziglang/zig) meets [bgfx](https://github.com/bkara
 - [ ] Zig based allocator.
 
 > [!IMPORTANT]  
-> This is only zig binding. For BGFX stuff goto [bgfx](https://github.com/bkaradzic/bgfx).
+> - This is only zig binding. For BGFX stuff goto [bgfx](https://github.com/bkaradzic/bgfx).
+> - Github repository is only mirror. Development continues [here](https://codeberg.org/cyberegoorg/zbgfx)
 
 > [!WARNING]
 > - `shaderc` need some time to compile.
