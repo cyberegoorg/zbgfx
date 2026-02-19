@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2025 Branimir Karadzic. All rights reserved.
+ * Copyright 2010-2026 Branimir Karadzic. All rights reserved.
  * License: https://github.com/bkaradzic/bx/blob/master/LICENSE
  */
 
@@ -242,6 +242,7 @@ namespace bx
 	inline constexpr FixedStringT<MaxCapacityT>::FixedStringT()
 		: m_len(0)
 	{
+		m_storage[0] = '\0';
 	}
 
 	template<uint16_t MaxCapacityT>

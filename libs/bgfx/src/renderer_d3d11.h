@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2025 Branimir Karadzic. All rights reserved.
+ * Copyright 2011-2026 Branimir Karadzic. All rights reserved.
  * License: https://github.com/bkaradzic/bgfx/blob/master/LICENSE
  */
 
@@ -284,7 +284,7 @@ namespace bgfx { namespace d3d11
 		{
 		}
 
-		void* create(const Memory* _mem, uint64_t _flags, uint8_t _skip);
+		void* create(const Memory* _mem, uint64_t _flags, uint8_t _skip, uint64_t _external);
 		void destroy();
 		void overrideInternal(uintptr_t _ptr, uint16_t _layerIndex);
 		void update(uint8_t _side, uint8_t _mip, const Rect& _rect, uint16_t _z, uint16_t _depth, uint16_t _pitch, const Memory* _mem);
@@ -335,6 +335,9 @@ namespace bgfx { namespace d3d11
 			, m_numUav(0)
 			, m_needPresent(false)
 		{
+			bx::memSet(m_rtv, 0, sizeof(m_rtv) );
+			bx::memSet(m_uav, 0, sizeof(m_uav) );
+			bx::memSet(m_srv, 0, sizeof(m_srv) );
 		}
 
 		void create(uint8_t _num, const Attachment* _attachment);

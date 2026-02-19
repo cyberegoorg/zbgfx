@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2025 Branimir Karadzic. All rights reserved.
+ * Copyright 2011-2026 Branimir Karadzic. All rights reserved.
  * License: https://github.com/bkaradzic/bgfx/blob/master/LICENSE
  */
 
@@ -63,6 +63,7 @@ namespace bgfx
 			OpenGLES,     //!< OpenGL ES 2.0+
 			OpenGL,       //!< OpenGL 2.1+
 			Vulkan,       //!< Vulkan
+			WebGPU,       //!< WebGPU
 
 			Count
 		};
@@ -616,6 +617,7 @@ namespace bgfx
 		/// @param[in] _height Image height.
 		/// @param[in] _pitch Number of bytes to skip between the start of
 		///   each horizontal line of the image.
+		/// @param[in] _format Texture format. See: `TextureFormat::Enum`.
 		/// @param[in] _data Image data.
 		/// @param[in] _size Image size.
 		/// @param[in] _yflip If true, image origin is bottom left.
@@ -627,6 +629,7 @@ namespace bgfx
 			, uint32_t _width
 			, uint32_t _height
 			, uint32_t _pitch
+			, TextureFormat::Enum _format
 			, const void* _data
 			, uint32_t _size
 			, bool _yflip
@@ -684,6 +687,7 @@ namespace bgfx
 		                                   ///  context/device, provided the rendering API supports it.
 		void* context;                     //!< GL context, D3D device, or Vulkan device. If `NULL`, bgfx
 		                                   ///  will create context/device.
+		void* queue;                       ///
 		void* backBuffer;                  //!< GL back-buffer, or D3D render target view. If `NULL` bgfx will
 		                                   ///  create back-buffer color surface.
 		void* backBufferDS;                //!< Backbuffer depth/stencil. If `NULL`, bgfx will create a back-buffer
@@ -739,8 +743,9 @@ namespace bgfx
 
 		uint64_t capabilities; //!< Capabilities initialization mask (default: UINT64_MAX).
 
-		bool debug;   //!< Enable device for debugging.
-		bool profile; //!< Enable device for profiling.
+		bool debug;    //!< Enable device for debugging.
+		bool profile;  //!< Enable device for profiling.
+		bool fallback; //!< Enable fallback to next available renderer.
 
 		/// Platform data.
 		PlatformData platformData;
@@ -2129,7 +2134,7 @@ namespace bgfx
 	/// just swaps internal buffers, kicks render thread, and returns. In
 	/// singlethreaded renderer this call does frame rendering.
 	///
-	/// @param[in] _capture Capture frame with graphics debugger.
+	/// @param[in] _flags Frame flags. See: `BGFX_FRAME_*`.
 	///
 	/// @returns Current frame number. This might be used in conjunction with
 	///   double/multi buffering data outside the library and passing it to
@@ -2137,7 +2142,7 @@ namespace bgfx
 	///
 	/// @attention C99's equivalent binding is `bgfx_frame`.
 	///
-	uint32_t frame(bool _capture = false);
+	uint32_t frame(uint8_t _flags = BGFX_FRAME_NONE);
 
 	/// Returns current renderer backend API type.
 	///
@@ -2854,6 +2859,7 @@ namespace bgfx
 	/// @param[in] _mem Texture data. If `_mem` is non-NULL, created texture will be immutable. If
 	///   `_mem` is NULL content of the texture is uninitialized. When `_numLayers` is more than
 	///   1, expected memory layout is texture and all mips together for each array element.
+	/// @param[in] _external Native API pointer to texture.
 	///
 	/// @attention C99's equivalent binding is `bgfx_create_texture_2d`.
 	///
@@ -2865,6 +2871,7 @@ namespace bgfx
 		, TextureFormat::Enum _format
 		, uint64_t _flags = BGFX_TEXTURE_NONE|BGFX_SAMPLER_NONE
 		, const Memory* _mem = NULL
+		, uint64_t _external = 0
 		);
 
 	/// Create texture with size based on back-buffer ratio. Texture will maintain ratio
@@ -2909,6 +2916,7 @@ namespace bgfx
 	///
 	/// @param[in] _mem Texture data. If `_mem` is non-NULL, created texture will be immutable. If
 	///   `_mem` is NULL content of the texture is uninitialized.
+	/// @param[in] _external Native API pointer to texture.
 	///
 	/// @attention C99's equivalent binding is `bgfx_create_texture_3d`.
 	///
@@ -2920,6 +2928,7 @@ namespace bgfx
 		, TextureFormat::Enum _format
 		, uint64_t _flags = BGFX_TEXTURE_NONE|BGFX_SAMPLER_NONE
 		, const Memory* _mem = NULL
+		, uint64_t _external = 0
 		);
 
 	/// Create Cube texture.
@@ -2939,6 +2948,7 @@ namespace bgfx
 	/// @param[in] _mem Texture data. If `_mem` is non-NULL, created texture will be immutable. If
 	///   `_mem` is NULL content of the texture is uninitialized. When `_numLayers` is more than
 	///   1, expected memory layout is texture and all mips together for each array element.
+	/// @param[in] _external Native API pointer to texture.
 	///
 	/// @attention C99's equivalent binding is `bgfx_create_texture_cube`.
 	///
@@ -2949,6 +2959,7 @@ namespace bgfx
 		, TextureFormat::Enum _format
 		, uint64_t _flags = BGFX_TEXTURE_NONE|BGFX_SAMPLER_NONE
 		, const Memory* _mem = NULL
+		, uint64_t _external = 0
 		);
 
 	/// Update 2D texture.

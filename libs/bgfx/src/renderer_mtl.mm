@@ -611,6 +611,7 @@ static_assert(BX_COUNTOF(s_accessNames) == Access::Count, "Invalid s_accessNames
 				| BGFX_CAPS_TEXTURE_2D_ARRAY
 				| BGFX_CAPS_TEXTURE_3D
 				| BGFX_CAPS_TEXTURE_BLIT
+				| BGFX_CAPS_TEXTURE_EXTERNAL
 				| BGFX_CAPS_TEXTURE_READ_BACK
 				| BGFX_CAPS_VERTEX_ATTRIB_HALF
 				| BGFX_CAPS_VERTEX_ATTRIB_UINT10
@@ -1076,23 +1077,15 @@ static_assert(BX_COUNTOF(s_accessNames) == Access::Count, "Invalid s_accessNames
 			m_program[_handle.idx].destroy();
 		}
 
-		void* createTexture(TextureHandle _handle, const Memory* _mem, uint64_t _flags, uint8_t _skip) override
+		void* createTexture(TextureHandle _handle, const Memory* _mem, uint64_t _flags, uint8_t _skip, uint64_t _external) override
 		{
-			m_textures[_handle.idx].create(_mem, _flags, _skip);
+			m_textures[_handle.idx].create(_mem, _flags, _skip, _external);
 			return NULL;
-		}
-
-		void updateTextureBegin(TextureHandle /*_handle*/, uint8_t /*_side*/, uint8_t /*_mip*/) override
-		{
 		}
 
 		void updateTexture(TextureHandle _handle, uint8_t _side, uint8_t _mip, const Rect& _rect, uint16_t _z, uint16_t _depth, uint16_t _pitch, const Memory* _mem) override
 		{
 			m_textures[_handle.idx].update(_side, _mip, _rect, _z, _depth, _pitch, _mem);
-		}
-
-		void updateTextureEnd() override
-		{
 		}
 
 		static MTLPixelFormat getSwapChainPixelFormat(SwapChainMtl* _swapChain)
@@ -1153,7 +1146,7 @@ static_assert(BX_COUNTOF(s_accessNames) == Access::Count, "Invalid s_accessNames
 			bx::write(&writer, tc, bx::ErrorAssert{});
 
 			texture.destroy();
-			texture.create(mem, texture.m_flags, 0);
+			texture.create(mem, texture.m_flags, 0, 0);
 
 			release(mem);
 		}
@@ -1259,22 +1252,25 @@ static_assert(BX_COUNTOF(s_accessNames) == Access::Count, "Invalid s_accessNames
 			m_cmd.kick(false, true);
 			m_commandBuffer = 0;
 
-			uint32_t width  = m_screenshotTarget.width();
-			uint32_t height = m_screenshotTarget.height();
-			uint32_t length = width*height*4;
-			uint8_t* data   = (uint8_t*)bx::alloc(g_allocator, length);
+			const uint32_t width  = m_screenshotTarget.width();
+			const uint32_t height = m_screenshotTarget.height();
+			const uint8_t  bpp    = bimg::getBitsPerPixel(bimg::TextureFormat::Enum(m_resolution.formatColor) );
+			const uint32_t pitch  = width * bpp / 8;
+			const uint32_t size   = height*pitch;
+			uint8_t* data   = (uint8_t*)bx::alloc(g_allocator, size);
 
 			MTLRegion region = { { 0, 0, 0 }, { width, height, 1 } };
 
-			m_screenshotTarget.getBytes(data, 4*width, 0, region, 0, 0);
+			m_screenshotTarget.getBytes(data, pitch, 0, region, 0, 0);
 
 			g_callback->screenShot(
 				  _filePath
 				, m_screenshotTarget.width()
 				, m_screenshotTarget.height()
-				, width*4
+				, pitch
+				, m_resolution.formatColor
 				, data
-				, length
+				, size
 				, false
 				);
 
@@ -1346,12 +1342,11 @@ static_assert(BX_COUNTOF(s_accessNames) == Access::Count, "Invalid s_accessNames
 
 		void submit(Frame* _render, ClearQuad& _clearQuad, TextVideoMemBlitter& _textVideoMemBlitter) override;
 
-		void blitSetup(TextVideoMemBlitter& _blitter) override
+		void dbgTextRenderBegin(TextVideoMemBlitter& /*_blitter*/) override
 		{
-			BX_UNUSED(_blitter);
 		}
 
-		void blitRender(TextVideoMemBlitter& _blitter, uint32_t _numIndices) override
+		void dbgTextRender(TextVideoMemBlitter& _blitter, uint32_t _numIndices) override
 		{
 			const uint32_t numVertices = _numIndices*4/6;
 			if (0 < numVertices)
@@ -1464,6 +1459,10 @@ static_assert(BX_COUNTOF(s_accessNames) == Access::Count, "Invalid s_accessNames
 					, 1
 					);
 			}
+		}
+
+		void dbgTextRenderEnd(TextVideoMemBlitter& /*_blitter*/) override
+		{
 		}
 
 		bool isDeviceRemoved() override
@@ -1603,21 +1602,12 @@ static_assert(BX_COUNTOF(s_accessNames) == Access::Count, "Invalid s_accessNames
 
 				MTLRegion region = { { 0, 0, 0 }, { m_resolution.width, m_resolution.height, 1 } };
 
-				m_screenshotTarget.getBytes(m_capture, 4*m_resolution.width, 0, region, 0, 0);
+				const uint8_t  bpp   = bimg::getBitsPerPixel(bimg::TextureFormat::Enum(m_resolution.formatColor) );
+				const uint32_t pitch = m_resolution.width * bpp / 8;
+
+				m_screenshotTarget.getBytes(m_capture, pitch, 0, region, 0, 0);
 
 				m_commandBuffer = m_cmd.alloc();
-
-				if (m_screenshotTarget.pixelFormat() == kMtlPixelFormatRGBA8Uint)
-				{
-					bimg::imageSwizzleBgra8(
-						  m_capture
-						, m_resolution.width*4
-						, m_resolution.width
-						, m_resolution.height
-						, m_capture
-						, m_resolution.width*4
-						);
-				}
 
 				g_callback->captureFrame(m_capture, m_captureSize);
 
@@ -1796,13 +1786,14 @@ static_assert(BX_COUNTOF(s_accessNames) == Access::Count, "Invalid s_accessNames
 
 			uint32_t numMrt = 1;
 			FrameBufferHandle fbh = m_fbh;
-			if (isValid(fbh) && m_frameBuffers[fbh.idx].m_swapChain == NULL)
+			if (isValid(fbh)
+			&&  NULL == m_frameBuffers[fbh.idx].m_swapChain)
 			{
 				const FrameBufferMtl& fb = m_frameBuffers[fbh.idx];
 				numMrt = bx::uint32_max(1, fb.m_num);
 			}
 
-			const VertexLayout* layout = &_clearQuad.m_layout;
+			const VertexLayout* layout  = &m_vertexLayouts[_clearQuad.m_layout.idx];
 			const PipelineStateMtl* pso = getPipelineState(
 				  state
 				, 0
@@ -1836,8 +1827,8 @@ static_assert(BX_COUNTOF(s_accessNames) == Access::Count, "Invalid s_accessNames
 				m_renderCommandEncoder.setFragmentBuffer(m_uniformBuffer, m_uniformBufferFragmentOffset, 0);
 			}
 
+			const float mrtClearDepth[4] = { _clear.m_depth };
 			float mrtClearColor[BGFX_CONFIG_MAX_FRAME_BUFFER_ATTACHMENTS][4];
-			float mrtClearDepth[4] = { _clear.m_depth };
 
 			if (BGFX_CLEAR_COLOR_USE_PALETTE & _clear.m_flags)
 			{
@@ -1921,6 +1912,7 @@ static_assert(BX_COUNTOF(s_accessNames) == Access::Count, "Invalid s_accessNames
 				FrameBufferMtl& frameBuffer = m_frameBuffers[m_fbh.idx];
 				frameBuffer.resolve();
 			}
+
 			if (!isValid(_fbh)
 			||  m_frameBuffers[_fbh.idx].m_swapChain)
 			{
@@ -2012,7 +2004,7 @@ static_assert(BX_COUNTOF(s_accessNames) == Access::Count, "Invalid s_accessNames
 			uint32_t fstencil = unpackStencil(0, _stencil);
 			uint32_t ref      = (fstencil&BGFX_STENCIL_FUNC_REF_MASK)>>BGFX_STENCIL_FUNC_REF_SHIFT;
 
-			_stencil &= packStencil(~BGFX_STENCIL_FUNC_REF_MASK, ~BGFX_STENCIL_FUNC_REF_MASK);
+			_stencil &= kStencilNoRefMask;
 
 			bx::HashMurmur2A murmur;
 			murmur.begin();
@@ -3011,7 +3003,7 @@ BX_PRAGMA_DIAGNOSTIC_POP();
 		BufferMtl::create(_size, _data, _flags, stride, true);
 	}
 
-	void TextureMtl::create(const Memory* _mem, uint64_t _flags, uint8_t _skip)
+	void TextureMtl::create(const Memory* _mem, uint64_t _flags, uint8_t _skip, uint64_t _external)
 	{
 		m_sampler = s_renderMtl->getSamplerState(uint32_t(_flags) );
 
@@ -3152,7 +3144,15 @@ BX_PRAGMA_DIAGNOSTIC_POP();
 				}
 			}
 
-			m_ptr = s_renderMtl->m_device.newTextureWithDescriptor(desc);
+			if (0 != _external)
+			{
+				m_ptr    = id<MTLTexture>(_external);
+				m_flags |= BGFX_SAMPLER_INTERNAL_SHARED;
+			}
+			else
+			{
+				m_ptr = s_renderMtl->m_device.newTextureWithDescriptor(desc);
+			}
 
 			if (sampleCount > 1)
 			{
@@ -3250,7 +3250,7 @@ BX_PRAGMA_DIAGNOSTIC_POP();
 					depth  >>= 1;
 				}
 			}
-			
+
 			MTL_RELEASE(desc, 0);
 
 			if (NULL != temp)
@@ -3258,6 +3258,29 @@ BX_PRAGMA_DIAGNOSTIC_POP();
 				bx::free(g_allocator, temp);
 			}
 		}
+	}
+
+	void TextureMtl::destroy()
+	{
+		if (0 == (m_flags & BGFX_SAMPLER_INTERNAL_SHARED) )
+		{
+			MTL_RELEASE_W(m_ptr, 0);
+		}
+
+		MTL_RELEASE_W(m_ptrMsaa, 0);
+		MTL_RELEASE_W(m_ptrStencil, 0);
+
+		for (uint32_t ii = 0; ii < m_numMips; ++ii)
+		{
+			MTL_RELEASE_W(m_ptrMips[ii], 0);
+		}
+	}
+
+	void TextureMtl::overrideInternal(uintptr_t _ptr)
+	{
+		destroy();
+		m_flags |= BGFX_SAMPLER_INTERNAL_SHARED;
+		m_ptr = id<MTLTexture>(_ptr);
 	}
 
 	void TextureMtl::update(uint8_t _side, uint8_t _mip, const Rect& _rect, uint16_t _z, uint16_t _depth, uint16_t _pitch, const Memory* _mem)
@@ -4916,14 +4939,13 @@ BX_PRAGMA_DIAGNOSTIC_POP();
 
 					uint32_t numVertices = draw.m_numVertices;
 					uint8_t  numStreams  = 0;
-					for (uint32_t idx = 0, streamMask = draw.m_streamMask
-						; 0 != streamMask
-						; streamMask >>= 1, idx += 1, ++numStreams
+
+					for (BitMaskToIndexIteratorT it(draw.m_streamMask)
+						; !it.isDone()
+						; it.next(), numStreams++
 						)
 					{
-						const uint32_t ntz = bx::uint32_cnttz(streamMask);
-						streamMask >>= ntz;
-						idx         += ntz;
+						const uint8_t idx = it.idx;
 
 						currentState.m_stream[idx].m_layoutHandle   = draw.m_stream[idx].m_layoutHandle;
 						currentState.m_stream[idx].m_handle         = draw.m_stream[idx].m_handle;
@@ -5386,7 +5408,7 @@ BX_PRAGMA_DIAGNOSTIC_POP();
 				max = frameTime;
 			}
 
-			blit(this, _textVideoMemBlitter, tvm);
+			dbgTextSubmit(this, _textVideoMemBlitter, tvm);
 			rce = m_renderCommandEncoder;
 
 			rce.popDebugGroup();
@@ -5395,7 +5417,7 @@ BX_PRAGMA_DIAGNOSTIC_POP();
 		{
 			rce.pushDebugGroup("debugtext");
 
-			blit(this, _textVideoMemBlitter, _render->m_textVideoMem);
+			dbgTextSubmit(this, _textVideoMemBlitter, _render->m_textVideoMem);
 			rce = m_renderCommandEncoder;
 
 			rce.popDebugGroup();

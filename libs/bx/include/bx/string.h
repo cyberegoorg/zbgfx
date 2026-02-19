@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2025 Branimir Karadzic. All rights reserved.
+ * Copyright 2010-2026 Branimir Karadzic. All rights reserved.
  * License: https://github.com/bkaradzic/bx/blob/master/LICENSE
  */
 
@@ -449,6 +449,16 @@ namespace bx
 	/// Templatized snprintf.
 	template <typename Ty>
 	void stringPrintf(Ty& _out, const char* _format, ...);
+
+	/// Format number to human readable representation.
+	///
+	/// @param[out] _out Output string.
+	/// @param[in]  _count Maximum output string count.
+	/// @param[in]  _value Value.
+	/// @param[in]  _numFrac Number of fraction digits.
+	/// @returns Length of output string.
+	///
+	int32_t formatHumanNumber(char* _out, int32_t _count, double _value, int32_t _numFrac);
 
 	/// Convert size in bytes to human readable string kibi units.
 	int32_t prettify(char* _out, int32_t _count, uint64_t _value, Units::Enum _units = Units::Kibi);

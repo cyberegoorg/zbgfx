@@ -1,5 +1,5 @@
 #
-# Copyright 2011-2025 Branimir Karadzic. All rights reserved.
+# Copyright 2011-2026 Branimir Karadzic. All rights reserved.
 # License: https://github.com/bkaradzic/bgfx/blob/master/LICENSE
 #
 
@@ -31,7 +31,11 @@ define shader-embedded
 	-@cat "$(SHADER_TMP)" >> $(@)
 	-$(SILENT) $(SHADERC) --type $(1) --platform linux   -p spirv      -f $(<) -o "$(SHADER_TMP)" --bin2c $(basename $(<))_spv
 	-@cat "$(SHADER_TMP)" >> $(@)
-	-$(SILENT) $(SHADERC) --type $(1) --platform windows -p $(2)  -O 3 -f $(<) -o "$(SHADER_TMP)" --bin2c $(basename $(<))_dx11
+	-$(SILENT) $(SHADERC) --type $(1) --platform linux   -p wgsl       -f $(<) -o "$(SHADER_TMP)" --bin2c $(basename $(<))_wgsl
+	-@cat "$(SHADER_TMP)" >> $(@)
+	-$(SILENT) $(SHADERC) --type $(1) --platform windows -p s_5_0  -O 3 -f $(<) -o "$(SHADER_TMP)" --bin2c $(basename $(<))_dxbc
+	-@cat "$(SHADER_TMP)" >> $(@)
+	-$(SILENT) $(SHADERC) --type $(1) --platform windows -p s_6_0 -O 3 -f $(<) -o "$(SHADER_TMP)" --bin2c $(basename $(<))_dxil
 	-@cat "$(SHADER_TMP)" >> $(@)
 	-$(SILENT) $(SHADERC) --type $(1) --platform ios     -p metal -O 3 -f $(<) -o "$(SHADER_TMP)" --bin2c $(basename $(<))_mtl
 	-@cat "$(SHADER_TMP)" >> $(@)
@@ -40,37 +44,37 @@ define shader-embedded
 endef
 
 vs_debugfont.bin.h : vs_debugfont.sc
-	$(call shader-embedded, v, s_4_0)
+	$(call shader-embedded, v)
 
 fs_debugfont.bin.h : fs_debugfont.sc
-	$(call shader-embedded, f, s_4_0)
+	$(call shader-embedded, f)
 
 vs_clear.bin.h : vs_clear.sc
-	$(call shader-embedded, v, s_4_0)
+	$(call shader-embedded, v)
 
 fs_clear0.bin.h : fs_clear0.sc
-	$(call shader-embedded, f, s_4_0)
+	$(call shader-embedded, f)
 
 fs_clear1.bin.h : fs_clear1.sc
-	$(call shader-embedded, f, s_4_0)
+	$(call shader-embedded, f)
 
 fs_clear2.bin.h : fs_clear2.sc
-	$(call shader-embedded, f, s_4_0)
+	$(call shader-embedded, f)
 
 fs_clear3.bin.h : fs_clear3.sc
-	$(call shader-embedded, f, s_4_0)
+	$(call shader-embedded, f)
 
 fs_clear4.bin.h : fs_clear4.sc
-	$(call shader-embedded, f, s_4_0)
+	$(call shader-embedded, f)
 
 fs_clear5.bin.h : fs_clear5.sc
-	$(call shader-embedded, f, s_4_0)
+	$(call shader-embedded, f)
 
 fs_clear6.bin.h : fs_clear6.sc
-	$(call shader-embedded, f, s_4_0)
+	$(call shader-embedded, f)
 
 fs_clear7.bin.h : fs_clear7.sc
-	$(call shader-embedded, f, s_4_0)
+	$(call shader-embedded, f)
 
 .PHONY: clean
 clean:

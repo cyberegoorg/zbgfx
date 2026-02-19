@@ -171,9 +171,15 @@ pub fn main() anyerror!u8 {
     //
     switch (builtin.target.os.tag) {
         .linux => {
-            bgfx_init.platformData.type = bgfx.NativeWindowHandleType.Default;
-            bgfx_init.platformData.nwh = @ptrFromInt(zglfw.getX11Window(window));
-            bgfx_init.platformData.ndt = zglfw.getX11Display();
+            if (zglfw.getPlatform() == .wayland) {
+                bgfx_init.platformData.type = bgfx.NativeWindowHandleType.Wayland;
+                bgfx_init.platformData.nwh = zglfw.getWaylandWindow(window);
+                bgfx_init.platformData.ndt = zglfw.getWaylandDisplay();
+            } else {
+                bgfx_init.platformData.type = .Default;
+                bgfx_init.platformData.nwh = @ptrFromInt(zglfw.getX11Window(window));
+                bgfx_init.platformData.ndt = zglfw.getX11Display();
+            }
         },
         .windows => {
             bgfx_init.platformData.nwh = zglfw.getWin32Window(window);
@@ -360,7 +366,7 @@ pub fn main() anyerror!u8 {
         }
 
         // Render Frame
-        _ = bgfx.frame(false);
+        _ = bgfx.frame(0);
     }
 
     return 0;

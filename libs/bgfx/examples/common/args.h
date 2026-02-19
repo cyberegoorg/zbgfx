@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2025 Branimir Karadzic. All rights reserved.
+ * Copyright 2011-2026 Branimir Karadzic. All rights reserved.
  * License: http://www.opensource.org/licenses/BSD-2-Clause
  */
 
@@ -22,6 +22,10 @@ struct Args
 		else if (cmdLine.hasArg("vk") )
 		{
 			m_type = bgfx::RendererType::Vulkan;
+		}
+		else if (cmdLine.hasArg("wgpu") )
+		{
+			m_type = bgfx::RendererType::WebGPU;
 		}
 		else if (cmdLine.hasArg("noop") )
 		{

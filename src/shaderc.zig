@@ -28,12 +28,14 @@ pub const ShaderType = enum {
 };
 
 pub const Optimize = enum(u32) {
+    o0 = 0,
     o1 = 1,
     o2 = 2,
     o3 = 3,
 
     pub fn toStr(optimize: Optimize) [:0]const u8 {
         return switch (optimize) {
+            .o0 => "0",
             .o1 => "1",
             .o2 => "2",
             .o3 => "3",
@@ -82,6 +84,17 @@ pub const Profile = enum {
 
     s_4_0,
     s_5_0,
+
+    s_6_0,
+    s_6_1,
+    s_6_2,
+    s_6_3,
+    s_6_4,
+    s_6_5,
+    s_6_6,
+    s_6_7,
+    s_6_8,
+    s_6_9,
 
     metal,
     metal10_10,

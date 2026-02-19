@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2025 Branimir Karadzic. All rights reserved.
+ * Copyright 2011-2026 Branimir Karadzic. All rights reserved.
  * License: https://github.com/bkaradzic/bgfx#license-bsd-2-clause
  */
 
@@ -397,13 +397,13 @@ namespace bx
 		bottom.normal.z = zw - zy;
 		bottom.dist     = ww - wy;
 
-		Plane* plane = _result;
 		for (uint32_t ii = 0; ii < 6; ++ii)
 		{
-			const float invLen = 1.0f/length(plane->normal);
-			plane->normal = normalize(plane->normal);
-			plane->dist  *= invLen;
-			++plane;
+			Plane& plane = _result[ii];
+
+			const float invLen = divSafe(1.0f, length(plane.normal) );
+			plane.normal = mul(plane.normal, invLen);
+			plane.dist  *= invLen;
 		}
 	}
 
@@ -1109,10 +1109,10 @@ namespace bx
 			return false;
 		}
 
-		return 0.0f >= ta
-			&& 1.0f <= ta
-			&& 0.0f >= tb
-			&& 1.0f <= tb
+		return 0.0f <= ta
+			&& 1.0f >= ta
+			&& 0.0f <= tb
+			&& 1.0f >= tb
 			;
 	}
 

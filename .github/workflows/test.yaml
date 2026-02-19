@@ -7,7 +7,6 @@ on:
   pull_request:
     branches:
       - main
-      - unstable
     paths:
       - ".github/workflows/**"
       - "src/**"
@@ -18,8 +17,6 @@ on:
       - "build.zig.zon"
 
   push:
-    branches:
-      - main
     paths:
       - ".github/workflows/**"
       - "src/**"

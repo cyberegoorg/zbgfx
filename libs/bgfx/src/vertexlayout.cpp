@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2025 Branimir Karadzic. All rights reserved.
+ * Copyright 2011-2026 Branimir Karadzic. All rights reserved.
  * License: https://github.com/bkaradzic/bgfx/blob/master/LICENSE
  */
 
@@ -44,6 +44,7 @@ namespace bgfx
 		&s_attribTypeSizeGl,    // OpenGLES
 		&s_attribTypeSizeGl,    // OpenGL
 		&s_attribTypeSizeD3D1x, // Vulkan
+		&s_attribTypeSizeD3D1x, // WebGPU
 		&s_attribTypeSizeD3D1x, // Count
 	};
 	static_assert(BX_COUNTOF(s_attribTypeSize) == RendererType::Count+1);

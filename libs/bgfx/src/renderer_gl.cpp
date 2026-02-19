@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2025 Branimir Karadzic. All rights reserved.
+ * Copyright 2011-2026 Branimir Karadzic. All rights reserved.
  * License: https://github.com/bkaradzic/bgfx/blob/master/LICENSE
  */
 
@@ -3393,23 +3393,16 @@ namespace bgfx { namespace gl
 			m_program[_handle.idx].destroy();
 		}
 
-		void* createTexture(TextureHandle _handle, const Memory* _mem, uint64_t _flags, uint8_t _skip) override
+		void* createTexture(TextureHandle _handle, const Memory* _mem, uint64_t _flags, uint8_t _skip, uint64_t _external) override
 		{
+			BX_UNUSED(_external);
 			m_textures[_handle.idx].create(_mem, _flags, _skip);
 			return NULL;
-		}
-
-		void updateTextureBegin(TextureHandle /*_handle*/, uint8_t /*_side*/, uint8_t /*_mip*/) override
-		{
 		}
 
 		void updateTexture(TextureHandle _handle, uint8_t _side, uint8_t _mip, const Rect& _rect, uint16_t _z, uint16_t _depth, uint16_t _pitch, const Memory* _mem) override
 		{
 			m_textures[_handle.idx].update(_side, _mip, _rect, _z, _depth, _pitch, _mem);
-		}
-
-		void updateTextureEnd() override
-		{
 		}
 
 		void readTexture(TextureHandle _handle, void* _data, uint8_t _mip) override
@@ -3607,15 +3600,18 @@ namespace bgfx { namespace gl
 				, data
 				) );
 
+			TextureFormat::Enum format = TextureFormat::BGRA8;
+
 			if (GL_RGBA == m_readPixelsFmt)
 			{
-				bimg::imageSwizzleBgra8(data, width*4, width, height, data, width*4);
+				format = TextureFormat::RGBA8;
 			}
 
 			g_callback->screenShot(_filePath
 				, width
 				, height
 				, width*4
+				, format
 				, data
 				, length
 				, true
@@ -3690,7 +3686,7 @@ namespace bgfx { namespace gl
 
 		void submit(Frame* _render, ClearQuad& _clearQuad, TextVideoMemBlitter& _textVideoMemBlitter) override;
 
-		void blitSetup(TextVideoMemBlitter& _blitter) override
+		void dbgTextRenderBegin(TextVideoMemBlitter& _blitter) override
 		{
 			uint32_t width  = m_resolution.width;
 			uint32_t height = m_resolution.height;
@@ -3728,7 +3724,7 @@ namespace bgfx { namespace gl
 			}
 		}
 
-		void blitRender(TextVideoMemBlitter& _blitter, uint32_t _numIndices) override
+		void dbgTextRender(TextVideoMemBlitter& _blitter, uint32_t _numIndices) override
 		{
 			const uint32_t numVertices = _numIndices*4/6;
 			if (0 < numVertices)
@@ -3753,6 +3749,10 @@ namespace bgfx { namespace gl
 					, (void*)0
 					) );
 			}
+		}
+
+		void dbgTextRenderEnd(TextVideoMemBlitter& /*_blitter*/) override
+		{
 		}
 
 		void updateResolution(const Resolution& _resolution)
@@ -4613,8 +4613,8 @@ namespace bgfx { namespace gl
 					GL_CHECK(glDisable(GL_STENCIL_TEST) );
 				}
 
-				VertexBufferGL& vb = m_vertexBuffers[_clearQuad.m_vb.idx];
-				VertexLayout& layout = _clearQuad.m_layout;
+				const VertexBufferGL&   vb = m_vertexBuffers[_clearQuad.m_vb.idx];
+				const VertexLayout& layout = m_vertexLayouts[_clearQuad.m_layout.idx];
 
 				GL_CHECK(glBindBuffer(GL_ARRAY_BUFFER, vb.m_id) );
 
@@ -8281,14 +8281,9 @@ namespace bgfx { namespace gl
 					}
 
 					{
-						for (uint32_t idx = 0, streamMask = draw.m_streamMask
-							; 0 != streamMask
-							; streamMask >>= 1, idx += 1
-							)
+						for (BitMaskToIndexIteratorT it(draw.m_streamMask); !it.isDone(); it.next() )
 						{
-							const uint32_t ntz = bx::uint32_cnttz(streamMask);
-							streamMask >>= ntz;
-							idx         += ntz;
+							const uint8_t idx = it.idx;
 
 							if (currentState.m_stream[idx].m_handle.idx != draw.m_stream[idx].m_handle.idx)
 							{
@@ -8353,14 +8348,9 @@ namespace bgfx { namespace gl
 
 								if (UINT8_MAX != draw.m_streamMask)
 								{
-									for (uint32_t idx = 0, streamMask = draw.m_streamMask
-										; 0 != streamMask
-										; streamMask >>= 1, idx += 1
-										)
+									for (BitMaskToIndexIteratorT it(draw.m_streamMask); !it.isDone(); it.next() )
 									{
-										const uint32_t ntz = bx::uint32_cnttz(streamMask);
-										streamMask >>= ntz;
-										idx         += ntz;
+										const uint8_t idx = it.idx;
 
 										const VertexBufferGL& vb = m_vertexBuffers[draw.m_stream[idx].m_handle.idx];
 										const uint16_t decl = isValid(draw.m_stream[idx].m_layoutHandle)
@@ -8385,16 +8375,12 @@ namespace bgfx { namespace gl
 					if (0 != currentState.m_streamMask)
 					{
 						uint32_t numVertices = draw.m_numVertices;
+
 						if (UINT32_MAX == numVertices)
 						{
-							for (uint32_t idx = 0, streamMask = draw.m_streamMask
-								; 0 != streamMask
-								; streamMask >>= 1, idx += 1
-								)
+							for (BitMaskToIndexIteratorT it(draw.m_streamMask); !it.isDone(); it.next() )
 							{
-								const uint32_t ntz = bx::uint32_cnttz(streamMask);
-								streamMask >>= ntz;
-								idx         += ntz;
+								const uint8_t idx = it.idx;
 
 								const VertexBufferGL& vb = m_vertexBuffers[draw.m_stream[idx].m_handle.idx];
 								uint16_t decl = !isValid(vb.m_layoutHandle) ? draw.m_stream[idx].m_layoutHandle.idx : vb.m_layoutHandle.idx;
@@ -8840,7 +8826,7 @@ namespace bgfx { namespace gl
 				max = frameTime;
 			}
 
-			blit(this, _textVideoMemBlitter, tvm);
+			dbgTextSubmit(this, _textVideoMemBlitter, tvm);
 
 			BGFX_GL_PROFILER_END();
 		}
@@ -8848,7 +8834,7 @@ namespace bgfx { namespace gl
 		{
 			BGFX_GL_PROFILER_BEGIN_LITERAL("debugtext", kColorFrame);
 
-			blit(this, _textVideoMemBlitter, _render->m_textVideoMem);
+			dbgTextSubmit(this, _textVideoMemBlitter, _render->m_textVideoMem);
 
 			BGFX_GL_PROFILER_END();
 		}

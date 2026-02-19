@@ -264,7 +264,7 @@ pub fn build(b: *std.Build) !void {
         shaderc.addIncludePath(b.path("libs/bimg/include"));
         shaderc.addIncludePath(b.path(bgfx_path ++ "include"));
         shaderc.addIncludePath(b.path(bgfx_path ++ "src"));
-        shaderc.addIncludePath(b.path(bgfx_path ++ "3rdparty/dxsdk/include"));
+        shaderc.addIncludePath(b.path(bgfx_path ++ "3rdparty/directx-headers/include/directx"));
         shaderc.addIncludePath(b.path(bgfx_path ++ "3rdparty/fcpp"));
         shaderc.addIncludePath(b.path(bgfx_path ++ "3rdparty/glslang/glslang/Public"));
         shaderc.addIncludePath(b.path(bgfx_path ++ "3rdparty/glslang/glslang/Include"));
@@ -275,6 +275,12 @@ pub fn build(b: *std.Build) !void {
         shaderc.addIncludePath(b.path(bgfx_path ++ "3rdparty/spirv-tools/include"));
         shaderc.addIncludePath(b.path(bgfx_path ++ "3rdparty/webgpu/include"));
 
+        if (target.result.os.tag == .linux or target.result.os.tag.isDarwin()) {
+            shaderc.addIncludePath(b.path(bgfx_path ++ "3rdparty/d3d4linux/include"));
+            shaderc.addIncludePath(b.path(bgfx_path ++ "3rdparty/directx-headers/include"));
+            shaderc.addIncludePath(b.path(bgfx_path ++ "3rdparty/directx-headers/include/wsl/stubs"));
+        }
+
         shaderc.addCSourceFiles(.{
             .files = &.{
                 bgfx_path ++ "src/shader.cpp",
@@ -283,10 +289,12 @@ pub fn build(b: *std.Build) !void {
                 bgfx_path ++ "src/vertexlayout.cpp",
                 bgfx_path ++ "tools/shaderc/shaderc.cpp",
                 bgfx_path ++ "tools/shaderc/shaderc_glsl.cpp",
+                bgfx_path ++ "tools/shaderc/shaderc_dxil.cpp",
                 bgfx_path ++ "tools/shaderc/shaderc_hlsl.cpp",
                 bgfx_path ++ "tools/shaderc/shaderc_metal.cpp",
                 bgfx_path ++ "tools/shaderc/shaderc_pssl.cpp",
                 bgfx_path ++ "tools/shaderc/shaderc_spirv.cpp",
+                bgfx_path ++ "tools/shaderc/shaderc_wgsl.cpp",
             },
             .flags = &cxx_options,
         });
@@ -1081,4 +1089,5 @@ const spirv_opt_files = .{
     spirv_opt_path ++ "source/val/validate_invalid_type.cpp",
     spirv_opt_path ++ "source/val/validate_graph.cpp",
     spirv_opt_path ++ "source/val/validate_logical_pointers.cpp",
+    spirv_opt_path ++ "source/val/validate_group.cpp",
 };

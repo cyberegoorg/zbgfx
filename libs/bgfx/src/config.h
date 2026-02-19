@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2025 Branimir Karadzic. All rights reserved.
+ * Copyright 2011-2026 Branimir Karadzic. All rights reserved.
  * License: https://github.com/bkaradzic/bgfx/blob/master/LICENSE
  */
 
@@ -27,7 +27,8 @@
  && !defined(BGFX_CONFIG_RENDERER_NVN)        \
  && !defined(BGFX_CONFIG_RENDERER_OPENGL)     \
  && !defined(BGFX_CONFIG_RENDERER_OPENGLES)   \
- && !defined(BGFX_CONFIG_RENDERER_VULKAN)
+ && !defined(BGFX_CONFIG_RENDERER_VULKAN)     \
+ && !defined(BGFX_CONFIG_RENDERER_WEBGPU)
 
 #	ifndef BGFX_CONFIG_RENDERER_AGC
 #		define BGFX_CONFIG_RENDERER_AGC (0 \
@@ -94,8 +95,8 @@
 #		define BGFX_CONFIG_RENDERER_OPENGLES (0 \
 					|| BX_PLATFORM_ANDROID      \
 					|| BX_PLATFORM_EMSCRIPTEN   \
-					|| BX_PLATFORM_RPI          \
 					|| BX_PLATFORM_NX           \
+					|| BX_PLATFORM_RPI          \
 					? BGFX_CONFIG_RENDERER_OPENGLES_MIN_VERSION : 0)
 #	endif // BGFX_CONFIG_RENDERER_OPENGLES
 
@@ -103,11 +104,20 @@
 #		define BGFX_CONFIG_RENDERER_VULKAN (0 \
 					|| BX_PLATFORM_ANDROID    \
 					|| BX_PLATFORM_LINUX      \
-					|| BX_PLATFORM_WINDOWS    \
 					|| BX_PLATFORM_NX         \
 					|| BX_PLATFORM_OSX        \
+					|| BX_PLATFORM_WINDOWS    \
 					? 1 : 0)
 #	endif // BGFX_CONFIG_RENDERER_VULKAN
+
+#	ifndef BGFX_CONFIG_RENDERER_WEBGPU
+#		define BGFX_CONFIG_RENDERER_WEBGPU (0     \
+					/*|| BX_PLATFORM_EMSCRIPTEN*/ \
+					|| BX_PLATFORM_LINUX          \
+					|| BX_PLATFORM_OSX            \
+					|| BX_PLATFORM_WINDOWS        \
+					? 1 : 0)
+#	endif // BGFX_CONFIG_RENDERER_WEBGPU
 
 #else
 #	ifndef BGFX_CONFIG_RENDERER_AGC
@@ -145,6 +155,10 @@
 #	ifndef BGFX_CONFIG_RENDERER_VULKAN
 #		define BGFX_CONFIG_RENDERER_VULKAN 0
 #	endif // BGFX_CONFIG_RENDERER_VULKAN
+
+#	ifndef BGFX_CONFIG_RENDERER_WEBGPU
+#		define BGFX_CONFIG_RENDERER_WEBGPU 0
+#	endif // BGFX_CONFIG_RENDERER_WEBGPU
 #endif // !defined...
 
 #if BGFX_CONFIG_RENDERER_OPENGL && BGFX_CONFIG_RENDERER_OPENGL < 21
