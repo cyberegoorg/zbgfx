@@ -28,12 +28,14 @@ pub const ShaderType = enum {
 };
 
 pub const Optimize = enum(u32) {
+    o0 = 0,
     o1 = 1,
     o2 = 2,
     o3 = 3,
 
     pub fn toStr(optimize: Optimize) [:0]const u8 {
         return switch (optimize) {
+            .o0 => "0",
             .o1 => "1",
             .o2 => "2",
             .o3 => "3",
@@ -82,6 +84,17 @@ pub const Profile = enum {
 
     s_4_0,
     s_5_0,
+
+    s_6_0,
+    s_6_1,
+    s_6_2,
+    s_6_3,
+    s_6_4,
+    s_6_5,
+    s_6_6,
+    s_6_7,
+    s_6_8,
+    s_6_9,
 
     metal,
     metal10_10,
@@ -171,14 +184,14 @@ pub fn createDefaultOptionsForRenderer(renderer: bgfx.RendererType) ShadercOptio
         .Direct3D11 => {
             return .{
                 .shaderType = .vertex,
-                .profile = .s_4_0,
+                .profile = .s_5_0,
                 .platform = .windows,
             };
         },
         .Direct3D12 => {
             return .{
                 .shaderType = .vertex,
-                .profile = .s_5_0,
+                .profile = .s_6_0,
                 .platform = .windows,
             };
         },
@@ -186,7 +199,7 @@ pub fn createDefaultOptionsForRenderer(renderer: bgfx.RendererType) ShadercOptio
             return .{
                 .shaderType = .vertex,
                 .profile = .metal,
-                .platform = .ios,
+                .platform = .osx,
             };
         },
         .OpenGLES => {
@@ -228,6 +241,7 @@ pub const ShadercOptions = struct {
     defines: ?[]const []const u8 = null,
 
     optimizationLevel: Optimize = .o3,
+    keepcomments: bool = false,
 };
 
 pub fn shadercFromExePath(allocator: std.mem.Allocator) ![]u8 {
@@ -293,22 +307,32 @@ pub fn compileShader(
     var new_options = options;
     new_options.inputFilePath = source_file_path;
     new_options.varyingFilePath = varying_file_path;
-    new_options.outputFilePath = out_file_path;
 
     var shadercp = try shadercProcess(allocator, executable_path, new_options);
+
+    var buffer: [1024]u8 = undefined;
+    var reader = shadercp.stdout.?.readerStreaming(&buffer);
+    var writer = std.io.Writer.Allocating.init(allocator);
+    defer writer.deinit();
+
+    // Read stdout unitl shaderc end.
+    while (true) {
+        _ = reader.interface.stream(&writer.writer, .unlimited) catch |err| {
+            if (err == error.EndOfStream) break else return err;
+        };
+    }
+
     const term = try shadercp.wait();
-    if (term.Exited != 0) return error.ShaderCompileError;
-
-    defer std.fs.deleteFileAbsolute(out_file_path) catch undefined;
-
-    const out_f = try std.fs.openFileAbsolute(out_file_path, .{ .mode = .read_only });
-    defer out_f.close();
-
-    const size = try out_f.getEndPos();
-    const shader_data = try allocator.alloc(u8, size);
-    _ = try out_f.readAll(shader_data);
-
-    return shader_data;
+    if (term.Exited != 0) {
+        const out = try writer.toOwnedSlice();
+        defer allocator.free(out);
+        std.log.err("Shaderc error:\n{s}", .{out[10..]});
+        return error.ShaderCompileError;
+    } else {
+        const data = try writer.toOwnedSlice();
+        // std.log.debug("BEGIN\n{s}\nEND", .{data});
+        return data;
+    }
 }
 
 pub fn shadercProcess(allocator: std.mem.Allocator, executablePath: []const u8, options: ShadercOptions) !std.process.Child {
@@ -327,10 +351,16 @@ pub fn shadercProcess(allocator: std.mem.Allocator, executablePath: []const u8, 
 
     if (options.outputFilePath) |path| {
         try args.appendSlice(allocator, &.{ "-o", path });
+    } else {
+        try args.appendSlice(allocator, &.{"--stdout"});
     }
 
     if (options.varyingFilePath) |path| {
         try args.appendSlice(allocator, &.{ "--varyingdef", path });
+    }
+
+    if (options.keepcomments) {
+        try args.appendSlice(allocator, &.{"--keepcomments"});
     }
 
     if (options.includeDirs) |includes| {
@@ -356,6 +386,7 @@ pub fn shadercProcess(allocator: std.mem.Allocator, executablePath: []const u8, 
     }
 
     var process = std.process.Child.init(args.items, allocator);
+    process.stdout_behavior = .Pipe;
     try process.spawn();
     return process;
 }
@@ -381,7 +412,6 @@ fn getSysTmpDir(a: std.mem.Allocator) ![]const u8 {
                     return std.process.getEnvVarOwned(allocator, "TMP") catch {
                         return std.process.getEnvVarOwned(allocator, "TEMP") catch {
                             return std.process.getEnvVarOwned(allocator, "TEMPDIR") catch {
-                                std.debug.print("tried env TMPDIR/TMP/TEMP/TEMPDIR but not found, fallback to /tmp, caution it may not work!", .{});
                                 return try allocator.dupe(u8, "/tmp");
                             };
                         };

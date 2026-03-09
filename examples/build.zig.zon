@@ -12,13 +12,13 @@
         .zbgfx = .{ .path = "../" },
 
         .zglfw = .{
-            .url = "https://github.com/zig-gamedev/zglfw/archive/3a3f0d2c040902c717402d58e96ae1553bee550d.tar.gz",
-            .hash = "zglfw-0.10.0-dev-zgVDNHOuIQC9B7kIg7w6a0K07ZKD_QKYf-OJ6SqiLwg1",
+            .url = "https://github.com/zig-gamedev/zglfw/archive/0dd29d8073487c9fe1e45e6b729b3aac271d5a71.tar.gz",
+            .hash = "zglfw-0.10.0-dev-zgVDNIG4IQBWN_sfMD-xfC9bJS2hbBN2W7jNlDLovcdC",
         },
 
         .zgui = .{
-            .url = "https://github.com/zig-gamedev/zgui/archive/1082a309eb423bde95dce0d57db7f8a0a5091b33.tar.gz",
-            .hash = "zgui-0.6.0-dev--L6sZAzobQDQSKMsQdqmeqqvgN3ck6AgpY5E0uWGqRhM",
+            .url = "https://github.com/zig-gamedev/zgui/archive/ce016156a8520c438e886cd6c0b605e10ee7af3d.tar.gz",
+            .hash = "zgui-0.6.0-dev--L6sZKkSbgCUBXLVfwJDPpMkETz7ll-mmQYQae-nMxjt",
         },
 
         .zmath = .{

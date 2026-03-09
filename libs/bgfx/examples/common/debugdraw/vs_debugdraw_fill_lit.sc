@@ -2,10 +2,11 @@ $input a_position, a_indices
 $output v_view, v_world
 
 /*
- * Copyright 2011-2025 Branimir Karadzic. All rights reserved.
+ * Copyright 2011-2026 Branimir Karadzic. All rights reserved.
  * License: https://github.com/bkaradzic/bgfx/blob/master/LICENSE
  */
 
+#define BGFX_CONFIG_MAX_BONES 2
 #include <bgfx_shader.sh>
 
 void main()

@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2025 Branimir Karadzic. All rights reserved.
+ * Copyright 2011-2026 Branimir Karadzic. All rights reserved.
  * License: https://github.com/bkaradzic/bgfx/blob/master/LICENSE
  */
 
@@ -92,7 +92,7 @@
 			VK_IMPORT_INSTANCE_FUNC(false, vkEnumeratePhysicalDevices);                \
 			VK_IMPORT_INSTANCE_FUNC(false, vkEnumerateDeviceExtensionProperties);      \
 			VK_IMPORT_INSTANCE_FUNC(false, vkEnumerateDeviceLayerProperties);          \
-			VK_IMPORT_INSTANCE_FUNC(false, vkGetPhysicalDeviceProperties2);            \
+			VK_IMPORT_INSTANCE_FUNC(false, vkGetPhysicalDeviceProperties);             \
 			VK_IMPORT_INSTANCE_FUNC(false, vkGetPhysicalDeviceFormatProperties);       \
 			VK_IMPORT_INSTANCE_FUNC(false, vkGetPhysicalDeviceFeatures);               \
 			VK_IMPORT_INSTANCE_FUNC(false, vkGetPhysicalDeviceImageFormatProperties);  \
@@ -107,6 +107,7 @@
 			VK_IMPORT_INSTANCE_FUNC(true,  vkGetPhysicalDeviceSurfaceSupportKHR);      \
 			VK_IMPORT_INSTANCE_FUNC(true,  vkDestroySurfaceKHR);                       \
 			/* VK_KHR_get_physical_device_properties2 */                               \
+			VK_IMPORT_INSTANCE_FUNC(true,  vkGetPhysicalDeviceProperties2KHR);         \
 			VK_IMPORT_INSTANCE_FUNC(true,  vkGetPhysicalDeviceFeatures2KHR);           \
 			VK_IMPORT_INSTANCE_FUNC(true,  vkGetPhysicalDeviceMemoryProperties2KHR);   \
 			/* VK_EXT_debug_report */                                                  \
@@ -734,6 +735,7 @@ VK_DESTROY_FUNC(DescriptorSet);
 	{
 		TextureVK()
 			: m_directAccessPtr(NULL)
+			, m_flags(0)
 			, m_sampler({ 1, VK_SAMPLE_COUNT_1_BIT })
 			, m_format(VK_FORMAT_UNDEFINED)
 			, m_aspectFlags(VK_IMAGE_ASPECT_NONE)
@@ -746,7 +748,7 @@ VK_DESTROY_FUNC(DescriptorSet);
 		{
 		}
 
-		void* create(VkCommandBuffer _commandBuffer, const Memory* _mem, uint64_t _flags, uint8_t _skip);
+		void* create(VkCommandBuffer _commandBuffer, const Memory* _mem, uint64_t _flags, uint8_t _skip, uint64_t _external);
 		// internal render target
 		VkResult create(VkCommandBuffer _commandBuffer, uint32_t _width, uint32_t _height, uint64_t _flags, VkFormat _format);
 
@@ -756,7 +758,7 @@ VK_DESTROY_FUNC(DescriptorSet);
 		void resolve(VkCommandBuffer _commandBuffer, uint8_t _resolve, uint32_t _layer, uint32_t _numLayers, uint32_t _mip);
 
 		void copyBufferToTexture(VkCommandBuffer _commandBuffer, VkBuffer _stagingBuffer, uint32_t _bufferImageCopyCount, VkBufferImageCopy* _bufferImageCopy);
-		VkImageLayout setImageMemoryBarrier(VkCommandBuffer _commandBuffer, VkImageLayout _newImageLayout, bool _singleMsaaImage = false);
+		void setState(VkCommandBuffer _commandBuffer, VkImageLayout _newImageLayout, bool _singleMsaaImage = false);
 
 		VkResult createView(uint32_t _layer, uint32_t _numLayers, uint32_t _mip, uint32_t _numMips, VkImageViewType _type, VkImageAspectFlags _aspectMask, bool _renderTarget, ::VkImageView* _view) const;
 
@@ -778,20 +780,20 @@ VK_DESTROY_FUNC(DescriptorSet);
 		VkComponentMapping m_components;
 		VkImageAspectFlags m_aspectFlags;
 
-		VkImage					 m_textureImage;
+		VkImage                  m_textureImage;
 		DeviceMemoryAllocationVK m_textureDeviceMem;
-		VkImageLayout			 m_currentImageLayout;
+		VkImageLayout            m_currentImageLayout;
 
-		VkImage					 m_singleMsaaImage;
+		VkImage                  m_singleMsaaImage;
 		DeviceMemoryAllocationVK m_singleMsaaDeviceMem;
-		VkImageLayout			 m_currentSingleMsaaImageLayout;
+		VkImageLayout            m_currentSingleMsaaImageLayout;
 
 		VkImageLayout m_sampledLayout;
 
 		ReadbackVK m_readback;
 
 	private:
-		VkResult createImages(VkCommandBuffer _commandBuffer);
+		VkResult createImages(VkCommandBuffer _commandBuffer, uint64_t _external = 0);
 		static VkImageAspectFlags getAspectMask(VkFormat _format);
 	};
 
@@ -947,6 +949,9 @@ VK_DESTROY_FUNC(DescriptorSet);
 		void recycleMemory(DeviceMemoryAllocationVK _mem);
 		void consume();
 
+		void addExternal(TextureHandle _handle);
+		void removeExternal(TextureHandle _handle);
+
 		uint32_t m_queueFamily;
 		VkQueue m_queue;
 
@@ -984,6 +989,8 @@ VK_DESTROY_FUNC(DescriptorSet);
 		typedef stl::vector<Resource> ResourceArray;
 		ResourceArray m_release[BGFX_CONFIG_MAX_FRAME_LATENCY];
 		stl::vector<DeviceMemoryAllocationVK> m_recycleAllocs[BGFX_CONFIG_MAX_FRAME_LATENCY];
+		typedef stl::vector<TextureHandle> ExternalTextureArray;
+		ExternalTextureArray m_external;
 
 	private:
 		template<typename Ty>

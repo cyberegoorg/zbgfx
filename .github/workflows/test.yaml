@@ -7,7 +7,6 @@ on:
   pull_request:
     branches:
       - main
-      - unstable
     paths:
       - ".github/workflows/**"
       - "src/**"
@@ -18,8 +17,6 @@ on:
       - "build.zig.zon"
 
   push:
-    branches:
-      - main
     paths:
       - ".github/workflows/**"
       - "src/**"
@@ -55,8 +52,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: 
-          - linux-large 
+        os:
+          - linux-large
           - macos-15-large
           - windows-large
 
@@ -67,14 +64,15 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          submodules: true
+          submodules: false
 
       - if: matrix.os == 'linux-large'
         run: sudo ln -s /usr/lib/x86_64-linux-gnu/libX11.so.6 /usr/lib/x86_64-linux-gnu/libX11.so
 
       - name: Install Zig
         uses: mlugg/setup-zig@v2
-    
+
       - name: Build examples
         shell: bash
         run: cd examples/ && zig build
+

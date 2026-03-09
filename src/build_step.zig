@@ -1,6 +1,19 @@
 const std = @import("std");
 const shader = @import("shaderc.zig");
 
+pub fn installShaderc(b: *std.Build, zbgfx_dep: *std.Build.Dependency) !*std.Build.Step {
+    var install_shaderc = b.addInstallArtifact(zbgfx_dep.artifact("shaderc"), .{});
+    var install_deps = b.addInstallDirectory(.{
+        .install_dir = .bin,
+        .source_dir = zbgfx_dep.namedWriteFiles("shaderc").getDirectory(),
+        .install_subdir = "",
+    });
+
+    install_deps.step.dependOn(&install_shaderc.step);
+
+    return &install_deps.step;
+}
+
 pub const BuildShaderC = struct {
     cmd: *std.Build.Step.Run,
     output: std.Build.LazyPath,
@@ -14,26 +27,17 @@ pub const BuildShaderOptions = struct {
     platform: shader.Platform,
     profile: shader.Profile,
     optimize: ?shader.Optimize,
-    bin2c: ?[]const u8,
 };
 
-pub fn profileToPostfix(profile: shader.Profile) []const u8 {
-    return switch (profile) {
-        .metal => "mtl",
-        .s_5_0 => "dx11",
-        .spirv => "spv",
-        .es_100 => "essl",
-        .glsl_120 => "glsl",
-        else => undefined,
-    };
-}
-
-pub fn buildShaderC(
+pub fn callShaderc(
     b: *std.Build,
-    shaderc: *std.Build.Step.Compile,
+    install_shaderc_step: *std.Build.Step,
     options: BuildShaderOptions,
 ) !BuildShaderC {
-    const shaderc_cmd = b.addRunArtifact(shaderc);
+    var shaderc_cmd = b.addSystemCommand(&.{b.getInstallPath(.bin, "shaderc")});
+    shaderc_cmd.expectStdOutEqual("");
+
+    shaderc_cmd.step.dependOn(install_shaderc_step);
 
     options.platform.addAsArg(shaderc_cmd);
     options.profile.addAsArg(shaderc_cmd);
@@ -43,15 +47,6 @@ pub fn buildShaderC(
         o.addAsArg(shaderc_cmd);
     }
 
-    if (options.bin2c) |array_name| {
-        const postfix = profileToPostfix(options.profile);
-
-        var buff: [256]u8 = undefined;
-        const bin2c = try std.fmt.bufPrint(&buff, "{s}_{s}", .{ array_name, postfix });
-
-        shaderc_cmd.addArgs(&.{ "--bin2c", bin2c });
-    }
-
     for (options.includes) |include| {
         shaderc_cmd.addArg("-i");
         shaderc_cmd.addDirectoryArg(include);
@@ -59,112 +54,89 @@ pub fn buildShaderC(
 
     shaderc_cmd.addArg("-f");
     shaderc_cmd.addFileArg(options.input);
-
     shaderc_cmd.addArg("-o");
-    const compiled_shader = shaderc_cmd.addOutputFileArg(options.output);
+    const compiled_shader = shaderc_cmd.addOutputFileArg("shader.bin");
 
     return .{ .cmd = shaderc_cmd, .output = compiled_shader };
 }
 
-pub const CombineBinZigOptions = struct {
-    parts: [][]const u8,
-    output: []const u8,
-};
-
-pub fn combineBinZigStep(
+pub fn combineShaderPartsStep(
     b: *std.Build,
     output_name: []const u8,
-    combine_bin_zig: *std.Build.Step.Compile,
-    options: CombineBinZigOptions,
+    combine_shader_parts: *std.Build.Step.Compile,
+    parts: [][]const u8,
 ) std.Build.LazyPath {
-    const run = b.addRunArtifact(combine_bin_zig);
-    const final_h = run.addOutputFileArg(output_name);
-    run.addArgs(options.parts);
-    return final_h;
+    const run = b.addRunArtifact(combine_shader_parts);
+    const final = run.addOutputFileArg(output_name);
+    run.addArgs(parts);
+    return final;
 }
 
-pub const CombineBinHOptions = struct {
-    shader_name: []const u8,
-    parts: []const std.Build.LazyPath,
-    output: []const u8,
-};
-
-pub fn combineBinHStep(
+pub fn combineShadersStep(
     b: *std.Build,
-    combine_bin_h: *std.Build.Step.Compile,
-    options: CombineBinHOptions,
-) *std.Build.Step {
-    const run = b.addRunArtifact(combine_bin_h);
-    run.addArg(options.shader_name);
-    const final_h = run.addOutputFileArg("final.bin.h");
-
-    for (options.parts) |path| {
-        run.addFileArg(path);
-    }
-
-    const wf = b.addUpdateSourceFiles();
-    wf.addCopyFileToSource(final_h, options.output);
-
-    return &wf.step;
+    output_name: []const u8,
+    combine_shaders: *std.Build.Step.Compile,
+    parts: [][]const u8,
+) std.Build.LazyPath {
+    const run = b.addRunArtifact(combine_shaders);
+    const final = run.addOutputFileArg(output_name);
+    run.addArgs(parts);
+    return final;
 }
 
-pub const BasicCompileInput = struct {
-    input: std.Build.LazyPath,
+pub const PartDef = struct {
+    profile: shader.Profile,
+    platform: shader.Platform,
+    optimize: ?shader.Optimize = null,
+};
+
+pub const ShaderInput = struct {
+    name: []const u8,
     shaderType: shader.ShaderType,
+    path: std.Build.LazyPath,
+    parts: []const PartDef = &.{
+        .{ .profile = .glsl_120, .platform = .linux },
+        .{ .profile = .es_100, .platform = .android },
+        .{ .profile = .spirv, .platform = .linux },
+        .{ .profile = .metal, .platform = .osx, .optimize = .o3 },
+        .{ .profile = .s_5_0, .platform = .windows, .optimize = .o3 },
+        .{ .profile = .s_6_0, .platform = .windows, .optimize = .o3 },
+    },
 };
 
-pub const BasicCompileOptions = struct {
-    output: []const u8,
-    bin2c: ?[]const u8 = null,
-    includes: []const std.Build.LazyPath,
-};
-
-pub fn compileBasicBinZig(
+pub fn compileShaders(
     b: *std.Build,
     target: std.Build.ResolvedTarget,
-    shaderc: *std.Build.Step.Compile,
-    zbgfx_modul: *std.Build.Module,
-    combine_zig_h: *std.Build.Step.Compile,
-    shader_zig_name: []const u8,
-    input: BasicCompileInput,
-    options: BasicCompileOptions,
+    install_shaderc_step: *std.Build.Step,
+    zbgfx_dep: *std.Build.Dependency,
+    includes: []const std.Build.LazyPath,
+    shaders: []const ShaderInput,
 ) !*std.Build.Module {
-    var shaders = std.ArrayList(std.Build.LazyPath){};
-    defer shaders.deinit(b.allocator);
+    var shaders_module = b.createModule(.{});
 
-    try compileBasic(
-        b,
-        &shaders,
-        target,
-        shaderc,
-        input,
-        options,
-    );
+    var names = try std.ArrayList([]const u8).initCapacity(b.allocator, shaders.len);
+    defer names.deinit(b.allocator);
 
-    var variants = std.ArrayList([]const u8){};
-    defer variants.deinit(b.allocator);
+    for (shaders) |sh| {
+        names.appendAssumeCapacity(sh.name);
 
-    var shaders_module = b.createModule(.{
-        .imports = &.{
-            .{ .name = "zbgfx", .module = zbgfx_modul },
-        },
-    });
-
-    for (basic_profiles, 0..) |profile, idx| {
-        if (target.result.os.tag != .windows and profile == .s_5_0) continue;
-        const variant_name = profileToPostfix(profile);
-        shaders_module.addAnonymousImport(variant_name, .{ .root_source_file = shaders.items[idx] });
-        try variants.append(b.allocator, variant_name);
+        const module = try compileShader(
+            b,
+            target,
+            install_shaderc_step,
+            zbgfx_dep,
+            includes,
+            sh,
+        );
+        shaders_module.addImport(sh.name, module);
     }
 
-    const combine_step = combineBinZigStep(
+    const combine_shaders = zbgfx_dep.artifact("combine_shaders");
+    const combine_step = combineShadersStep(
         b,
-        shader_zig_name,
-        combine_zig_h,
-        .{
-            .output = options.output,
-            .parts = variants.items,
-        },
+        "module.zig",
+        combine_shaders,
+        names.items,
     );
 
     shaders_module.root_source_file = combine_step;
@@ -172,83 +144,147 @@ pub fn compileBasicBinZig(
     return shaders_module;
 }
 
-pub fn compileBasicBinH(
+pub fn profileToPartName(profile: shader.Profile) []const u8 {
+    return switch (profile) {
+        .es_100,
+        .es_300,
+        .es_310,
+        .es_320,
+        => "essl",
+
+        .s_4_0,
+        .s_5_0,
+        => "dx11",
+
+        .s_6_0,
+        .s_6_1,
+        .s_6_2,
+        .s_6_3,
+        .s_6_4,
+        .s_6_5,
+        .s_6_6,
+        .s_6_7,
+        .s_6_8,
+        .s_6_9,
+        => "dxil",
+
+        .metal,
+        .metal10_10,
+        .metal11_10,
+        .metal12_10,
+        .metal20_11,
+        .metal21_11,
+        .metal22_11,
+        .metal23_14,
+        .metal24_14,
+        .metal30_14,
+        .metal31_14,
+        => "mtl",
+
+        .pssl => "pssl",
+
+        .spirv,
+        .spirv10_10,
+        .spirv13_11,
+        .spirv14_11,
+        .spirv15_12,
+        .spirv16_13,
+        => "spv",
+
+        .glsl_120,
+        .glsl_130,
+        .glsl_140,
+        .glsl_150,
+        .glsl_330,
+        .glsl_400,
+        .glsl_410,
+        .glsl_420,
+        .glsl_430,
+        .glsl_440,
+        => "glsl",
+    };
+}
+
+// TODO: Compile only valid shaders for target. (ex.: dx for linux target, but compile dx for windows on linux is valid)
+pub fn compileShader(
     b: *std.Build,
     target: std.Build.ResolvedTarget,
-    shaderc: *std.Build.Step.Compile,
-    combine_bin_h: *std.Build.Step.Compile,
-    input: BasicCompileInput,
-    options: BasicCompileOptions,
-) !*std.Build.Step {
+    install_shaderc_step: *std.Build.Step,
+    zbgfx_dep: *std.Build.Dependency,
+    includes: []const std.Build.LazyPath,
+    input: ShaderInput,
+) !*std.Build.Module {
+    const combine_shader_parts = zbgfx_dep.artifact("combine_shader_parts");
+    const zbgfx_module = zbgfx_dep.module("zbgfx");
+
     var shaders = std.ArrayList(std.Build.LazyPath){};
     defer shaders.deinit(b.allocator);
 
-    try compileBasic(
+    try compileShaderVariants(
         b,
         &shaders,
         target,
-        shaderc,
+        install_shaderc_step,
+        includes,
         input,
-        options,
     );
 
-    const combine_step = combineBinHStep(b, combine_bin_h, .{
-        .output = options.output,
-        .parts = shaders.items,
-        .shader_name = options.bin2c.?,
+    var parts = std.ArrayList([]const u8){};
+    defer parts.deinit(b.allocator);
+    var shaders_module = b.createModule(.{
+        .imports = &.{
+            .{ .name = "zbgfx", .module = zbgfx_module },
+        },
     });
 
-    return combine_step;
+    for (input.parts, 0..) |part, idx| {
+        if (target.result.os.tag != .windows and part.profile == .s_5_0) continue;
+        if (target.result.os.tag != .windows and part.profile == .s_6_0) continue;
+
+        const part_name = profileToPartName(part.profile);
+        shaders_module.addAnonymousImport(part_name, .{ .root_source_file = shaders.items[idx] });
+        try parts.append(b.allocator, part_name);
+    }
+
+    const basename = try std.fmt.allocPrint(b.allocator, "{s}.zig", .{input.name});
+    defer b.allocator.free(basename);
+
+    const combine_step = combineShaderPartsStep(
+        b,
+        basename,
+        combine_shader_parts,
+        parts.items,
+    );
+
+    shaders_module.root_source_file = combine_step;
+
+    return shaders_module;
 }
 
-// Basic build use these to map it to platform
-const basic_profiles = [_]shader.Profile{
-    .glsl_120,
-    .es_100,
-    .spirv,
-    .metal,
-    .s_5_0,
-};
-
 const LazyPathList = std.ArrayList(std.Build.LazyPath);
-pub fn compileBasic(
+pub fn compileShaderVariants(
     b: *std.Build,
     out_shaders: *LazyPathList,
     target: std.Build.ResolvedTarget,
-    shaderc: *std.Build.Step.Compile,
-    input: BasicCompileInput,
-    options: BasicCompileOptions,
+    install_shaderc_step: *std.Build.Step,
+    includes: []const std.Build.LazyPath,
+    input: ShaderInput,
 ) !void {
-    for (basic_profiles) |profile| {
-        if (target.result.os.tag != .windows and profile == .s_5_0) continue;
+    for (input.parts) |part| {
+        if (target.result.os.tag != .windows and part.profile == .s_5_0) continue;
+        if (target.result.os.tag != .windows and part.profile == .s_6_0) continue;
 
-        const optimize: ?shader.Optimize = switch (profile) {
-            .s_5_0 => .o3,
-            .metal => .o3,
-            else => null,
-        };
-
-        const os: shader.Platform = switch (profile) {
-            .glsl_120 => .linux,
-            .spirv => .linux,
-            .s_5_0 => .windows,
-            .metal => .ios,
-            .es_100 => .android,
-            else => undefined,
-        };
-
-        const shader_build = try buildShaderC(
+        const shader_build = try callShaderc(
             b,
-            shaderc,
+            install_shaderc_step,
             .{
                 .shaderType = input.shaderType,
-                .platform = os,
-                .optimize = optimize,
-                .profile = profile,
-                .bin2c = options.bin2c,
-                .input = input.input,
-                .output = "shader.bin.h",
-                .includes = options.includes,
+                .platform = part.platform,
+                .optimize = part.optimize,
+                .profile = part.profile,
+                .input = input.path,
+                .output = "shaders.zig",
+                .includes = includes,
             },
         );
         try out_shaders.append(b.allocator, shader_build.output);

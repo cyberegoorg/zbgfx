@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2025 Branimir Karadzic. All rights reserved.
+ * Copyright 2011-2026 Branimir Karadzic. All rights reserved.
  * License: https://github.com/bkaradzic/bgfx/blob/master/LICENSE
  */
 
@@ -44,8 +44,8 @@ extern "C" uint64_t                    WINAPI bgfx_PIXEventsReplaceBlock(PIXEven
 
 #	include <pix3.h>
 
-#	define _PIX3_BEGINEVENT(_commandList, _color, _name) PIXBeginEvent(_commandList, _color, _name)
-#	define _PIX3_SETMARKER(_commandList, _color, _name)  PIXSetMarker(_commandList, _color, _name)
+#	define _PIX3_BEGINEVENT(_commandList, _color, _name) PIXBeginEvent(_commandList, toPixColor(_color), _name)
+#	define _PIX3_SETMARKER(_commandList, _color, _name)  PIXSetMarker(_commandList, toPixColor(_color), _name)
 #	define _PIX3_ENDEVENT(_commandList)                  PIXEndEvent(_commandList)
 
 #	define PIX3_BEGINEVENT(_commandList, _color, _name) _PIX3_BEGINEVENT(_commandList, _color, _name)
@@ -77,9 +77,21 @@ extern "C" uint64_t                    WINAPI bgfx_PIXEventsReplaceBlock(PIXEven
 
 namespace bgfx { namespace d3d12
 {
-	typedef HRESULT (WINAPI* PFN_D3D12_ENABLE_EXPERIMENTAL_FEATURES)(uint32_t _numFeatures, const IID* _iids, void* _configurationStructs, uint32_t* _configurationStructSizes);
+	struct RenderRp
+	{
+		enum Enum
+		{
+			Sampler,
+			SRV,
+			CBV,
+			CBF,
+			UAV,
 
-	struct Rdt
+			Count
+		};
+	};
+
+	struct ComputeRp
 	{
 		enum Enum
 		{
@@ -297,6 +309,7 @@ namespace bgfx { namespace d3d12
 		TextureD3D12()
 			: m_ptr(NULL)
 			, m_singleMsaa(NULL)
+			, m_handle(NULL)
 			, m_directAccessPtr(NULL)
 			, m_state(D3D12_RESOURCE_STATE_COMMON)
 			, m_numMips(0)
@@ -305,7 +318,7 @@ namespace bgfx { namespace d3d12
 			bx::memSet(&m_uavd, 0, sizeof(m_uavd) );
 		}
 
-		void* create(const Memory* _mem, uint64_t _flags, uint8_t _skip);
+		void* create(const Memory* _mem, uint64_t _flags, uint8_t _skip, uint64_t _external);
 		void destroy();
 		void overrideInternal(uintptr_t _ptr);
 		void update(ID3D12GraphicsCommandList* _commandList, uint8_t _side, uint8_t _mip, const Rect& _rect, uint16_t _z, uint16_t _depth, uint16_t _pitch, const Memory* _mem);
@@ -316,6 +329,7 @@ namespace bgfx { namespace d3d12
 		D3D12_UNORDERED_ACCESS_VIEW_DESC m_uavd;
 		ID3D12Resource* m_ptr;
 		ID3D12Resource* m_singleMsaa;
+		HANDLE m_handle;
 		void* m_directAccessPtr;
 		D3D12_RESOURCE_STATES m_state;
 		uint64_t m_flags;
@@ -372,15 +386,18 @@ namespace bgfx { namespace d3d12
 
 	struct CommandQueueD3D12
 	{
+		static constexpr uint32_t kMaxCommandLists = 256;
+
 		CommandQueueD3D12()
 			: m_currentFence(0)
 			, m_completedFence(0)
 			, m_control(BX_COUNTOF(m_commandList) )
+			, m_externalQueue(false)
 		{
 			static_assert(BX_COUNTOF(m_commandList) == BX_COUNTOF(m_release) );
 		}
 
-		void init(ID3D12Device* _device);
+		void init(ID3D12Device* _device, ID3D12CommandQueue* _queue);
 		void shutdown();
 		ID3D12GraphicsCommandList* alloc();
 		uint64_t kick();
@@ -389,6 +406,9 @@ namespace bgfx { namespace d3d12
 		void release(ID3D12Resource* _ptr);
 		bool consume(uint32_t _ms = UINT32_MAX);
 
+		void addExternal(TextureHandle _handle);
+		void removeExternal(TextureHandle _handle);
+
 		struct CommandList
 		{
 			ID3D12GraphicsCommandList* m_commandList;
@@ -396,14 +416,60 @@ namespace bgfx { namespace d3d12
 			HANDLE m_event;
 		};
 
+		struct PipelineStats
+		{
+			PipelineStats()
+			{
+				reset();
+			}
+
+			void reset()
+			{
+				IAVertices    = 0;
+				IAPrimitives  = 0;
+				VSInvocations = 0;
+				CInvocations  = 0;
+				CPrimitives   = 0;
+				PSInvocations = 0;
+				CSInvocations = 0;
+			}
+
+			void add(const D3D12_QUERY_DATA_PIPELINE_STATISTICS& _stats)
+			{
+				IAVertices    += _stats.IAVertices;
+				IAPrimitives  += _stats.IAPrimitives;
+				VSInvocations += _stats.VSInvocations;
+				CInvocations  += _stats.CInvocations;
+				CPrimitives   += _stats.CPrimitives;
+				PSInvocations += _stats.PSInvocations;
+				CSInvocations += _stats.CSInvocations;
+			}
+
+			uint64_t IAVertices;
+			uint64_t IAPrimitives;
+			uint64_t VSInvocations;
+			uint64_t CInvocations;
+			uint64_t CPrimitives;
+			uint64_t PSInvocations;
+			uint64_t CSInvocations;
+		};
+
 		ID3D12CommandQueue* m_commandQueue;
 		uint64_t m_currentFence;
 		uint64_t m_completedFence;
 		ID3D12Fence* m_fence;
-		CommandList m_commandList[256];
+		CommandList m_commandList[kMaxCommandLists];
 		typedef stl::vector<ID3D12Resource*> ResourceArray;
-		ResourceArray m_release[256];
+		ResourceArray m_release[kMaxCommandLists];
+		typedef stl::vector<TextureHandle> ExternalTextureArray;
+		ExternalTextureArray m_external;
 		bx::RingBufferControl m_control;
+		bool m_externalQueue;
+
+		ID3D12Resource*  m_pipelineStatsReadBack;
+		ID3D12QueryHeap* m_pipelineStatsQueryHeap;
+		D3D12_QUERY_DATA_PIPELINE_STATISTICS* m_pipelineStats;
+		PipelineStats m_pipelineStatsSum;
 	};
 
 	struct BatchD3D12
@@ -435,7 +501,7 @@ namespace bgfx { namespace d3d12
 		template<typename Ty>
 		Ty& getCmd(Enum _type);
 
-		uint32_t draw(ID3D12GraphicsCommandList* _commandList, D3D12_GPU_VIRTUAL_ADDRESS _cbv, const RenderDraw& _draw);
+		uint32_t draw(ID3D12GraphicsCommandList* _commandList, D3D12_GPU_VIRTUAL_ADDRESS _cbv, D3D12_GPU_VIRTUAL_ADDRESS _cbf, const RenderDraw& _draw);
 
 		void flush(ID3D12GraphicsCommandList* _commandList, Enum _type);
 		void flush(ID3D12GraphicsCommandList* _commandList, bool _clean = false);
@@ -461,6 +527,7 @@ namespace bgfx { namespace d3d12
 		{
 			D3D12_VERTEX_BUFFER_VIEW vbv[BGFX_CONFIG_MAX_VERTEX_STREAMS + 1 /* instanced buffer */];
 			D3D12_GPU_VIRTUAL_ADDRESS cbv;
+			D3D12_GPU_VIRTUAL_ADDRESS cbf;
 			D3D12_DRAW_ARGUMENTS args;
 		};
 
@@ -469,6 +536,7 @@ namespace bgfx { namespace d3d12
 			D3D12_VERTEX_BUFFER_VIEW vbv[BGFX_CONFIG_MAX_VERTEX_STREAMS + 1 /* instanced buffer */];
 			D3D12_INDEX_BUFFER_VIEW ibv;
 			D3D12_GPU_VIRTUAL_ADDRESS cbv;
+			D3D12_GPU_VIRTUAL_ADDRESS cbf;
 			D3D12_DRAW_INDEXED_ARGUMENTS args;
 		};
 

@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2025 Branimir Karadzic. All rights reserved.
+ * Copyright 2010-2026 Branimir Karadzic. All rights reserved.
  * License: https://github.com/bkaradzic/bx/blob/master/LICENSE
  */
 
@@ -7,6 +7,7 @@
 #define BX_STRING_H_HEADER_GUARD
 
 #include "allocator.h"
+#include "timer.h"
 
 namespace bx
 {
@@ -15,8 +16,9 @@ namespace bx
 	{
 		enum Enum //!< Units:
 		{
-			Kilo, //!< SI units
-			Kibi, //!< IEC prefix
+			Kilo,
+			KiloByte, //!< SI units
+			KibiByte, //!< IEC prefix
 		};
 	};
 
@@ -152,6 +154,12 @@ namespace bx
 	class FixedStringT
 	{
 	public:
+		struct Pod
+		{
+			char    storage[MaxCapacityT];
+			int32_t len;
+		};
+
 		///
 		constexpr FixedStringT();
 
@@ -192,9 +200,12 @@ namespace bx
 		///
 		constexpr operator StringView() const;
 
+		///
+		///
+		Pod& asPod();
+
 	private:
-		char    m_storage[MaxCapacityT];
-		int32_t m_len;
+		Pod m_pod;
 	};
 
 	///
@@ -450,8 +461,33 @@ namespace bx
 	template <typename Ty>
 	void stringPrintf(Ty& _out, const char* _format, ...);
 
+	/// Format number to human readable representation.
+	///
+	/// @param[out] _out Output string.
+	/// @param[in]  _count Maximum output string count.
+	/// @param[in]  _value Value.
+	/// @param[in]  _numFrac Number of fraction digits.
+	/// @returns Length of output string.
+	///
+	int32_t formatHumanNumber(char* _out, uint32_t _count, double _value, uint8_t _numFrac, const StringView& _unit = "", char _prefix = ' ');
+
+	/// 
+	int32_t formatHumanNumber(char* _out, uint32_t _count, double _value, uint8_t _numFrac, double _unitStep, const StringView& _unit, const StringView& _prefix, uint8_t _basePrefix = 0);
+
+	/// 
+	template<uint16_t MaxCapacityT = 32>
+	FixedStringT<MaxCapacityT> toHuman(uint64_t _value);
+
+	/// 
+	template<uint16_t MaxCapacityT = 32>
+	FixedStringT<MaxCapacityT> toHuman(uint64_t _value, Units::Enum _units, uint8_t _numFrac = 2);
+
+	/// 
+	template<uint16_t MaxCapacityT = 32>
+	FixedStringT<MaxCapacityT> toHuman(Ticks _value, uint8_t _numFrac = 4);
+
 	/// Convert size in bytes to human readable string kibi units.
-	int32_t prettify(char* _out, int32_t _count, uint64_t _value, Units::Enum _units = Units::Kibi);
+	int32_t prettify(char* _out, int32_t _count, uint64_t _value, Units::Enum _units = Units::KibiByte);
 
 	/// Converts bool value to string.
 	int32_t toString(char* _out, int32_t _max, bool _value);

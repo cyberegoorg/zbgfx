@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2025 Branimir Karadzic. All rights reserved.
+ * Copyright 2010-2026 Branimir Karadzic. All rights reserved.
  * License: https://github.com/bkaradzic/bx/blob/master/LICENSE
  */
 
@@ -67,5 +67,9 @@ namespace bx
 		return INT64_C(1000000);
 #endif // BX_PLATFORM_
 	}
+
+	const Ticks  Ticks::s_kStartup = getNow();
+	const Ticks  Ticks::s_kFreq    = Ticks(getHPFrequency() );
+	const double Ticks::s_kInvFreq = 1.0/double(Ticks::s_kFreq.ticks); 
 
 } // namespace bx

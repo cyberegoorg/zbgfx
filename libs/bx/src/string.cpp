@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2025 Branimir Karadzic. All rights reserved.
+ * Copyright 2010-2026 Branimir Karadzic. All rights reserved.
  * License: https://github.com/bkaradzic/bx/blob/master/LICENSE
  */
 
@@ -722,11 +722,13 @@ namespace bx
 				, base(10)
 				, prec(INT32_MAX)
 				, fill(' ')
+				, fmt('f')
 				, bits(0)
 				, left(false)
 				, upper(false)
 				, spec(false)
 				, sign(false)
+				, space(false)
 			{
 			}
 
@@ -734,11 +736,13 @@ namespace bx
 			int32_t base;
 			int32_t prec;
 			char    fill;
+			char    fmt;
 			uint8_t bits;
 			bool    left;
 			bool    upper;
 			bool    spec;
 			bool    sign;
+			bool    space;
 		};
 
 		static int32_t write(WriterI* _writer, const char* _str, int32_t _len, const Param& _param, Error* _err)
@@ -746,14 +750,12 @@ namespace bx
 			int32_t size = 0;
 			int32_t len = (int32_t)strLen(_str, _len);
 
-			if (_param.width > 0)
-			{
-				len = min(_param.width, len);
-			}
-
 			const bool hasMinus = (NULL != _str && '-' == _str[0]);
-			const bool hasSign = _param.sign || hasMinus;
-			char sign = hasSign ? hasMinus ? '-' : '+' : '\0';
+			const bool hasSign = _param.sign || _param.space || hasMinus;
+			char sign = '\0';
+			if      (hasMinus)     { sign = '-'; }
+			else if (_param.sign)  { sign = '+'; }
+			else if (_param.space) { sign = ' '; }
 
 			const char* str = _str;
 			if (hasMinus)
@@ -837,6 +839,64 @@ namespace bx
 			return write(_writer, _str.getPtr(), min(_param.prec, _str.getLength() ), _param, _err);
 		}
 
+		static int32_t writeInteger(WriterI* _writer, const char* _str, int32_t _len, const Param& _param, Error* _err)
+		{
+			Param param = _param;
+
+			char str[64];
+			memCopy(str, _str, _len + 1);
+
+			int32_t len = _len;
+
+			if (param.prec != INT32_MAX)
+			{
+				param.fill = ' ';
+
+				const int32_t signLen = (len > 0 && '-' == str[0]) ? 1 : 0;
+				const int32_t digitLen = len - signLen;
+
+				if (param.prec > digitLen)
+				{
+					const int32_t zeros = min(param.prec - digitLen, int32_t(sizeof(str)) - len - 1);
+					memMove(&str[signLen + zeros], &str[signLen], digitLen + 1);
+
+					for (int32_t ii = 0; ii < zeros; ++ii)
+					{
+						str[signLen + ii] = '0';
+					}
+
+					len += zeros;
+				}
+
+				param.prec = INT32_MAX;
+			}
+
+			if (param.spec
+			&&  0 < len)
+			{
+				if (8 == param.base)
+				{
+					if (str[0] != '0')
+					{
+						memMove(&str[1], &str[0], len + 1);
+						str[0] = '0';
+						len++;
+					}
+				}
+				else if (16 == param.base)
+				{
+					memMove(&str[2], &str[0], len + 1);
+					str[0] = '0';
+					str[1] = param.upper ? 'X' : 'x';
+					len += 2;
+				}
+
+				param.spec = false;
+			}
+
+			return write(_writer, str, len, param, _err);
+		}
+
 		static int32_t write(WriterI* _writer, int32_t _i, const Param& _param, Error* _err)
 		{
 			char str[33];
@@ -847,7 +907,14 @@ namespace bx
 				return 0;
 			}
 
-			return write(_writer, str, len, _param, _err);
+			if (0 == _param.prec
+			&&  0 == _i)
+			{
+				str[0] = '\0';
+				len = 0;
+			}
+
+			return writeInteger(_writer, str, len, _param, _err);
 		}
 
 		static int32_t write(WriterI* _writer, int64_t _i, const Param& _param, Error* _err)
@@ -860,7 +927,14 @@ namespace bx
 				return 0;
 			}
 
-			return write(_writer, str, len, _param, _err);
+			if (0 == _param.prec
+			&&  0 == _i)
+			{
+				str[0] = '\0';
+				len = 0;
+			}
+
+			return writeInteger(_writer, str, len, _param, _err);
 		}
 
 		static int32_t write(WriterI* _writer, uint32_t _u, const Param& _param, Error* _err)
@@ -873,7 +947,14 @@ namespace bx
 				return 0;
 			}
 
-			return write(_writer, str, len, _param, _err);
+			if (0 == _param.prec
+			&&  0 == _u)
+			{
+				str[0] = '\0';
+				len = 0;
+			}
+
+			return writeInteger(_writer, str, len, _param, _err);
 		}
 
 		static int32_t write(WriterI* _writer, uint64_t _u, const Param& _param, Error* _err)
@@ -886,7 +967,14 @@ namespace bx
 				return 0;
 			}
 
-			return write(_writer, str, len, _param, _err);
+			if (0 == _param.prec
+			&&  0 == _u)
+			{
+				str[0] = '\0';
+				len = 0;
+			}
+
+			return writeInteger(_writer, str, len, _param, _err);
 		}
 
 		static int32_t write(WriterI* _writer, double _d, const Param& _param, Error* _err)
@@ -902,7 +990,9 @@ namespace bx
 			const char* dot = strFind(str, INT32_MAX, '.');
 			if (NULL != dot)
 			{
-				const int32_t prec   = INT32_MAX == _param.prec ? 6 : _param.prec;
+				const int32_t defaultPrec = ('g' == _param.fmt) ? 6 : 6;
+				int32_t prec = INT32_MAX == _param.prec ? defaultPrec : _param.prec;
+
 				const char* strEnd   = str + len;
 				const char* exponent = strFind(str, INT32_MAX, 'e');
 				const char* fracEnd  = NULL != exponent ? exponent : strEnd;
@@ -992,11 +1082,11 @@ namespace bx
 					switch (ch)
 					{
 						default:
-						case ' ': param.fill = ' ';  break;
-						case '-': param.left = true; break;
-						case '+': param.sign = true; break;
-						case '0': param.fill = '0';  break;
-						case '#': param.spec = true; break;
+						case ' ': param.space = true; break;
+						case '-': param.left  = true; break;
+						case '+': param.sign  = true; break;
+						case '0': param.fill  = '0';  break;
+						case '#': param.spec  = true; break;
 					}
 
 					read(&reader, ch, &err);
@@ -1043,7 +1133,8 @@ namespace bx
 					if ('*' == ch)
 					{
 						read(&reader, ch, &err);
-						param.prec = va_arg(_argList, int32_t);
+						int32_t prec = va_arg(_argList, int32_t);
+						param.prec = prec >= 0 ? prec : INT32_MAX;
 					}
 					else
 					{
@@ -1150,10 +1241,11 @@ namespace bx
 						};
 						break;
 
-					case 'e': case 'E':
+						case 'e': case 'E':
 					case 'f': case 'F':
 					case 'g': case 'G':
 						param.upper = isUpper(ch);
+						param.fmt = toLower(ch);
 						size += write(_writer, va_arg(_argList, double), param, _err);
 						break;
 
@@ -1280,36 +1372,113 @@ namespace bx
 		return total;
 	}
 
-	static const char s_units[] = { 'B', 'k', 'M', 'G', 'T', 'P', 'E', 'Z', 'Y' };
-
-	template<uint32_t Kilo, char KiloCh0, char KiloCh1, CharFn fn>
-	inline int32_t prettify(char* _out, int32_t _count, uint64_t _value)
+	int32_t formatHumanNumber(char* _out, uint32_t _count, double _value, uint8_t _numFrac, const StringView& _unit, char _prefix)
 	{
-		uint8_t idx = 0;
-		double value = double(_value);
-		while (_value != (_value&0x7ff)
-		&&     idx < BX_COUNTOF(s_units) )
+		char temp[64];
+		int32_t len = snprintf(temp, sizeof(temp), "%.*f", _numFrac, _value);
+		int32_t intPartLen = len;
+
+		if (len >= _numFrac+1
+		&&  '.' == temp[len-_numFrac-1])
 		{
-			_value /= Kilo;
-			value  *= 1.0/double(Kilo);
-			++idx;
+			intPartLen = len-_numFrac-1;
+
+			bool zero = true;
+
+			for (int32_t ii = _numFrac; 0 < ii && zero; --ii)
+			{
+				zero &= temp[len-ii] == '0';
+			}
+
+			if (zero)
+			{
+				temp[len-_numFrac-1] = '\0';
+				len = intPartLen;
+			}
 		}
 
-		return snprintf(_out, _count, "%0.2f %c%c%c", value
-			, fn(s_units[idx])
-			, idx > 0 ? KiloCh0 : '\0'
-			, KiloCh1
-			);
+		const int32_t fracPartLen = len - intPartLen;
+		const int32_t commas      = (intPartLen > 3) ? (intPartLen - 1) / 3 : 0;
+		const int32_t total       = intPartLen + fracPartLen + commas;
+
+		if (_count < uint32_t(total) )
+		{
+			if (0 < _count)
+			{
+				_out[0] = '\0';
+			}
+
+			return 0;
+		}
+
+		char* out = _out + total;
+		if (_unit.isEmpty()
+		&&  ' ' == _prefix)
+		{
+			*out = '\0';
+		}
+		else
+		{
+			snprintf(out, _count - total, " %c%S", _prefix, &_unit);
+		}
+
+		if (0 != fracPartLen)
+		{
+			out -= fracPartLen;
+			memCopy(out, &temp[intPartLen], fracPartLen);
+		}
+
+		int32_t group = 0;
+		for (int32_t ii = intPartLen - 1; ii >= 0; --ii)
+		{
+			*--out = temp[ii];
+
+			if (3 == ++group
+			&&  0  < ii)
+			{
+				*--out = ',';
+				group = 0;
+			}
+		}
+
+		return total;
+	}
+
+	int32_t formatHumanNumber(char* _out, uint32_t _count, double _value, uint8_t _numFrac, double _unitStep, const StringView& _unit, const StringView& _prefix, uint8_t _basePrefix)
+	{
+		uint8_t idx = _basePrefix;
+		double value = double(_value);
+		const double invUnitStep = 1.0/double(_unitStep);
+		const uint8_t numPrefixes = narrowCast<uint8_t>(_prefix.getLength() );
+
+		if (0.0 != _value)
+		{
+			while (value >= _unitStep
+				&& idx < numPrefixes)
+			{
+				value *= invUnitStep;
+				++idx;
+			}
+
+			while (value < 1.0
+				&& idx > 0)
+			{
+				value *= _unitStep;
+				--idx;
+			}
+		}
+
+		return formatHumanNumber(_out, _count, value, _numFrac, 0 == idx ? "" : _unit, _prefix.getPtr()[idx]);
 	}
 
 	int32_t prettify(char* _out, int32_t _count, uint64_t _value, Units::Enum _units)
 	{
 		if (Units::Kilo == _units)
 		{
-			return prettify<1000, 'B', '\0', toNoop>(_out, _count, _value);
+			return formatHumanNumber(_out, _count, double(_value), 0, 1000.0, "B", "BkMGTPEZY");
 		}
 
-		return prettify<1024, 'i', 'B', toUpper>(_out, _count, _value);
+		return formatHumanNumber(_out, _count, double(_value), 0, 1024.0, "iB", "BKMGTPEZY");
 	}
 
 } // namespace bx
