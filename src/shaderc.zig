@@ -295,18 +295,26 @@ pub fn compileShader(
     const varying_f = try std.fs.createFileAbsolute(varying_file_path, .{});
     try varying_f.writeAll(varying);
     varying_f.close();
-
     defer std.fs.deleteFileAbsolute(varying_file_path) catch undefined;
 
+    const use_file_output = builtin.os.tag == .windows; // FIXME: Problem only on windows. Load shader in bgfx failed.
+
     // Create shader output path
-    var out_random_path: [RANDOM_PATH_LEN]u8 = undefined;
-    generateRandomFileName(&out_random_path);
-    const out_file_path = try std.fs.path.join(allocator, &.{ tmp_dir_path, &out_random_path });
-    defer allocator.free(out_file_path);
+    var out_file_path: ?[]u8 = null;
+    defer {
+        if (out_file_path) |p| allocator.free(p);
+    }
 
     var new_options = options;
     new_options.inputFilePath = source_file_path;
     new_options.varyingFilePath = varying_file_path;
+
+    if (use_file_output) {
+        var out_random_path: [RANDOM_PATH_LEN]u8 = undefined;
+        generateRandomFileName(&out_random_path);
+        out_file_path = try std.fs.path.join(allocator, &.{ tmp_dir_path, &out_random_path });
+        new_options.outputFilePath = out_file_path;
+    }
 
     var shadercp = try shadercProcess(allocator, executable_path, new_options);
 
@@ -326,12 +334,26 @@ pub fn compileShader(
     if (term.Exited != 0) {
         const out = try writer.toOwnedSlice();
         defer allocator.free(out);
-        std.log.err("Shaderc error:\n{s}", .{out[10..]});
+        std.log.err("Shaderc error:\n{s}", .{if (use_file_output) out else out[10..]});
         return error.ShaderCompileError;
     } else {
-        const data = try writer.toOwnedSlice();
-        // std.log.debug("BEGIN\n{s}\nEND", .{data});
-        return data;
+        if (out_file_path) |output_path| {
+            defer std.fs.deleteFileAbsolute(output_path) catch undefined;
+
+            const out_f = try std.fs.openFileAbsolute(output_path, .{ .mode = .read_only });
+            defer out_f.close();
+
+            const size = try out_f.getEndPos();
+            const data = try allocator.alloc(u8, size);
+            _ = try out_f.readAll(data);
+
+            // std.log.debug("BEGIN\n{s}\nEND", .{data});
+            return data;
+        } else {
+            const data = try writer.toOwnedSlice();
+            // std.log.debug("BEGIN\n{s}\nEND", .{data});
+            return data;
+        }
     }
 }
 

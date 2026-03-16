@@ -44,6 +44,7 @@ jobs:
 
       - name: Install Zig
         uses: mlugg/setup-zig@v2
+      
       - name: Lint
         run: zig fmt --check . --exclude libs/
 
@@ -71,6 +72,8 @@ jobs:
 
       - name: Install Zig
         uses: mlugg/setup-zig@v2
+        with:
+          cache-size-limit: 4096
 
       - name: Build examples
         shell: bash

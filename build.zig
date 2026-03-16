@@ -24,6 +24,8 @@ pub fn build(b: *std.Build) !void {
     const options_module = options_step.createModule();
     _ = options_module; // autofix
 
+    const use_lld = !target.result.os.tag.isDarwin();
+
     const common_options = [_][]const u8{
         "-fno-sanitize=undefined", // Spentime... 3 fucking days... and randomly found this https://ruoyusun.com/2022/02/27/zig-cc.html (Thx ;))
         "-fno-strict-aliasing",
@@ -58,6 +60,7 @@ pub fn build(b: *std.Build) !void {
             .optimize = optimize,
         }),
         .use_llvm = true,
+        .use_lld = use_lld,
     });
     b.installArtifact(combine_shader_parts);
 
@@ -69,6 +72,7 @@ pub fn build(b: *std.Build) !void {
             .optimize = optimize,
         }),
         .use_llvm = true,
+        .use_lld = use_lld,
     });
     b.installArtifact(combine_shaders);
 
@@ -83,6 +87,7 @@ pub fn build(b: *std.Build) !void {
             .optimize = optimize,
         }),
         .use_llvm = true,
+        .use_lld = use_lld,
     });
     bx.addCSourceFiles(.{
         .flags = &cxx_options,
@@ -105,6 +110,7 @@ pub fn build(b: *std.Build) !void {
             .optimize = optimize,
         }),
         .use_llvm = true,
+        .use_lld = use_lld,
     });
     bimg.addCSourceFiles(.{
         .flags = &cxx_options,
@@ -133,6 +139,7 @@ pub fn build(b: *std.Build) !void {
             .optimize = optimize,
         }),
         .use_llvm = true,
+        .use_lld = use_lld,
     });
     b.installArtifact(bgfx);
     bxInclude(b, bgfx, target, optimize);
@@ -243,6 +250,7 @@ pub fn build(b: *std.Build) !void {
                 .optimize = options.shaderc_optimize,
             }),
             .use_llvm = true,
+            .use_lld = use_lld,
         });
 
         b.installArtifact(shaderc);
@@ -330,6 +338,7 @@ pub fn build(b: *std.Build) !void {
                 .optimize = options.shaderc_optimize,
             }),
             .use_llvm = true,
+            .use_lld = use_lld,
         });
 
         fcpp_lib.addIncludePath(b.path(fcpp_path));
@@ -365,6 +374,7 @@ pub fn build(b: *std.Build) !void {
                 .optimize = options.shaderc_optimize,
             }),
             .use_llvm = true,
+            .use_lld = use_lld,
         });
         spirv_opt_lib.addIncludePath(b.path(spirv_opt_path));
         spirv_opt_lib.addIncludePath(b.path(spirv_opt_path ++ "include"));
@@ -400,6 +410,7 @@ pub fn build(b: *std.Build) !void {
                 .optimize = options.shaderc_optimize,
             }),
             .use_llvm = true,
+            .use_lld = use_lld,
         });
         spirv_cross_lib.addIncludePath(b.path(spirv_cross_path ++ "include"));
         spirv_cross_lib.addCSourceFiles(.{
@@ -439,6 +450,7 @@ pub fn build(b: *std.Build) !void {
                 .optimize = options.shaderc_optimize,
             }),
             .use_llvm = true,
+            .use_lld = use_lld,
         });
         glslang_lib.addIncludePath(b.path("libs/bgfx/3rdparty"));
         glslang_lib.addIncludePath(b.path(glslang_path));
@@ -512,6 +524,7 @@ pub fn build(b: *std.Build) !void {
                 .optimize = options.shaderc_optimize,
             }),
             .use_llvm = true,
+            .use_lld = use_lld,
         });
         glsl_optimizer_lib.addIncludePath(b.path(glsl_optimizer_path ++ "include"));
         glsl_optimizer_lib.addIncludePath(b.path(glsl_optimizer_path ++ "src"));

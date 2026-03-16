@@ -1,14 +1,13 @@
 .{
     .name = .zbgfx,
     .fingerprint = 0xc48ed871c4086e4a,
-    .version = "0.8.0",
+    .version = "0.8.1",
     .minimum_zig_version = "0.15.2",
     .paths = .{
         "includes",
         "libs",
         "shaders",
         "src",
-        "tools",
         "build.zig",
         "build.zig.zon",
     },
