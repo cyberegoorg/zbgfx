@@ -47,8 +47,6 @@ pub fn build(b: *std.Build) !void {
     };
     const c_options = common_options ++ [_][]const u8{};
 
-    const mm_options = cxx_options ++ [_][]const u8{};
-
     //
     // Tools
     //
@@ -116,7 +114,6 @@ pub fn build(b: *std.Build) !void {
         .flags = &cxx_options,
         .files = &bimg_files,
     });
-
     bimg.addCSourceFiles(.{
         .flags = &c_options,
         .files = &[_][]const u8{
@@ -157,25 +154,18 @@ pub fn build(b: *std.Build) !void {
     if (target.result.isDarwinLibC()) {
         bgfx.linkFramework("Cocoa");
         bgfx.linkFramework("IOKit");
-        bgfx.linkFramework("OpenGL");
         bgfx.linkFramework("QuartzCore");
         bgfx.linkFramework("Metal");
         bgfx.linkFramework("MetalKit");
-
-        bgfx.addCSourceFiles(.{
-            .flags = &mm_options,
-            .files = &[_][]const u8{
-                "libs/bgfx/src/amalgamated.mm",
-            },
-        });
-    } else {
-        bgfx.addCSourceFiles(.{
-            .flags = &cxx_options,
-            .files = &[_][]const u8{
-                "libs/bgfx/src/amalgamated.cpp",
-            },
-        });
     }
+
+    bgfx.addCSourceFiles(.{
+        .flags = &cxx_options,
+        .language = if (target.result.isDarwinLibC()) .objective_cpp else null,
+        .files = &[_][]const u8{
+            "libs/bgfx/src/amalgamated.cpp",
+        },
+    });
 
     // utils and another stuff
     bgfx.addCSourceFiles(.{

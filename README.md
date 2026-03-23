@@ -25,12 +25,6 @@ When [zig](https://codeberg.org/ziglang/zig) meets [bgfx](https://github.com/bka
 >
 > - `shaderc` need some time to compile.
 
-> [!NOTE]
->
-> - If you build shaders/app and see something like `run shaderc (shader.bin.h) stderr`.
-    This is not "true" error (build success), but only in debug build shader print some stuff to stderr and zig
-    build catch it.
-
 ## License
 
 Folders `libs`, `shaders` is copy&paste from [bgfx](https://github.com/bkaradzic/bgfx) for more sell-contained
@@ -44,9 +38,9 @@ Minimal is `0.15.1`. But you know try your version and believe.
 
 ## Bgfx version
 
-- [BX](https://github.com/bkaradzic/bx/compare/cb281314e14b2684b4ccbbedda662ce6f842e0d5...master)
-- [BImg](https://github.com/bkaradzic/bimg/compare/5a79b67a49f7c23f8480ae1df356c3411f2c329b...master)
-- [BGFX](https://github.com/bkaradzic/bgfx/compare/b28febb4a8d29d441c3d1ea95d7cbd3d3e0a840c...master)
+- [BX](https://github.com/bkaradzic/bx/compare/cac72f6cfa0893393ea12692ebfacb4495f8c826...master)
+- [BImg](https://github.com/bkaradzic/bimg/compare/9114b47f532ce59cd0c6c9f8932df2c48888d4c1...master)
+- [BGFX](https://github.com/bkaradzic/bgfx/compare/a7016487e5970c5299bb837f1af42dcb24909a67...master)
 
 ## Getting started
 
