@@ -40,7 +40,7 @@ Minimal is `0.15.1`. But you know try your version and believe.
 
 - [BX](https://github.com/bkaradzic/bx/compare/cac72f6cfa0893393ea12692ebfacb4495f8c826...master)
 - [BImg](https://github.com/bkaradzic/bimg/compare/9114b47f532ce59cd0c6c9f8932df2c48888d4c1...master)
-- [BGFX](https://github.com/bkaradzic/bgfx/compare/a7016487e5970c5299bb837f1af42dcb24909a67...master)
+- [BGFX](https://github.com/bkaradzic/bgfx/compare/8532b2c45d2f4332a9ac9734b85c2ea2253cb8d5...master)
 
 ## Getting started
 
@@ -55,16 +55,15 @@ or use `zig fetch --save ...` way.
 Then in your `build.zig` add:
 
 ```zig
+const zbgfx = @import("zbgfx");
+
 pub fn build(b: *std.Build) void {
     const exe = b.addExecutable(.{ ... });
 
-    const zbgfx = b.dependency("zbgfx", .{});
-    exe.root_module.addImport("zbgfx", zbgfx.module("zbgfx"));
+    const zbgfx_dep = b.dependency("zbgfx", .{});
+    exe.root_module.addImport("zbgfx", zbgfx_dep.module("zbgfx"));
     exe.linkLibrary(zbgfx.artifact("bgfx"));
-
-    // This install shaderc to install dir
-    // For shader build in build =D check examples
-    // b.installArtifact(zbgfx.artifact("shaderc"));
+    _ = try zbgfx.build_step.installShaderc(b, zbgfx_dep);
 }
 ```
 
