@@ -238,6 +238,7 @@ pub fn build(b: *std.Build) !void {
             .root_module = b.createModule(.{
                 .target = target,
                 .optimize = options.shaderc_optimize,
+                .strip = options.shaderc_optimize != .Debug,
             }),
             .use_llvm = true,
             .use_lld = use_lld,
@@ -326,6 +327,7 @@ pub fn build(b: *std.Build) !void {
             .root_module = b.createModule(.{
                 .target = target,
                 .optimize = options.shaderc_optimize,
+                .strip = options.shaderc_optimize != .Debug,
             }),
             .use_llvm = true,
             .use_lld = use_lld,
@@ -362,6 +364,7 @@ pub fn build(b: *std.Build) !void {
             .root_module = b.createModule(.{
                 .target = target,
                 .optimize = options.shaderc_optimize,
+                .strip = options.shaderc_optimize != .Debug,
             }),
             .use_llvm = true,
             .use_lld = use_lld,
@@ -398,6 +401,7 @@ pub fn build(b: *std.Build) !void {
             .root_module = b.createModule(.{
                 .target = target,
                 .optimize = options.shaderc_optimize,
+                .strip = options.shaderc_optimize != .Debug,
             }),
             .use_llvm = true,
             .use_lld = use_lld,
@@ -438,6 +442,7 @@ pub fn build(b: *std.Build) !void {
             .root_module = b.createModule(.{
                 .target = target,
                 .optimize = options.shaderc_optimize,
+                .strip = options.shaderc_optimize != .Debug,
             }),
             .use_llvm = true,
             .use_lld = use_lld,
@@ -479,7 +484,6 @@ pub fn build(b: *std.Build) !void {
             // https://github.com/bkaradzic/bgfx/commit/b4dbc129f3b69b0d6a9093f2d579b883396a839f
             // "-ffast-math",
             "-fomit-frame-pointer",
-            "-g",
             "-m64",
             "-std=c++20",
             "-fno-rtti",
@@ -499,7 +503,6 @@ pub fn build(b: *std.Build) !void {
             // https://github.com/bkaradzic/bgfx/commit/b4dbc129f3b69b0d6a9093f2d579b883396a839f
             // "-ffast-math",
             "-fomit-frame-pointer",
-            "-g",
             "-m64",
             "-D__STDC_LIMIT_MACROS",
             "-D__STDC_FORMAT_MACROS",
@@ -512,6 +515,7 @@ pub fn build(b: *std.Build) !void {
             .root_module = b.createModule(.{
                 .target = target,
                 .optimize = options.shaderc_optimize,
+                .strip = options.shaderc_optimize != .Debug,
             }),
             .use_llvm = true,
             .use_lld = use_lld,
@@ -559,11 +563,6 @@ fn bxInclude(b: *std.Build, step: *std.Build.Step.Compile, target: std.Build.Res
     step.root_module.addCMacro("__STDC_LIMIT_MACROS", "1");
     step.root_module.addCMacro("__STDC_FORMAT_MACROS", "1");
     step.root_module.addCMacro("__STDC_CONSTANT_MACROS", "1");
-
-    // FIXME: problem with compile with zig.
-    if (target.result.os.tag == .windows) {
-        step.root_module.addCMacro("BX_CONFIG_EXCEPTION_HANDLING_USE_WINDOWS_SEH", "0");
-    }
 
     step.root_module.addCMacro("BX_CONFIG_DEBUG", if (optimize == .Debug) "1" else "0");
 
