@@ -29,9 +29,8 @@ pub fn build(
         "zgui",
         .{
             .target = target,
-            .optimize = optimize,
+            .optimize = .ReleaseFast,
             .backend = .glfw,
-            .disable_obsolete = false, // TODO: FIXME Assertion failed: (sz_io == sizeof(ImGuiIO) && "Mismatched struct layout!"), function DebugCheckVersionAndDataLayout, file imgui.cpp, line 11150.
         },
     );
 
@@ -58,7 +57,7 @@ pub fn build(
     exe.root_module.addImport("zglfw", zglfw.module("root"));
     exe.root_module.addImport("zbgfx", zbgfx_dep.module("zbgfx"));
 
-    exe.linkLibrary(zglfw.artifact("glfw"));
-    exe.linkLibrary(zgui.artifact("imgui"));
-    exe.linkLibrary(zbgfx_dep.artifact("bgfx"));
+    exe.root_module.linkLibrary(zglfw.artifact("glfw"));
+    exe.root_module.linkLibrary(zgui.artifact("imgui"));
+    exe.root_module.linkLibrary(zbgfx_dep.artifact("bgfx"));
 }

@@ -217,7 +217,7 @@ pub fn compileShader(
     const combine_shader_parts = zbgfx_dep.artifact("combine_shader_parts");
     const zbgfx_module = zbgfx_dep.module("zbgfx");
 
-    var shaders = std.ArrayList(std.Build.LazyPath){};
+    var shaders = std.ArrayList(std.Build.LazyPath).empty;
     defer shaders.deinit(b.allocator);
 
     try compileShaderVariants(
@@ -229,7 +229,7 @@ pub fn compileShader(
         input,
     );
 
-    var parts = std.ArrayList([]const u8){};
+    var parts = std.ArrayList([]const u8).empty;
     defer parts.deinit(b.allocator);
     var shaders_module = b.createModule(.{
         .imports = &.{

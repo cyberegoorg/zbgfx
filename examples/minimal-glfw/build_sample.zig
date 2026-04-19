@@ -46,12 +46,12 @@ pub fn build(
         }),
     });
     b.installArtifact(exe);
-    exe.linkLibrary(zbgfx_dep.artifact("bgfx"));
+    exe.root_module.linkLibrary(zbgfx_dep.artifact("bgfx"));
 
     exe.root_module.addImport("zbgfx", zbgfx_dep.module("zbgfx"));
     exe.root_module.addImport("zmath", zmath.module("root"));
     exe.root_module.addImport("zglfw", zglfw.module("root"));
-    exe.linkLibrary(zglfw.artifact("glfw"));
+    exe.root_module.linkLibrary(zglfw.artifact("glfw"));
 }
 
 inline fn thisDir() []const u8 {

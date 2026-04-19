@@ -46,7 +46,7 @@ pub fn build(
         }),
     });
     b.installArtifact(exe);
-    exe.linkLibrary(zbgfx_dep.artifact("bgfx"));
+    exe.root_module.linkLibrary(zbgfx_dep.artifact("bgfx"));
 
     _ = try zbgfx.build_step.installShaderc(b, zbgfx_dep);
 
@@ -54,7 +54,7 @@ pub fn build(
     exe.root_module.addImport("zmath", zmath.module("root"));
     exe.root_module.addImport("zglfw", zglfw.module("root"));
 
-    exe.linkLibrary(zglfw.artifact("glfw"));
+    exe.root_module.linkLibrary(zglfw.artifact("glfw"));
 
     // Install core shaders
     const install_shaders_includes = b.addInstallDirectory(.{

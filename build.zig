@@ -83,19 +83,19 @@ pub fn build(b: *std.Build) !void {
         .root_module = b.createModule(.{
             .target = target,
             .optimize = optimize,
+            .link_libc = true,
+            .link_libcpp = true,
         }),
         .use_llvm = true,
         .use_lld = use_lld,
     });
-    bx.addCSourceFiles(.{
+    bx.root_module.addCSourceFiles(.{
         .flags = &cxx_options,
         .files = &[_][]const u8{
             "libs/bx/src/amalgamated.cpp",
         },
     });
     bxInclude(b, bx, target, optimize);
-    bx.linkLibCpp();
-    bx.linkLibC();
 
     //
     // Bimg
@@ -106,15 +106,16 @@ pub fn build(b: *std.Build) !void {
         .root_module = b.createModule(.{
             .target = target,
             .optimize = optimize,
+            .link_libcpp = true,
         }),
         .use_llvm = true,
         .use_lld = use_lld,
     });
-    bimg.addCSourceFiles(.{
+    bimg.root_module.addCSourceFiles(.{
         .flags = &cxx_options,
         .files = &bimg_files,
     });
-    bimg.addCSourceFiles(.{
+    bimg.root_module.addCSourceFiles(.{
         .flags = &c_options,
         .files = &[_][]const u8{
             "libs/bimg/3rdparty/tinyexr/deps/miniz/miniz.c",
@@ -122,7 +123,6 @@ pub fn build(b: *std.Build) !void {
     });
     bxInclude(b, bimg, target, optimize);
     bimgInclude(b, bimg);
-    bimg.linkLibCpp();
 
     //
     // Bgfx
@@ -134,6 +134,7 @@ pub fn build(b: *std.Build) !void {
         .root_module = b.createModule(.{
             .target = target,
             .optimize = optimize,
+            .link_libcpp = true,
         }),
         .use_llvm = true,
         .use_lld = use_lld,
@@ -143,23 +144,22 @@ pub fn build(b: *std.Build) !void {
     bgfxInclude(b, bgfx, target);
     bimgInclude(b, bgfx);
 
-    bgfx.linkLibCpp();
-    bgfx.linkLibrary(bx);
-    bgfx.linkLibrary(bimg);
+    bgfx.root_module.linkLibrary(bx);
+    bgfx.root_module.linkLibrary(bimg);
 
     bgfx.root_module.addCMacro("BGFX_CONFIG_MULTITHREADED", if (options.multithread) "1" else "0");
 
-    bgfx.addIncludePath(b.path("includes"));
+    bgfx.root_module.addIncludePath(b.path("includes"));
 
     if (target.result.isDarwinLibC()) {
-        bgfx.linkFramework("Cocoa");
-        bgfx.linkFramework("IOKit");
-        bgfx.linkFramework("QuartzCore");
-        bgfx.linkFramework("Metal");
-        bgfx.linkFramework("MetalKit");
+        bgfx.root_module.linkFramework("Cocoa", .{ .needed = true });
+        bgfx.root_module.linkFramework("IOKit", .{ .needed = true });
+        bgfx.root_module.linkFramework("QuartzCore", .{ .needed = true });
+        bgfx.root_module.linkFramework("Metal", .{ .needed = true });
+        bgfx.root_module.linkFramework("MetalKit", .{ .needed = true });
     }
 
-    bgfx.addCSourceFiles(.{
+    bgfx.root_module.addCSourceFiles(.{
         .flags = &cxx_options,
         .language = if (target.result.isDarwinLibC()) .objective_cpp else null,
         .files = &[_][]const u8{
@@ -168,7 +168,7 @@ pub fn build(b: *std.Build) !void {
     });
 
     // utils and another stuff
-    bgfx.addCSourceFiles(.{
+    bgfx.root_module.addCSourceFiles(.{
         .flags = &cxx_options,
         .files = &[_][]const u8{
             "src/zbgfx.cpp",
@@ -176,7 +176,7 @@ pub fn build(b: *std.Build) !void {
     });
 
     // debugdraw
-    bgfx.addCSourceFiles(.{
+    bgfx.root_module.addCSourceFiles(.{
         .flags = &cxx_options,
         .files = &[_][]const u8{
             "libs/bgfx/examples/common/debugdraw/debugdraw.cpp",
@@ -189,8 +189,8 @@ pub fn build(b: *std.Build) !void {
     //
     const bgfx_imgui_path = "libs/bgfx/examples/common/imgui/";
     if (options.imgui_include) |include| {
-        bgfx.addIncludePath(.{ .cwd_relative = include });
-        bgfx.addCSourceFiles(.{
+        bgfx.root_module.addIncludePath(.{ .cwd_relative = include });
+        bgfx.root_module.addCSourceFiles(.{
             .flags = &cxx_options,
             .files = &[_][]const u8{
                 bgfx_imgui_path ++ "imgui.cpp",
@@ -239,6 +239,7 @@ pub fn build(b: *std.Build) !void {
                 .target = target,
                 .optimize = options.shaderc_optimize,
                 .strip = options.shaderc_optimize != .Debug,
+                .link_libcpp = true,
             }),
             .use_llvm = true,
             .use_lld = use_lld,
@@ -258,35 +259,34 @@ pub fn build(b: *std.Build) !void {
         }
 
         if (target.result.os.tag.isDarwin()) {
-            shaderc.linkFramework("CoreFoundation");
-            shaderc.linkFramework("Foundation");
+            shaderc.root_module.linkFramework("CoreFoundation", .{ .needed = true });
+            shaderc.root_module.linkFramework("Foundation", .{ .needed = true });
         }
-        shaderc.linkLibrary(bx);
-        shaderc.linkLibCpp();
+        shaderc.root_module.linkLibrary(bx);
 
         bxInclude(b, shaderc, target, options.shaderc_optimize);
 
-        shaderc.addIncludePath(b.path("libs/bimg/include"));
-        shaderc.addIncludePath(b.path(bgfx_path ++ "include"));
-        shaderc.addIncludePath(b.path(bgfx_path ++ "src"));
-        shaderc.addIncludePath(b.path(bgfx_path ++ "3rdparty/directx-headers/include/directx"));
-        shaderc.addIncludePath(b.path(bgfx_path ++ "3rdparty/fcpp"));
-        shaderc.addIncludePath(b.path(bgfx_path ++ "3rdparty/glslang/glslang/Public"));
-        shaderc.addIncludePath(b.path(bgfx_path ++ "3rdparty/glslang/glslang/Include"));
-        shaderc.addIncludePath(b.path(bgfx_path ++ "3rdparty/glslang"));
-        shaderc.addIncludePath(b.path(bgfx_path ++ "3rdparty/glsl-optimizer/include"));
-        shaderc.addIncludePath(b.path(bgfx_path ++ "3rdparty/glsl-optimizer/src/glsl"));
-        shaderc.addIncludePath(b.path(bgfx_path ++ "3rdparty/spirv-cross"));
-        shaderc.addIncludePath(b.path(bgfx_path ++ "3rdparty/spirv-tools/include"));
-        shaderc.addIncludePath(b.path(bgfx_path ++ "3rdparty/webgpu/include"));
+        shaderc.root_module.addIncludePath(b.path("libs/bimg/include"));
+        shaderc.root_module.addIncludePath(b.path(bgfx_path ++ "include"));
+        shaderc.root_module.addIncludePath(b.path(bgfx_path ++ "src"));
+        shaderc.root_module.addIncludePath(b.path(bgfx_path ++ "3rdparty/directx-headers/include/directx"));
+        shaderc.root_module.addIncludePath(b.path(bgfx_path ++ "3rdparty/fcpp"));
+        shaderc.root_module.addIncludePath(b.path(bgfx_path ++ "3rdparty/glslang/glslang/Public"));
+        shaderc.root_module.addIncludePath(b.path(bgfx_path ++ "3rdparty/glslang/glslang/Include"));
+        shaderc.root_module.addIncludePath(b.path(bgfx_path ++ "3rdparty/glslang"));
+        shaderc.root_module.addIncludePath(b.path(bgfx_path ++ "3rdparty/glsl-optimizer/include"));
+        shaderc.root_module.addIncludePath(b.path(bgfx_path ++ "3rdparty/glsl-optimizer/src/glsl"));
+        shaderc.root_module.addIncludePath(b.path(bgfx_path ++ "3rdparty/spirv-cross"));
+        shaderc.root_module.addIncludePath(b.path(bgfx_path ++ "3rdparty/spirv-tools/include"));
+        shaderc.root_module.addIncludePath(b.path(bgfx_path ++ "3rdparty/webgpu/include"));
 
         if (target.result.os.tag == .linux or target.result.os.tag.isDarwin()) {
-            shaderc.addIncludePath(b.path(bgfx_path ++ "3rdparty/d3d4linux/include"));
-            shaderc.addIncludePath(b.path(bgfx_path ++ "3rdparty/directx-headers/include"));
-            shaderc.addIncludePath(b.path(bgfx_path ++ "3rdparty/directx-headers/include/wsl/stubs"));
+            shaderc.root_module.addIncludePath(b.path(bgfx_path ++ "3rdparty/d3d4linux/include"));
+            shaderc.root_module.addIncludePath(b.path(bgfx_path ++ "3rdparty/directx-headers/include"));
+            shaderc.root_module.addIncludePath(b.path(bgfx_path ++ "3rdparty/directx-headers/include/wsl/stubs"));
         }
 
-        shaderc.addCSourceFiles(.{
+        shaderc.root_module.addCSourceFiles(.{
             .files = &.{
                 bgfx_path ++ "src/shader.cpp",
                 bgfx_path ++ "src/shader_dxbc.cpp",
@@ -328,13 +328,14 @@ pub fn build(b: *std.Build) !void {
                 .target = target,
                 .optimize = options.shaderc_optimize,
                 .strip = options.shaderc_optimize != .Debug,
+                .link_libc = true,
             }),
             .use_llvm = true,
             .use_lld = use_lld,
         });
 
-        fcpp_lib.addIncludePath(b.path(fcpp_path));
-        fcpp_lib.addCSourceFiles(
+        fcpp_lib.root_module.addIncludePath(b.path(fcpp_path));
+        fcpp_lib.root_module.addCSourceFiles(
             .{
                 .files = &.{
                     fcpp_path ++ "cpp1.c",
@@ -347,7 +348,6 @@ pub fn build(b: *std.Build) !void {
                 .flags = &fcpp_cxx_options,
             },
         );
-        fcpp_lib.linkLibC();
 
         //
         //spirv-opt
@@ -365,24 +365,23 @@ pub fn build(b: *std.Build) !void {
                 .target = target,
                 .optimize = options.shaderc_optimize,
                 .strip = options.shaderc_optimize != .Debug,
+                .link_libcpp = true,
             }),
             .use_llvm = true,
             .use_lld = use_lld,
         });
-        spirv_opt_lib.addIncludePath(b.path(spirv_opt_path));
-        spirv_opt_lib.addIncludePath(b.path(spirv_opt_path ++ "include"));
-        spirv_opt_lib.addIncludePath(b.path(spirv_opt_path ++ "include/generated"));
-        spirv_opt_lib.addIncludePath(b.path(spirv_opt_path ++ "source"));
-        spirv_opt_lib.addIncludePath(b.path("libs/bgfx/3rdparty/spirv-headers/include"));
+        spirv_opt_lib.root_module.addIncludePath(b.path(spirv_opt_path));
+        spirv_opt_lib.root_module.addIncludePath(b.path(spirv_opt_path ++ "include"));
+        spirv_opt_lib.root_module.addIncludePath(b.path(spirv_opt_path ++ "include/generated"));
+        spirv_opt_lib.root_module.addIncludePath(b.path(spirv_opt_path ++ "source"));
+        spirv_opt_lib.root_module.addIncludePath(b.path("libs/bgfx/3rdparty/spirv-headers/include"));
 
-        spirv_opt_lib.addCSourceFiles(
+        spirv_opt_lib.root_module.addCSourceFiles(
             .{
                 .files = &spirv_opt_files,
                 .flags = &spirv_opt_cxx_options,
             },
         );
-
-        spirv_opt_lib.linkLibCpp();
 
         //
         // spriv-cross
@@ -402,12 +401,13 @@ pub fn build(b: *std.Build) !void {
                 .target = target,
                 .optimize = options.shaderc_optimize,
                 .strip = options.shaderc_optimize != .Debug,
+                .link_libcpp = true,
             }),
             .use_llvm = true,
             .use_lld = use_lld,
         });
-        spirv_cross_lib.addIncludePath(b.path(spirv_cross_path ++ "include"));
-        spirv_cross_lib.addCSourceFiles(.{
+        spirv_cross_lib.root_module.addIncludePath(b.path(spirv_cross_path ++ "include"));
+        spirv_cross_lib.root_module.addCSourceFiles(.{
             .files = &.{
                 spirv_cross_path ++ "spirv_cfg.cpp",
                 spirv_cross_path ++ "spirv_cpp.cpp",
@@ -422,8 +422,6 @@ pub fn build(b: *std.Build) !void {
             },
             .flags = &spirv_cross_cxx_options,
         });
-
-        spirv_cross_lib.linkLibCpp();
 
         //
         // glslang
@@ -443,16 +441,17 @@ pub fn build(b: *std.Build) !void {
                 .target = target,
                 .optimize = options.shaderc_optimize,
                 .strip = options.shaderc_optimize != .Debug,
+                .link_libcpp = true,
             }),
             .use_llvm = true,
             .use_lld = use_lld,
         });
-        glslang_lib.addIncludePath(b.path("libs/bgfx/3rdparty"));
-        glslang_lib.addIncludePath(b.path(glslang_path));
-        glslang_lib.addIncludePath(b.path(glslang_path ++ "include"));
-        glslang_lib.addSystemIncludePath(b.path(spirv_opt_path ++ "include"));
-        glslang_lib.addSystemIncludePath(b.path(spirv_opt_path ++ "source"));
-        glslang_lib.addCSourceFiles(
+        glslang_lib.root_module.addIncludePath(b.path("libs/bgfx/3rdparty"));
+        glslang_lib.root_module.addIncludePath(b.path(glslang_path));
+        glslang_lib.root_module.addIncludePath(b.path(glslang_path ++ "include"));
+        glslang_lib.root_module.addSystemIncludePath(b.path(spirv_opt_path ++ "include"));
+        glslang_lib.root_module.addSystemIncludePath(b.path(spirv_opt_path ++ "source"));
+        glslang_lib.root_module.addCSourceFiles(
             .{
                 .files = &glsl_lang_files,
                 .flags = &glslang_cxx_options,
@@ -460,19 +459,17 @@ pub fn build(b: *std.Build) !void {
         );
 
         if (target.result.os.tag == .windows) {
-            glslang_lib.addCSourceFile(.{
+            glslang_lib.root_module.addCSourceFile(.{
                 .file = b.path(glslang_path ++ "glslang/OSDependent/Windows/ossource.cpp"),
                 .flags = &glslang_cxx_options,
             });
         }
         if (target.result.os.tag == .linux or target.result.isDarwinLibC()) {
-            glslang_lib.addCSourceFile(.{
+            glslang_lib.root_module.addCSourceFile(.{
                 .file = b.path(glslang_path ++ "glslang/OSDependent/Unix/ossource.cpp"),
                 .flags = &glslang_cxx_options,
             });
         }
-
-        glslang_lib.linkLibCpp();
 
         // glslang
         const glsl_optimizer_cxx_options = [_][]const u8{
@@ -516,23 +513,24 @@ pub fn build(b: *std.Build) !void {
                 .target = target,
                 .optimize = options.shaderc_optimize,
                 .strip = options.shaderc_optimize != .Debug,
+                .link_libcpp = true,
             }),
             .use_llvm = true,
             .use_lld = use_lld,
         });
-        glsl_optimizer_lib.addIncludePath(b.path(glsl_optimizer_path ++ "include"));
-        glsl_optimizer_lib.addIncludePath(b.path(glsl_optimizer_path ++ "src"));
-        glsl_optimizer_lib.addIncludePath(b.path(glsl_optimizer_path ++ "src/mesa"));
-        glsl_optimizer_lib.addIncludePath(b.path(glsl_optimizer_path ++ "src/mapi"));
-        glsl_optimizer_lib.addIncludePath(b.path(glsl_optimizer_path ++ "src/glsl"));
+        glsl_optimizer_lib.root_module.addIncludePath(b.path(glsl_optimizer_path ++ "include"));
+        glsl_optimizer_lib.root_module.addIncludePath(b.path(glsl_optimizer_path ++ "src"));
+        glsl_optimizer_lib.root_module.addIncludePath(b.path(glsl_optimizer_path ++ "src/mesa"));
+        glsl_optimizer_lib.root_module.addIncludePath(b.path(glsl_optimizer_path ++ "src/mapi"));
+        glsl_optimizer_lib.root_module.addIncludePath(b.path(glsl_optimizer_path ++ "src/glsl"));
 
         // add C++ files
-        glsl_optimizer_lib.addCSourceFiles(.{
+        glsl_optimizer_lib.root_module.addCSourceFiles(.{
             .files = &glsl_optimizer_files,
             .flags = &glsl_optimizer_cxx_options,
         });
 
-        glsl_optimizer_lib.addCSourceFiles(
+        glsl_optimizer_lib.root_module.addCSourceFiles(
             .{
                 .files = &.{
                     glsl_optimizer_path ++ "src/glsl/glcpp/glcpp-lex.c",
@@ -549,13 +547,11 @@ pub fn build(b: *std.Build) !void {
             },
         );
 
-        glsl_optimizer_lib.linkLibCpp();
-
-        shaderc.linkLibrary(fcpp_lib);
-        shaderc.linkLibrary(glslang_lib);
-        shaderc.linkLibrary(glsl_optimizer_lib);
-        shaderc.linkLibrary(spirv_opt_lib);
-        shaderc.linkLibrary(spirv_cross_lib);
+        shaderc.root_module.linkLibrary(fcpp_lib);
+        shaderc.root_module.linkLibrary(glslang_lib);
+        shaderc.root_module.linkLibrary(glsl_optimizer_lib);
+        shaderc.root_module.linkLibrary(spirv_opt_lib);
+        shaderc.root_module.linkLibrary(spirv_cross_lib);
     }
 }
 
@@ -567,42 +563,42 @@ fn bxInclude(b: *std.Build, step: *std.Build.Step.Compile, target: std.Build.Res
     step.root_module.addCMacro("BX_CONFIG_DEBUG", if (optimize == .Debug) "1" else "0");
 
     switch (target.result.os.tag) {
-        .freebsd => step.addIncludePath(b.path("libs/bx/include/compat/freebsd")),
-        .linux => step.addIncludePath(b.path("libs/bx/include/compat/linux")),
-        .ios => step.addIncludePath(b.path("libs/bx/include/compat/ios")),
-        .macos => step.addIncludePath(b.path("libs/bx/include/compat/osx")),
+        .freebsd => step.root_module.addIncludePath(b.path("libs/bx/include/compat/freebsd")),
+        .linux => step.root_module.addIncludePath(b.path("libs/bx/include/compat/linux")),
+        .ios => step.root_module.addIncludePath(b.path("libs/bx/include/compat/ios")),
+        .macos => step.root_module.addIncludePath(b.path("libs/bx/include/compat/osx")),
         .windows => switch (target.result.abi) {
-            .gnu => step.addIncludePath(b.path("libs/bx/include/compat/mingw")),
-            .msvc => step.addIncludePath(b.path("libs/bx/include/compat/msvc")),
+            .gnu => step.root_module.addIncludePath(b.path("libs/bx/include/compat/mingw")),
+            .msvc => step.root_module.addIncludePath(b.path("libs/bx/include/compat/msvc")),
             else => {},
         },
         else => {},
     }
 
-    step.addIncludePath(b.path("libs/bx/include"));
-    step.addIncludePath(b.path("libs/bx/3rdparty"));
+    step.root_module.addIncludePath(b.path("libs/bx/include"));
+    step.root_module.addIncludePath(b.path("libs/bx/3rdparty"));
 }
 
 fn bimgInclude(b: *std.Build, step: *std.Build.Step.Compile) void {
-    step.addIncludePath(b.path("libs/bimg/include"));
-    step.addIncludePath(b.path("libs/bimg/3rdparty"));
-    step.addIncludePath(b.path("libs/bimg/3rdparty/astc-encoder/include"));
-    step.addIncludePath(b.path("libs/bimg/3rdparty/tinyexr/deps/miniz"));
+    step.root_module.addIncludePath(b.path("libs/bimg/include"));
+    step.root_module.addIncludePath(b.path("libs/bimg/3rdparty"));
+    step.root_module.addIncludePath(b.path("libs/bimg/3rdparty/astc-encoder/include"));
+    step.root_module.addIncludePath(b.path("libs/bimg/3rdparty/tinyexr/deps/miniz"));
 }
 
 fn bgfxInclude(b: *std.Build, step: *std.Build.Step.Compile, target: std.Build.ResolvedTarget) void {
-    step.addIncludePath(b.path("libs/bgfx/include"));
-    step.addIncludePath(b.path("libs/bgfx/3rdparty"));
-    step.addIncludePath(b.path("libs/bgfx/3rdparty/khronos/"));
+    step.root_module.addIncludePath(b.path("libs/bgfx/include"));
+    step.root_module.addIncludePath(b.path("libs/bgfx/3rdparty"));
+    step.root_module.addIncludePath(b.path("libs/bgfx/3rdparty/khronos/"));
 
     if (target.result.os.tag == .linux) {
-        step.addIncludePath(b.path("libs/bgfx/3rdparty/directx-headers/include/directx"));
-        step.addIncludePath(b.path("libs/bgfx/3rdparty/directx-headers/include"));
-        step.addIncludePath(b.path("libs/bgfx/3rdparty/directx-headers/include/wsl/stubs"));
+        step.root_module.addIncludePath(b.path("libs/bgfx/3rdparty/directx-headers/include/directx"));
+        step.root_module.addIncludePath(b.path("libs/bgfx/3rdparty/directx-headers/include"));
+        step.root_module.addIncludePath(b.path("libs/bgfx/3rdparty/directx-headers/include/wsl/stubs"));
     }
 
     if (target.result.os.tag == .windows) {
-        step.addIncludePath(b.path("libs/bgfx/3rdparty/directx-headers/include/directx"));
+        step.root_module.addIncludePath(b.path("libs/bgfx/3rdparty/directx-headers/include/directx"));
     }
 }
 

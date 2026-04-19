@@ -130,8 +130,6 @@ pub fn main() anyerror!u8 {
     //
     // Main loop
     //
-    const start_time: i64 = std.time.milliTimestamp();
-    _ = start_time; // autofix
     while (!window.shouldClose() and window.getKey(.escape) != .press) {
         //
         // Poll events

@@ -85,7 +85,7 @@ var last_d = zglfw.Action.release;
 var old_flags = bgfx.ResetFlags_None;
 var old_size = [2]i32{ WIDTH, HEIGHT };
 
-pub fn main() anyerror!u8 {
+pub fn main(init: std.process.Init) anyerror!u8 {
     //
     // Init zglfw
     //
@@ -214,7 +214,7 @@ pub fn main() anyerror!u8 {
     //
     // Main loop
     //
-    const start_time: i64 = std.time.milliTimestamp();
+    const start = std.Io.Clock.awake.now(init.io);
     while (!window.shouldClose() and window.getKey(.escape) != .press) {
         //
         // Poll events
@@ -285,7 +285,7 @@ pub fn main() anyerror!u8 {
         //  Render cubes
         //
         var yy: f32 = 0;
-        const time: f32 = @as(f32, @floatFromInt(std.time.milliTimestamp() - start_time)) / std.time.ms_per_s;
+        const time: f32 = @as(f32, @floatFromInt(start.untilNow(init.io, .awake).toMilliseconds())) / std.time.ms_per_s;
         while (yy < 11) : (yy += 1.0) {
             var xx: f32 = 0;
             while (xx < 11) : (xx += 1.0) {

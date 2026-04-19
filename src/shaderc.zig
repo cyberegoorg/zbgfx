@@ -244,8 +244,8 @@ pub const ShadercOptions = struct {
     keepcomments: bool = false,
 };
 
-pub fn shadercFromExePath(allocator: std.mem.Allocator) ![]u8 {
-    const exe_dir = try std.fs.selfExeDirPathAlloc(allocator);
+pub fn shadercFromExePath(io: std.Io, allocator: std.mem.Allocator) ![]u8 {
+    const exe_dir = try std.process.executableDirPathAlloc(io, allocator);
     defer allocator.free(exe_dir);
 
     const path = try std.fs.path.join(allocator, &.{ exe_dir, "shaderc" });
@@ -259,43 +259,39 @@ pub fn shadercFromExePath(allocator: std.mem.Allocator) ![]u8 {
 
 // Caller is owner of memory.
 pub fn compileShader(
+    io: std.Io,
     allocator: std.mem.Allocator,
     executable_path: []const u8,
     varying: []const u8,
     shader: []const u8,
+    tmp_dir_path: []const u8,
     options: ShadercOptions,
 ) ![]u8 {
-    const system_tmp_dir_path = try getSysTmpDir(allocator);
-    defer allocator.free(system_tmp_dir_path);
-
-    const tmp_dir_path = try std.fs.path.join(allocator, &.{ system_tmp_dir_path, "shaderc" });
-    defer allocator.free(tmp_dir_path);
-
-    std.fs.makeDirAbsolute(tmp_dir_path) catch |err| {
+    std.Io.Dir.createDirAbsolute(io, tmp_dir_path, .default_dir) catch |err| {
         if (err != error.PathAlreadyExists) return err;
     };
 
     // Write source
     var in_random_path: [RANDOM_PATH_LEN]u8 = undefined;
-    generateRandomFileName(&in_random_path);
+    generateRandomFileName(io, &in_random_path);
 
     const source_file_path = try std.fs.path.join(allocator, &.{ tmp_dir_path, &in_random_path });
     defer allocator.free(source_file_path);
-    const in_f = try std.fs.createFileAbsolute(source_file_path, .{});
-    try in_f.writeAll(shader);
-    in_f.close();
-    defer std.fs.deleteFileAbsolute(source_file_path) catch undefined;
+    const in_f = try std.Io.Dir.createFileAbsolute(io, source_file_path, .{});
+    try in_f.writeStreamingAll(io, shader);
+    in_f.close(io);
+    defer std.Io.Dir.deleteFileAbsolute(io, source_file_path) catch undefined;
 
     // Write varying
     var varying_random_path: [RANDOM_PATH_LEN]u8 = undefined;
-    generateRandomFileName(&varying_random_path);
+    generateRandomFileName(io, &varying_random_path);
 
     const varying_file_path = try std.fs.path.join(allocator, &.{ tmp_dir_path, &varying_random_path });
     defer allocator.free(varying_file_path);
-    const varying_f = try std.fs.createFileAbsolute(varying_file_path, .{});
-    try varying_f.writeAll(varying);
-    varying_f.close();
-    defer std.fs.deleteFileAbsolute(varying_file_path) catch undefined;
+    const varying_f = try std.Io.Dir.createFileAbsolute(io, varying_file_path, .{});
+    try varying_f.writeStreamingAll(io, varying);
+    varying_f.close(io);
+    defer std.Io.Dir.deleteFileAbsolute(io, varying_file_path) catch undefined;
 
     const use_file_output = builtin.os.tag == .windows; // FIXME: Problem only on windows. Load shader in bgfx failed.
 
@@ -311,16 +307,16 @@ pub fn compileShader(
 
     if (use_file_output) {
         var out_random_path: [RANDOM_PATH_LEN]u8 = undefined;
-        generateRandomFileName(&out_random_path);
+        generateRandomFileName(io, &out_random_path);
         out_file_path = try std.fs.path.join(allocator, &.{ tmp_dir_path, &out_random_path });
         new_options.outputFilePath = out_file_path;
     }
 
-    var shadercp = try shadercProcess(allocator, executable_path, new_options);
+    var shadercp = try shadercProcess(io, allocator, executable_path, new_options);
 
     var buffer: [1024]u8 = undefined;
-    var reader = shadercp.stdout.?.readerStreaming(&buffer);
-    var writer = std.io.Writer.Allocating.init(allocator);
+    var reader = shadercp.stdout.?.readerStreaming(io, &buffer);
+    var writer = std.Io.Writer.Allocating.init(allocator);
     defer writer.deinit();
 
     // Read stdout unitl shaderc end.
@@ -330,22 +326,22 @@ pub fn compileShader(
         };
     }
 
-    const term = try shadercp.wait();
-    if (term.Exited != 0) {
+    const term = try shadercp.wait(io);
+    if (term.exited != 0) {
         const out = try writer.toOwnedSlice();
         defer allocator.free(out);
         std.log.err("Shaderc error:\n{s}", .{if (use_file_output) out else out[10..]});
         return error.ShaderCompileError;
     } else {
         if (out_file_path) |output_path| {
-            defer std.fs.deleteFileAbsolute(output_path) catch undefined;
+            defer std.Io.Dir.deleteFileAbsolute(io, output_path) catch undefined;
 
-            const out_f = try std.fs.openFileAbsolute(output_path, .{ .mode = .read_only });
-            defer out_f.close();
+            const out_f = try std.Io.Dir.openFileAbsolute(io, output_path, .{ .mode = .read_only });
+            defer out_f.close(io);
 
-            const size = try out_f.getEndPos();
+            const size = try out_f.length(io);
             const data = try allocator.alloc(u8, size);
-            _ = try out_f.readAll(data);
+            _ = try out_f.readPositionalAll(io, data, 0);
 
             // std.log.debug("BEGIN\n{s}\nEND", .{data});
             return data;
@@ -357,8 +353,8 @@ pub fn compileShader(
     }
 }
 
-pub fn shadercProcess(allocator: std.mem.Allocator, executablePath: []const u8, options: ShadercOptions) !std.process.Child {
-    var args = ArgsList{};
+pub fn shadercProcess(io: std.Io, allocator: std.mem.Allocator, executablePath: []const u8, options: ShadercOptions) !std.process.Child {
+    var args = ArgsList.empty;
     defer args.deinit(allocator);
     try args.append(allocator, executablePath);
 
@@ -391,7 +387,7 @@ pub fn shadercProcess(allocator: std.mem.Allocator, executablePath: []const u8, 
         }
     }
 
-    var all_defines = std.ArrayList(u8){};
+    var all_defines = std.ArrayList(u8).empty;
     defer all_defines.deinit(allocator);
 
     if (options.defines) |defines| {
@@ -407,65 +403,18 @@ pub fn shadercProcess(allocator: std.mem.Allocator, executablePath: []const u8, 
         try args.appendSlice(allocator, &.{ "--define", all_defines.items });
     }
 
-    var process = std.process.Child.init(args.items, allocator);
-    process.stdout_behavior = .Pipe;
-    try process.spawn();
+    const process = std.process.spawn(io, .{
+        .argv = args.items,
+        .stdout = .pipe,
+    });
     return process;
 }
 
 const RANDOM_BYTES_COUNT = 12;
-const RANDOM_PATH_LEN = std.fs.base64_encoder.calcSize(RANDOM_BYTES_COUNT);
+const RANDOM_PATH_LEN = std.base64.url_safe.Encoder.calcSize(RANDOM_BYTES_COUNT);
 
-fn generateRandomFileName(out: []u8) void {
+fn generateRandomFileName(io: std.Io, out: []u8) void {
     var in_random_bytes: [RANDOM_BYTES_COUNT]u8 = undefined;
-    std.crypto.random.bytes(&in_random_bytes);
-    _ = std.fs.base64_encoder.encode(out, &in_random_bytes);
-}
-
-// https://github.com/liyu1981/tmpfile.zig/blob/master/src/tmpfile.zig#L11
-fn getSysTmpDir(a: std.mem.Allocator) ![]const u8 {
-    const Impl = switch (builtin.os.tag) {
-        .linux, .macos => struct {
-            pub fn get(allocator: std.mem.Allocator) ![]const u8 {
-                // cpp17's temp_directory_path gives good reference
-                // https://en.cppreference.com/w/cpp/filesystem/temp_directory_path
-                // POSIX standard, https://en.wikipedia.org/wiki/TMPDIR
-                return std.process.getEnvVarOwned(allocator, "TMPDIR") catch {
-                    return std.process.getEnvVarOwned(allocator, "TMP") catch {
-                        return std.process.getEnvVarOwned(allocator, "TEMP") catch {
-                            return std.process.getEnvVarOwned(allocator, "TEMPDIR") catch {
-                                return try allocator.dupe(u8, "/tmp");
-                            };
-                        };
-                    };
-                };
-            }
-        },
-        .windows => struct {
-            const DWORD = std.os.windows.DWORD;
-            const LPWSTR = std.os.windows.LPWSTR;
-            const MAX_PATH = std.os.windows.MAX_PATH;
-            const WCHAR = std.os.windows.WCHAR;
-
-            pub extern "C" fn GetTempPath2W(BufferLength: DWORD, Buffer: LPWSTR) DWORD;
-
-            pub fn get(allocator: std.mem.Allocator) ![]const u8 {
-                // use GetTempPathW2, https://learn.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-gettemppathw
-                var wchar_buf: [MAX_PATH + 2:0]WCHAR = undefined;
-                wchar_buf[MAX_PATH + 1] = 0;
-                const ret = GetTempPath2W(MAX_PATH + 1, &wchar_buf);
-                if (ret != 0) {
-                    const path = wchar_buf[0..ret];
-                    return std.unicode.utf16LeToUtf8Alloc(allocator, path);
-                } else {
-                    return error.GetTempPath2WFailed;
-                }
-            }
-        },
-        else => {
-            @panic(@tagName(std.builtin.os.tag) ++ " is not support");
-        },
-    };
-
-    return Impl.get(a);
+    io.random(&in_random_bytes);
+    _ = std.base64.url_safe.Encoder.encode(out, &in_random_bytes);
 }

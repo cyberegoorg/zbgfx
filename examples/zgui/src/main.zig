@@ -28,7 +28,7 @@ var last_d = zglfw.Action.release;
 var old_flags = bgfx.ResetFlags_None;
 var old_size = [2]i32{ WIDTH, HEIGHT };
 
-pub fn main() anyerror!u8 {
+pub fn main(init: std.process.Init) anyerror!u8 {
     //
     // Init zglfw
     //
@@ -117,9 +117,7 @@ pub fn main() anyerror!u8 {
     const state = 0 | bgfx.StateFlags_WriteRgb | bgfx.StateFlags_WriteA | bgfx.StateFlags_WriteZ | bgfx.StateFlags_DepthTestLess | bgfx.StateFlags_CullCcw | bgfx.StateFlags_Msaa;
     _ = state; // autofix
 
-    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
-    const gpa_allocator = gpa.allocator();
-    defer _ = gpa.deinit();
+    const gpa_allocator = init.gpa;
 
     // Based on: https://github.com/ocornut/imgui/blob/27a9374ef3fc6572f8dd1fa9ddf72e1802fceb8b/backends/imgui_impl_glfw.cpp#L914
     const scale_factor = scale_factor: {
@@ -128,7 +126,7 @@ pub fn main() anyerror!u8 {
         break :scale_factor @max(scale[0], scale[1]);
     };
 
-    zgui.init(gpa_allocator);
+    zgui.init(init.io, gpa_allocator);
     defer zgui.deinit();
 
     // Load main font
@@ -144,8 +142,6 @@ pub fn main() anyerror!u8 {
     //
     // Main loop
     //
-    const start_time: i64 = std.time.milliTimestamp();
-    _ = start_time; // autofix
     while (!window.shouldClose() and window.getKey(.escape) != .press) {
         //
         // Poll events

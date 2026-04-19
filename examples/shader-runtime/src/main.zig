@@ -85,31 +85,36 @@ var last_r = zglfw.Action.release;
 var old_flags = bgfx.ResetFlags_None;
 var old_size = [2]i32{ WIDTH, HEIGHT };
 
-pub fn buildProgram(allocator: std.mem.Allocator, shaderc_path: []const u8) !bgfx.ProgramHandle {
+pub fn buildProgram(io: std.Io, env_map: *const std.process.Environ.Map, allocator: std.mem.Allocator, shaderc_path: []const u8) !bgfx.ProgramHandle {
     // Load varying from file
-    const varying_data = try readFileFromShaderDirs(allocator, "varying.def.sc");
+    const varying_data = try readFileFromShaderDirs(io, allocator, "varying.def.sc");
     defer allocator.free(varying_data);
 
     // Load fs_cube shader
-    const fs_cube_data = try readFileFromShaderDirs(allocator, "fs_cubes.sc");
+    const fs_cube_data = try readFileFromShaderDirs(io, allocator, "fs_cubes.sc");
     defer allocator.free(fs_cube_data);
 
     // Load vs_cube shader
-    const vs_cube_data = try readFileFromShaderDirs(allocator, "vs_cubes.sc");
+    const vs_cube_data = try readFileFromShaderDirs(io, allocator, "vs_cubes.sc");
     defer allocator.free(vs_cube_data);
 
-    const exe_dir = try std.fs.selfExeDirPathAlloc(allocator);
+    const exe_dir = try std.process.executableDirPathAlloc(io, allocator);
     defer allocator.free(exe_dir);
 
     const path = try std.fs.path.join(allocator, &.{ exe_dir, "..", "include", "shaders" });
     defer allocator.free(path);
+
+    const system_tmp_dir_path = try getSysTmpDir(allocator, env_map);
+    defer allocator.free(system_tmp_dir_path);
+    const tmp_dir_path = try std.fs.path.join(allocator, &.{ system_tmp_dir_path, "shaderc" });
+    defer allocator.free(tmp_dir_path);
 
     // Compile fs shader
     var fs_shader_options = shaderc.createDefaultOptionsForRenderer(bgfx.getRendererType());
     fs_shader_options.shaderType = .fragment;
     fs_shader_options.includeDirs = &.{path};
 
-    const fs_shader = try shaderc.compileShader(allocator, shaderc_path, varying_data, fs_cube_data, fs_shader_options);
+    const fs_shader = try shaderc.compileShader(io, allocator, shaderc_path, varying_data, fs_cube_data, tmp_dir_path, fs_shader_options);
     defer allocator.free(fs_shader);
 
     // Compile vs shader
@@ -117,7 +122,7 @@ pub fn buildProgram(allocator: std.mem.Allocator, shaderc_path: []const u8) !bgf
     vs_shader_options.shaderType = .vertex;
     vs_shader_options.includeDirs = &.{path};
 
-    const vs_shader = try shaderc.compileShader(allocator, shaderc_path, varying_data, vs_cube_data, vs_shader_options);
+    const vs_shader = try shaderc.compileShader(io, allocator, shaderc_path, varying_data, vs_cube_data, tmp_dir_path, vs_shader_options);
     defer allocator.free(vs_shader);
 
     //
@@ -130,7 +135,7 @@ pub fn buildProgram(allocator: std.mem.Allocator, shaderc_path: []const u8) !bgf
     return programHandle;
 }
 
-pub fn main() anyerror!u8 {
+pub fn main(init: std.process.Init) anyerror!u8 {
     //
     // Init zglfw
     //
@@ -221,15 +226,12 @@ pub fn main() anyerror!u8 {
 
     //
 
-    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
-    const gpa_allocator = gpa.allocator();
-    defer _ = gpa.deinit();
+    const gpa_allocator = init.gpa;
 
-    const shaderc_path = try shaderc.shadercFromExePath(gpa_allocator);
-
+    const shaderc_path = try shaderc.shadercFromExePath(init.io, gpa_allocator);
     defer gpa_allocator.free(shaderc_path);
 
-    var programHandle = buildProgram(gpa_allocator, shaderc_path) catch |err| {
+    var programHandle = buildProgram(init.io, init.environ_map, gpa_allocator, shaderc_path) catch |err| {
         std.log.err("Build program failed => {}", .{err});
         return 1;
     };
@@ -266,7 +268,8 @@ pub fn main() anyerror!u8 {
     //
     // Main loop
     //
-    const start_time: i64 = std.time.milliTimestamp();
+
+    const start = std.Io.Clock.awake.now(init.io);
     while (!window.shouldClose() and window.getKey(.escape) != .press) {
         //
         // Poll events
@@ -286,7 +289,7 @@ pub fn main() anyerror!u8 {
         last_d = window.getKey(.d);
 
         if (last_r != .press and window.getKey(.r) == .press) {
-            if (buildProgram(gpa_allocator, shaderc_path)) |program| {
+            if (buildProgram(init.io, init.environ_map, gpa_allocator, shaderc_path)) |program| {
                 bgfx.destroyProgram(programHandle);
                 programHandle = program;
             } else |err| {
@@ -347,7 +350,8 @@ pub fn main() anyerror!u8 {
         //  Render cubes
         //
         var yy: f32 = 0;
-        const time: f32 = @as(f32, @floatFromInt(std.time.milliTimestamp() - start_time)) / std.time.ms_per_s;
+
+        const time: f32 = @as(f32, @floatFromInt(start.untilNow(init.io, .awake).toMilliseconds())) / std.time.ms_per_s;
         while (yy < 11) : (yy += 1.0) {
             var xx: f32 = 0;
             while (xx < 11) : (xx += 1.0) {
@@ -372,19 +376,67 @@ pub fn main() anyerror!u8 {
     return 0;
 }
 
-fn readFileFromShaderDirs(allocator: std.mem.Allocator, filename: []const u8) ![]u8 {
-    const exe_dir = try std.fs.selfExeDirPathAlloc(allocator);
+fn readFileFromShaderDirs(io: std.Io, allocator: std.mem.Allocator, filename: []const u8) ![]u8 {
+    const exe_dir = try std.process.executableDirPathAlloc(io, allocator);
     defer allocator.free(exe_dir);
 
     const path = try std.fs.path.join(allocator, &.{ exe_dir, "shaders", filename });
     defer allocator.free(path);
 
-    const f = try std.fs.cwd().openFile(path, .{});
-    defer f.close();
-    const max_size = (try f.getEndPos()) + 1;
+    const f = try std.Io.Dir.cwd().openFile(io, path, .{});
+    defer f.close(io);
+    const max_size = (try f.length(io)) + 1;
 
     var buffer: [1024]u8 = undefined;
-    var reader = f.reader(&buffer);
+    var reader = f.reader(io, &buffer);
     var r = &reader.interface;
     return try r.readAlloc(allocator, max_size - 1);
+}
+
+// https://github.com/liyu1981/tmpfile.zig/blob/master/src/tmpfile.zig#L11
+pub fn getSysTmpDir(a: std.mem.Allocator, env_map: *const std.process.Environ.Map) ![]const u8 {
+    const Impl = switch (builtin.os.tag) {
+        .linux, .macos => struct {
+            pub fn get(allocator: std.mem.Allocator, env_map_: *const std.process.Environ.Map) ![]const u8 {
+                // cpp17's temp_directory_path gives good reference
+                // https://en.cppreference.com/w/cpp/filesystem/temp_directory_path
+                // POSIX standard, https://en.wikipedia.org/wiki/TMPDIR
+                return allocator.dupe(
+                    u8,
+                    env_map_.get("TMPDIR") orelse
+                        env_map_.get("TMP") orelse
+                        env_map_.get("TEMP") orelse
+                        env_map_.get("TEMPDIR") orelse
+                        "/tmp",
+                );
+            }
+        },
+        .windows => struct {
+            const DWORD = std.os.windows.DWORD;
+            const LPWSTR = std.os.windows.LPWSTR;
+            const MAX_PATH = std.os.windows.MAX_PATH;
+            const WCHAR = std.os.windows.WCHAR;
+
+            pub extern "C" fn GetTempPath2W(BufferLength: DWORD, Buffer: LPWSTR) DWORD;
+
+            pub fn get(allocator: std.mem.Allocator, env_map_: *const std.process.Environ.Map) ![]const u8 {
+                _ = env_map_;
+                // use GetTempPathW2, https://learn.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-gettemppathw
+                var wchar_buf: [MAX_PATH + 2:0]WCHAR = undefined;
+                wchar_buf[MAX_PATH + 1] = 0;
+                const ret = GetTempPath2W(MAX_PATH + 1, &wchar_buf);
+                if (ret != 0) {
+                    const path = wchar_buf[0..ret];
+                    return std.unicode.utf16LeToUtf8Alloc(allocator, path);
+                } else {
+                    return error.GetTempPath2WFailed;
+                }
+            }
+        },
+        else => {
+            @panic(@tagName(std.builtin.os.tag) ++ " is not support");
+        },
+    };
+
+    return Impl.get(a, env_map);
 }
