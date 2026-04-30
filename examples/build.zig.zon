@@ -18,7 +18,7 @@
 
         .zgui = .{
             .url = "https://github.com/cyberegoorg/zgui/archive/refs/heads/upgrade_to_zig_16.tar.gz",
-            .hash = "zgui-0.6.0-dev--L6sZMuAcQDjqZqVM-2t89cR17mtI2Y9Z5zI_CxSiUzj",
+            .hash = "zgui-0.6.0-dev--L6sZNOAcQCp-w8ziywdKP-diUpcfFoXJrk5OLyzCOee",
         },
 
         .zmath = .{

@@ -11,6 +11,7 @@ pub fn build(b: *std.Build) !void {
     //
 
     const options = .{
+        .shared = b.option(bool, "shared", "Build as shared library.") orelse false,
         .imgui_include = b.option([]const u8, "imgui_include", "Path to imgui (need for imgui bgfx backend)"),
         .multithread = b.option(bool, "multithread", "Compile with BGFX_CONFIG_MULTITHREADED") orelse true,
         .with_shaderc = b.option(bool, "with_shaderc", "Compile with shaderc executable") orelse true,
@@ -129,7 +130,7 @@ pub fn build(b: *std.Build) !void {
     //
     const bgfx_path = "libs/bgfx/";
     const bgfx = b.addLibrary(.{
-        .linkage = .static,
+        .linkage = if (options.shared) .dynamic else .static,
         .name = "bgfx",
         .root_module = b.createModule(.{
             .target = target,
