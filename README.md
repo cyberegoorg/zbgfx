@@ -42,6 +42,9 @@ Minimal is `0.16.0`. But you know try your version and believe.
 - [BImg](https://github.com/bkaradzic/bimg/compare/9114b47f532ce59cd0c6c9f8932df2c48888d4c1...master)
 - [BGFX](https://github.com/bkaradzic/bgfx/compare/8532b2c45d2f4332a9ac9734b85c2ea2253cb8d5...master)
 
+## Useful tools
+- [bgfx_shader_analyzer](https://github.com/r0ckHopper/bgfx_shader_analyzer) - LSP for bgfx shaders.
+
 ## Getting started
 
 Copy `zbgfx` to a subdirectory of your project and then add the following to your `build.zig.zon` .dependencies:
