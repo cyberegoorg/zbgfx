@@ -1,7 +1,7 @@
 .{
     .name = .zbgfx,
     .fingerprint = 0xc48ed871c4086e4a,
-    .version = "0.12.0",
+    .version = "0.12.1",
     .minimum_zig_version = "0.16.0",
     .paths = .{
         "includes",
@@ -12,5 +12,21 @@
         "build.zig.zon",
     },
 
-    .dependencies = .{},
+    .dependencies = .{
+        // .bx = .{
+        //     .url = "https://github.com/bkaradzic/bx/archive/cac72f6cfa0893393ea12692ebfacb4495f8c826.tar.gz",
+        //     .hash = "N-V-__8AAHS2TwD_HRKwJEGThGOlrlVkf2wDqTnRc0nCAQIy",
+        //     .lazy = true,
+        // },
+        // .bimg = .{
+        //     .url = "https://github.com/bkaradzic/bimg/archive/9114b47f532ce59cd0c6c9f8932df2c48888d4c1.tar.gz",
+        //     .hash = "N-V-__8AAEd8OQDd_Q6YetkHilL1z29yXsE8oCskhrC-7zGV",
+        //     .lazy = true,
+        // },
+        // .bgfx = .{
+        //     .url = "https://github.com/bkaradzic/bgfx/archive/8532b2c45d2f4332a9ac9734b85c2ea2253cb8d5.tar.gz",
+        //     .hash = "N-V-__8AAEcBaA5gsEixdEnaokhS0ZH6sKcE0pjE6X2FQkOQ",
+        //     .lazy = true,
+        // },
+    },
 }

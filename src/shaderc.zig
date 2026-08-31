@@ -248,11 +248,8 @@ pub fn shadercFromExePath(io: std.Io, allocator: std.mem.Allocator) ![]u8 {
     const exe_dir = try std.process.executableDirPathAlloc(io, allocator);
     defer allocator.free(exe_dir);
 
-    const path = try std.fs.path.join(allocator, &.{ exe_dir, "shaderc" });
-
-    if (builtin.os.tag == .windows) {
-        return try std.fmt.allocPrint(allocator, "{s}.exe", .{path});
-    }
+    const exe_name = "shaderc" ++ if (builtin.os.tag == .windows) ".exe" else "";
+    const path = try std.fs.path.join(allocator, &.{ exe_dir, exe_name });
 
     return path;
 }

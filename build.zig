@@ -16,6 +16,7 @@ pub fn build(b: *std.Build) !void {
         .multithread = b.option(bool, "multithread", "Compile with BGFX_CONFIG_MULTITHREADED") orelse true,
         .with_shaderc = b.option(bool, "with_shaderc", "Compile with shaderc executable") orelse true,
         .shaderc_optimize = b.option(std.builtin.OptimizeMode, "shaderc_optimize", "Shaderc optimize mode") orelse .ReleaseFast,
+        .with_sync = b.option(bool, "with_sync", "Enable bgfx src sync tool") orelse false,
     };
 
     const options_step = b.addOptions();
@@ -188,7 +189,7 @@ pub fn build(b: *std.Build) !void {
     // Bgfx imgui backend
     // TODO: zig based
     //
-    const bgfx_imgui_path = "libs/bgfx/examples/common/imgui/";
+    const bgfx_imgui_path = "libs/imgui/";
     if (options.imgui_include) |include| {
         bgfx.root_module.addIncludePath(.{ .cwd_relative = include });
         bgfx.root_module.addCSourceFiles(.{
@@ -554,6 +555,33 @@ pub fn build(b: *std.Build) !void {
         shaderc.root_module.linkLibrary(spirv_opt_lib);
         shaderc.root_module.linkLibrary(spirv_cross_lib);
     }
+
+    //
+    // Sync bgfx source and libs.
+    //
+    if (options.with_sync) {
+        const sync_local_step = b.step("sync", "Sync BGFX sources");
+        const copy_tool = b.addExecutable(.{
+            .name = "sync",
+            .root_module = b.createModule(.{
+                .root_source_file = b.path("src/tools/sync.zig"),
+                .target = target,
+                .optimize = optimize,
+            }),
+        });
+
+        const bx_dep = b.lazyDependency("bx", .{});
+        const bimg_dep = b.lazyDependency("bimg", .{});
+        const bgfx_dep = b.lazyDependency("bgfx", .{});
+
+        if (bx_dep != null and bimg_dep != null and bgfx_dep != null) {
+            const copy_run = b.addRunArtifact(copy_tool);
+            copy_run.addDirectoryArg(bx_dep.?.path(""));
+            copy_run.addDirectoryArg(bimg_dep.?.path(""));
+            copy_run.addDirectoryArg(bgfx_dep.?.path(""));
+            sync_local_step.dependOn(&copy_run.step);
+        }
+    }
 }
 
 fn bxInclude(b: *std.Build, step: *std.Build.Step.Compile, target: std.Build.ResolvedTarget, optimize: std.builtin.OptimizeMode) void {
@@ -743,7 +771,6 @@ const glsl_lang_files = .{
     glslang_path ++ "SPIRV/GlslangToSpv.cpp",
     glslang_path ++ "SPIRV/InReadableOrder.cpp",
     glslang_path ++ "SPIRV/Logger.cpp",
-    glslang_path ++ "SPIRV/SPVRemapper.cpp",
     glslang_path ++ "SPIRV/SpvBuilder.cpp",
     glslang_path ++ "SPIRV/SpvPostProcess.cpp",
     glslang_path ++ "SPIRV/SpvTools.cpp",
@@ -870,12 +897,8 @@ const spirv_opt_files = .{
     spirv_opt_path ++ "source/opt/inline_exhaustive_pass.cpp",
     spirv_opt_path ++ "source/opt/inline_opaque_pass.cpp",
     spirv_opt_path ++ "source/opt/inline_pass.cpp",
-    spirv_opt_path ++ "source/opt/inst_bindless_check_pass.cpp",
-    spirv_opt_path ++ "source/opt/inst_buff_addr_check_pass.cpp",
-    spirv_opt_path ++ "source/opt/inst_debug_printf_pass.cpp",
     spirv_opt_path ++ "source/opt/instruction.cpp",
     spirv_opt_path ++ "source/opt/instruction_list.cpp",
-    spirv_opt_path ++ "source/opt/instrument_pass.cpp",
     spirv_opt_path ++ "source/opt/interface_var_sroa.cpp",
     spirv_opt_path ++ "source/opt/interp_fixup_pass.cpp",
     spirv_opt_path ++ "source/opt/invocation_interlock_placement_pass.cpp",

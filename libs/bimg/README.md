@@ -3,6 +3,7 @@ bimg
 
 Image library.
 
+[![GitHub Actions](https://github.com/bkaradzic/bimg/actions/workflows/main.yml/badge.svg)](https://github.com/bkaradzic/bimg/actions)
 [![License](https://img.shields.io/badge/license-BSD--2%20clause-blue.svg)](https://bkaradzic.github.io/bgfx/license.html)
 [![Join the chat at https://discord.gg/9eMbv7J](https://img.shields.io/discord/712512073522872352?color=%237289DA&label=bimg&logo=discord&logoColor=white)](https://discord.gg/9eMbv7J)
 
@@ -21,7 +22,7 @@ https://github.com/bkaradzic/bimg
 <img align="right" src="https://opensource.org/wp-content/uploads/2022/10/osi-badge-dark.svg" width="100" height="137">
 </a>
 
-	Copyright 2010-2025 Branimir Karadzic
+	Copyright 2010-2026 Branimir Karadzic
 	
 	Redistribution and use in source and binary forms, with or without modification,
 	are permitted provided that the following conditions are met:
