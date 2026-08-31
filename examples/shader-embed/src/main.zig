@@ -179,11 +179,7 @@ pub fn main(init: std.process.Init) anyerror!u8 {
     // Shader and program
     //
     const fs_cubes = bgfx.createShader(shaders.fs_cubes.getShaderForRenderer(bgfx.getRendererType()));
-    defer bgfx.destroyShader(fs_cubes);
-
     const vs_cubes = bgfx.createShader(shaders.vs_cubes.getShaderForRenderer(bgfx.getRendererType()));
-    defer bgfx.destroyShader(vs_cubes);
-
     const programHandle = bgfx.createProgram(vs_cubes, fs_cubes, true);
     defer bgfx.destroyProgram(programHandle);
 

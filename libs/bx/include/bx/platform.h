@@ -85,7 +85,8 @@
 // http://sourceforge.net/apps/mediawiki/predef/index.php?title=Architectures
 #if defined(__arm__)     \
  || defined(__aarch64__) \
- || defined(_M_ARM)
+ || defined(_M_ARM)      \
+ || defined(_M_ARM64)
 #	undef  BX_CPU_ARM
 #	define BX_CPU_ARM 1
 #	define BX_CACHE_LINE_SIZE 64
@@ -123,6 +124,8 @@
 #if defined(__x86_64__)    \
  || defined(_M_X64)        \
  || defined(__aarch64__)   \
+ || defined(_M_ARM64)      \
+ || defined(_M_ARM64EC)    \
  || defined(__64BIT__)     \
  || defined(__mips64)      \
  || defined(__powerpc64__) \
@@ -170,9 +173,9 @@
 #				define WINVER 0x0601
 #				define _WIN32_WINNT 0x0601
 #			else
-//				Windows Server 2003 with SP1, Windows XP with SP2 and above
-#				define WINVER 0x0502
-#				define _WIN32_WINNT 0x0502
+//				When building 32-bit target Win7 and above.
+#				define WINVER 0x0601
+#				define _WIN32_WINNT 0x0601
 #			endif // BX_ARCH_64BIT
 #		endif // !defined(WINVER) && !defined(_WIN32_WINNT)
 #		define BX_PLATFORM_WINDOWS _WIN32_WINNT
@@ -202,7 +205,7 @@
 #elif defined(__ENVIRONMENT_MAC_OS_X_VERSION_MIN_REQUIRED__)
 #	undef  BX_PLATFORM_OSX
 #	define BX_PLATFORM_OSX __ENVIRONMENT_MAC_OS_X_VERSION_MIN_REQUIRED__
-#elif defined(__EMSCRIPTEN__)
+#elif defined(__wasm__)
 #	include <emscripten/version.h>
 #	undef  BX_PLATFORM_EMSCRIPTEN
 #	define BX_PLATFORM_EMSCRIPTEN (__EMSCRIPTEN_MAJOR__ * 10000 + __EMSCRIPTEN_MINOR__ * 100 + __EMSCRIPTEN_TINY__)

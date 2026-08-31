@@ -199,6 +199,14 @@ namespace bgfx { namespace metal
 		"a_texcoord5",
 		"a_texcoord6",
 		"a_texcoord7",
+		"a_texcoord8",
+		"a_texcoord9",
+		"a_texcoord10",
+		"a_texcoord11",
+		"a_texcoord12",
+		"a_texcoord13",
+		"a_texcoord14",
+		"a_texcoord15",
 	};
 	static_assert(bgfx::Attrib::Count == BX_COUNTOF(s_attribName) );
 
@@ -236,6 +244,8 @@ namespace bgfx { namespace metal
 		uint16_t size = 0;
 
 		bx::ErrorAssert err;
+
+		RawBindings().write(_shaderWriter, &err);
 
 		uint16_t count = uint16_t(uniforms.size());
 		bx::write(_shaderWriter, count, &err);
@@ -426,11 +436,11 @@ namespace bgfx { namespace metal
 
 				if (found)
 				{
-					start = bx::uint32_imax(1, line-10);
+					start = bx::max<int32_t>(1, line-10);
 					end   = start + 20;
 				}
 
-				printCode(_code.c_str(), bx::uint32_satsub(line, 1), start, end, column);
+				printCode(_code.c_str(), bx::satSub<uint32_t>(line, 1u), start, end, column);
 
 				bx::write(_messageWriter, &messageErr, "%s\n", log);
 			}
@@ -640,6 +650,8 @@ namespace bgfx { namespace metal
 							name = name.substr(0, name.length() - 7);
 						}
 
+						const spirv_cross::SPIRType& type = refl.get_type(resource.type_id);
+
 						Uniform un;
 						un.name = name;
 						un.type = UniformType::Sampler;
@@ -647,6 +659,7 @@ namespace bgfx { namespace metal
 						un.num = 0;			// needed?
 						un.regIndex = 0;	// needed?
 						un.regCount = 0;	// needed?
+						un.texDimension = spirvDimToTextureDimensionId(uint32_t(type.image.dim), type.image.arrayed);
 
 						uniforms.push_back(un);
 					}
@@ -755,13 +768,19 @@ namespace bgfx { namespace metal
 					// insert struct member which declares point size, defaulted to 1
 					if ('v' == _options.shaderType)
 					{
-						const bx::StringView xlatMtlMainOut("xlatMtlMain_out\n{");
-						size_t pos = source.find(xlatMtlMainOut.getPtr() );
-
-						if (pos != std::string::npos)
+						if (msl.get_writes_to_point_size())
 						{
-							pos += xlatMtlMainOut.getLength();
-							source.insert(pos, "\n\tfloat bgfx_metal_pointSize [[point_size]] = 1;");
+							if (source.find("[[point_size]]") == std::string::npos)
+							{
+								const bx::StringView xlatMtlMainOut("xlatMtlMain_out\n{");
+								size_t pos = source.find(xlatMtlMainOut.getPtr());
+
+								if (pos != std::string::npos)
+								{
+									pos += xlatMtlMainOut.getLength();
+									source.insert(pos, "\n\tfloat bgfx_metal_pointSize [[point_size]] = 1;");
+								}
+							}
 						}
 					}
 

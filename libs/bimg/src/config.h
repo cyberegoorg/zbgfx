@@ -66,6 +66,12 @@
 #	define BIMG_CONFIG_PARSE_ENABLE 1
 #endif // BIMG_CONFIG_PARSE_ENABLE
 
+/// AVIF (AV1 Image File Format) - image format based on AV1.
+///
+#ifndef BIMG_CONFIG_PARSE_AVIF
+#	define BIMG_CONFIG_PARSE_AVIF BIMG_CONFIG_PARSE_ENABLE
+#endif // BIMG_CONFIG_PARSE_AVIF
+
 /// BMP (Windows Bitmap) - uncompressed raster image format.
 ///
 #ifndef BIMG_CONFIG_PARSE_BMP
@@ -90,7 +96,7 @@
 #	define BIMG_CONFIG_PARSE_HDR BIMG_CONFIG_PARSE_ENABLE
 #endif // BIMG_CONFIG_PARSE_HDR
 
-/// HEIF (High Efficiency Image File Format) - modern image format based on HEVC.
+/// HEIF (High Efficiency Image File Format) - image format based on HEVC.
 ///
 #ifndef BIMG_CONFIG_PARSE_HEIF
 #	define BIMG_CONFIG_PARSE_HEIF 0
@@ -131,5 +137,22 @@
 #ifndef BIMG_CONFIG_PARSE_TGA
 #	define BIMG_CONFIG_PARSE_TGA BIMG_CONFIG_PARSE_ENABLE
 #endif // BIMG_CONFIG_PARSE_TGA
+
+/// WebP - lossy and lossless image format by Google.
+///
+#ifndef BIMG_CONFIG_PARSE_WEBP
+#	define BIMG_CONFIG_PARSE_WEBP BIMG_CONFIG_PARSE_ENABLE
+#endif // BIMG_CONFIG_PARSE_WEBP
+
+/// WIC (Windows Imaging Component) - Windows-only backup decoder for common raster formats (PNG, JPEG, BMP, GIF).
+///
+#ifndef BIMG_CONFIG_PARSE_WIC
+#	define BIMG_CONFIG_PARSE_WIC (BIMG_CONFIG_PARSE_ENABLE && BX_PLATFORM_WINDOWS && (0 \
+		|| 0 == BIMG_CONFIG_PARSE_PNG                                                   \
+		|| 0 == BIMG_CONFIG_PARSE_JPEG                                                  \
+		|| 0 == BIMG_CONFIG_PARSE_BMP                                                   \
+		|| 0 == BIMG_CONFIG_PARSE_GIF                                                   \
+		) )
+#endif // BIMG_CONFIG_PARSE_WIC
 
 #endif // BIMG_CONFIG_H_HEADER_GUARD

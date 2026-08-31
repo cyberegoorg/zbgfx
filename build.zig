@@ -159,6 +159,9 @@ pub fn build(b: *std.Build) !void {
         bgfx.root_module.linkFramework("QuartzCore", .{ .needed = true });
         bgfx.root_module.linkFramework("Metal", .{ .needed = true });
         bgfx.root_module.linkFramework("MetalKit", .{ .needed = true });
+        bgfx.root_module.linkFramework("VideoToolbox", .{ .weak = true });
+        bgfx.root_module.linkFramework("CoreMedia", .{ .weak = true });
+        bgfx.root_module.linkFramework("CoreVideo", .{ .weak = true });
     }
 
     bgfx.root_module.addCSourceFiles(.{
@@ -272,12 +275,9 @@ pub fn build(b: *std.Build) !void {
         shaderc.root_module.addIncludePath(b.path(bgfx_path ++ "include"));
         shaderc.root_module.addIncludePath(b.path(bgfx_path ++ "src"));
         shaderc.root_module.addIncludePath(b.path(bgfx_path ++ "3rdparty/directx-headers/include/directx"));
-        shaderc.root_module.addIncludePath(b.path(bgfx_path ++ "3rdparty/fcpp"));
         shaderc.root_module.addIncludePath(b.path(bgfx_path ++ "3rdparty/glslang/glslang/Public"));
         shaderc.root_module.addIncludePath(b.path(bgfx_path ++ "3rdparty/glslang/glslang/Include"));
         shaderc.root_module.addIncludePath(b.path(bgfx_path ++ "3rdparty/glslang"));
-        shaderc.root_module.addIncludePath(b.path(bgfx_path ++ "3rdparty/glsl-optimizer/include"));
-        shaderc.root_module.addIncludePath(b.path(bgfx_path ++ "3rdparty/glsl-optimizer/src/glsl"));
         shaderc.root_module.addIncludePath(b.path(bgfx_path ++ "3rdparty/spirv-cross"));
         shaderc.root_module.addIncludePath(b.path(bgfx_path ++ "3rdparty/spirv-tools/include"));
         shaderc.root_module.addIncludePath(b.path(bgfx_path ++ "3rdparty/webgpu/include"));
@@ -291,9 +291,8 @@ pub fn build(b: *std.Build) !void {
         shaderc.root_module.addCSourceFiles(.{
             .files = &.{
                 bgfx_path ++ "src/shader.cpp",
-                bgfx_path ++ "src/shader_dxbc.cpp",
-                bgfx_path ++ "src/shader_spirv.cpp",
                 bgfx_path ++ "src/vertexlayout.cpp",
+                bgfx_path ++ "tools/shaderc/pp.cpp",
                 bgfx_path ++ "tools/shaderc/shaderc.cpp",
                 bgfx_path ++ "tools/shaderc/shaderc_glsl.cpp",
                 bgfx_path ++ "tools/shaderc/shaderc_dxil.cpp",
@@ -305,51 +304,6 @@ pub fn build(b: *std.Build) !void {
             },
             .flags = &cxx_options,
         });
-
-        //
-        // fcpp
-        //
-        const fcpp_cxx_options = [_][]const u8{
-            "-D__STDC_LIMIT_MACROS",
-            "-D__STDC_FORMAT_MACROS",
-            "-D__STDC_CONSTANT_MACROS",
-            "-DNINCLUDE=64",
-            "-DNWORK=65536",
-            "-DNBUFF=65536",
-            "-DOLD_PREPROCESSOR=0",
-            "-fno-sanitize=undefined",
-            "-Wno-error=date-time",
-            "-ffast-math",
-        };
-
-        const fcpp_path = "libs/bgfx/3rdparty/fcpp/";
-        const fcpp_lib = b.addLibrary(.{
-            .linkage = .static,
-            .name = "fcpp",
-            .root_module = b.createModule(.{
-                .target = target,
-                .optimize = options.shaderc_optimize,
-                .strip = options.shaderc_optimize != .Debug,
-                .link_libc = true,
-            }),
-            .use_llvm = true,
-            .use_lld = use_lld,
-        });
-
-        fcpp_lib.root_module.addIncludePath(b.path(fcpp_path));
-        fcpp_lib.root_module.addCSourceFiles(
-            .{
-                .files = &.{
-                    fcpp_path ++ "cpp1.c",
-                    fcpp_path ++ "cpp2.c",
-                    fcpp_path ++ "cpp3.c",
-                    fcpp_path ++ "cpp4.c",
-                    fcpp_path ++ "cpp5.c",
-                    fcpp_path ++ "cpp6.c",
-                },
-                .flags = &fcpp_cxx_options,
-            },
-        );
 
         //
         //spirv-opt
@@ -473,85 +427,7 @@ pub fn build(b: *std.Build) !void {
             });
         }
 
-        // glslang
-        const glsl_optimizer_cxx_options = [_][]const u8{
-            "-MMD",
-            "-MP",
-            "-MP",
-            "-Wall",
-            "-Wextra",
-            // https://github.com/bkaradzic/bgfx/commit/b4dbc129f3b69b0d6a9093f2d579b883396a839f
-            // "-ffast-math",
-            "-fomit-frame-pointer",
-            "-m64",
-            "-std=c++20",
-            "-fno-rtti",
-            "-fno-exceptions",
-            "-D__STDC_LIMIT_MACROS",
-            "-D__STDC_FORMAT_MACROS",
-            "-D__STDC_CONSTANT_MACROS",
-            "-fno-sanitize=undefined",
-        };
-
-        const glsl_optimizer_c_options = [_][]const u8{
-            "-MMD",
-            "-MP",
-            "-MP",
-            "-Wall",
-            "-Wextra",
-            // https://github.com/bkaradzic/bgfx/commit/b4dbc129f3b69b0d6a9093f2d579b883396a839f
-            // "-ffast-math",
-            "-fomit-frame-pointer",
-            "-m64",
-            "-D__STDC_LIMIT_MACROS",
-            "-D__STDC_FORMAT_MACROS",
-            "-D__STDC_CONSTANT_MACROS",
-            "-fno-sanitize=undefined",
-        };
-
-        const glsl_optimizer_lib = b.addLibrary(.{
-            .name = "glsl-optimizer",
-            .root_module = b.createModule(.{
-                .target = target,
-                .optimize = options.shaderc_optimize,
-                .strip = options.shaderc_optimize != .Debug,
-                .link_libcpp = true,
-            }),
-            .use_llvm = true,
-            .use_lld = use_lld,
-        });
-        glsl_optimizer_lib.root_module.addIncludePath(b.path(glsl_optimizer_path ++ "include"));
-        glsl_optimizer_lib.root_module.addIncludePath(b.path(glsl_optimizer_path ++ "src"));
-        glsl_optimizer_lib.root_module.addIncludePath(b.path(glsl_optimizer_path ++ "src/mesa"));
-        glsl_optimizer_lib.root_module.addIncludePath(b.path(glsl_optimizer_path ++ "src/mapi"));
-        glsl_optimizer_lib.root_module.addIncludePath(b.path(glsl_optimizer_path ++ "src/glsl"));
-
-        // add C++ files
-        glsl_optimizer_lib.root_module.addCSourceFiles(.{
-            .files = &glsl_optimizer_files,
-            .flags = &glsl_optimizer_cxx_options,
-        });
-
-        glsl_optimizer_lib.root_module.addCSourceFiles(
-            .{
-                .files = &.{
-                    glsl_optimizer_path ++ "src/glsl/glcpp/glcpp-lex.c",
-                    glsl_optimizer_path ++ "src/glsl/glcpp/glcpp-parse.c",
-                    glsl_optimizer_path ++ "src/glsl/glcpp/pp.c",
-                    glsl_optimizer_path ++ "src/glsl/strtod.c",
-                    glsl_optimizer_path ++ "src/mesa/main/imports.c",
-                    glsl_optimizer_path ++ "src/mesa/program/prog_hash_table.c",
-                    glsl_optimizer_path ++ "src/mesa/program/symbol_table.c",
-                    glsl_optimizer_path ++ "src/util/hash_table.c",
-                    glsl_optimizer_path ++ "src/util/ralloc.c",
-                },
-                .flags = &glsl_optimizer_c_options,
-            },
-        );
-
-        shaderc.root_module.linkLibrary(fcpp_lib);
         shaderc.root_module.linkLibrary(glslang_lib);
-        shaderc.root_module.linkLibrary(glsl_optimizer_lib);
         shaderc.root_module.linkLibrary(spirv_opt_lib);
         shaderc.root_module.linkLibrary(spirv_cross_lib);
     }
@@ -634,7 +510,6 @@ fn bgfxInclude(b: *std.Build, step: *std.Build.Step.Compile, target: std.Build.R
 //
 // Path const
 //
-const glsl_optimizer_path = "libs/bgfx/3rdparty/glsl-optimizer/";
 const glslang_path = "libs/bgfx/3rdparty/glslang/";
 const spirv_opt_path = "libs/bgfx/3rdparty/spirv-tools/";
 
@@ -644,7 +519,6 @@ const spirv_opt_path = "libs/bgfx/3rdparty/spirv-tools/";
 
 const bimg_files = .{
     "libs/bimg/src/image.cpp",
-    "libs/bimg/src/image_gnf.cpp",
     "libs/bimg/3rdparty/astc-encoder/source/astcenc_averages_and_directions.cpp",
     "libs/bimg/3rdparty/astc-encoder/source/astcenc_block_sizes.cpp",
     "libs/bimg/3rdparty/astc-encoder/source/astcenc_color_quantize.cpp",
@@ -667,104 +541,6 @@ const bimg_files = .{
     "libs/bimg/3rdparty/astc-encoder/source/astcenc_symbolic_physical.cpp",
     "libs/bimg/3rdparty/astc-encoder/source/astcenc_weight_align.cpp",
     "libs/bimg/3rdparty/astc-encoder/source/astcenc_weight_quant_xfer_tables.cpp",
-};
-
-const glsl_optimizer_files = .{
-    glsl_optimizer_path ++ "src/glsl/ast_array_index.cpp",
-    glsl_optimizer_path ++ "src/glsl/ast_expr.cpp",
-    glsl_optimizer_path ++ "src/glsl/ast_function.cpp",
-    glsl_optimizer_path ++ "src/glsl/ast_to_hir.cpp",
-    glsl_optimizer_path ++ "src/glsl/ast_type.cpp",
-    glsl_optimizer_path ++ "src/glsl/builtin_functions.cpp",
-    glsl_optimizer_path ++ "src/glsl/builtin_types.cpp",
-    glsl_optimizer_path ++ "src/glsl/builtin_variables.cpp",
-    glsl_optimizer_path ++ "src/glsl/glsl_lexer.cpp",
-    glsl_optimizer_path ++ "src/glsl/glsl_optimizer.cpp",
-    glsl_optimizer_path ++ "src/glsl/glsl_parser.cpp",
-    glsl_optimizer_path ++ "src/glsl/glsl_parser_extras.cpp",
-    glsl_optimizer_path ++ "src/glsl/glsl_symbol_table.cpp",
-    glsl_optimizer_path ++ "src/glsl/glsl_types.cpp",
-    glsl_optimizer_path ++ "src/glsl/hir_field_selection.cpp",
-    glsl_optimizer_path ++ "src/glsl/ir.cpp",
-    glsl_optimizer_path ++ "src/glsl/ir_basic_block.cpp",
-    glsl_optimizer_path ++ "src/glsl/ir_builder.cpp",
-    glsl_optimizer_path ++ "src/glsl/ir_clone.cpp",
-    glsl_optimizer_path ++ "src/glsl/ir_constant_expression.cpp",
-    glsl_optimizer_path ++ "src/glsl/ir_equals.cpp",
-    glsl_optimizer_path ++ "src/glsl/ir_expression_flattening.cpp",
-    glsl_optimizer_path ++ "src/glsl/ir_function.cpp",
-    glsl_optimizer_path ++ "src/glsl/ir_function_can_inline.cpp",
-    glsl_optimizer_path ++ "src/glsl/ir_function_detect_recursion.cpp",
-    glsl_optimizer_path ++ "src/glsl/ir_hierarchical_visitor.cpp",
-    glsl_optimizer_path ++ "src/glsl/ir_hv_accept.cpp",
-    glsl_optimizer_path ++ "src/glsl/ir_import_prototypes.cpp",
-    glsl_optimizer_path ++ "src/glsl/ir_print_glsl_visitor.cpp",
-    glsl_optimizer_path ++ "src/glsl/ir_print_metal_visitor.cpp",
-    glsl_optimizer_path ++ "src/glsl/ir_print_visitor.cpp",
-    glsl_optimizer_path ++ "src/glsl/ir_rvalue_visitor.cpp",
-    glsl_optimizer_path ++ "src/glsl/ir_stats.cpp",
-    glsl_optimizer_path ++ "src/glsl/ir_unused_structs.cpp",
-    glsl_optimizer_path ++ "src/glsl/ir_validate.cpp",
-    glsl_optimizer_path ++ "src/glsl/ir_variable_refcount.cpp",
-    glsl_optimizer_path ++ "src/glsl/link_atomics.cpp",
-    glsl_optimizer_path ++ "src/glsl/link_functions.cpp",
-    glsl_optimizer_path ++ "src/glsl/link_interface_blocks.cpp",
-    glsl_optimizer_path ++ "src/glsl/link_uniform_block_active_visitor.cpp",
-    glsl_optimizer_path ++ "src/glsl/link_uniform_blocks.cpp",
-    glsl_optimizer_path ++ "src/glsl/link_uniform_initializers.cpp",
-    glsl_optimizer_path ++ "src/glsl/link_uniforms.cpp",
-    glsl_optimizer_path ++ "src/glsl/link_varyings.cpp",
-    glsl_optimizer_path ++ "src/glsl/linker.cpp",
-    glsl_optimizer_path ++ "src/glsl/loop_analysis.cpp",
-    glsl_optimizer_path ++ "src/glsl/loop_controls.cpp",
-    glsl_optimizer_path ++ "src/glsl/loop_unroll.cpp",
-    glsl_optimizer_path ++ "src/glsl/lower_clip_distance.cpp",
-    glsl_optimizer_path ++ "src/glsl/lower_discard.cpp",
-    glsl_optimizer_path ++ "src/glsl/lower_discard_flow.cpp",
-    glsl_optimizer_path ++ "src/glsl/lower_if_to_cond_assign.cpp",
-    glsl_optimizer_path ++ "src/glsl/lower_instructions.cpp",
-    glsl_optimizer_path ++ "src/glsl/lower_jumps.cpp",
-    glsl_optimizer_path ++ "src/glsl/lower_mat_op_to_vec.cpp",
-    glsl_optimizer_path ++ "src/glsl/lower_named_interface_blocks.cpp",
-    glsl_optimizer_path ++ "src/glsl/lower_noise.cpp",
-    glsl_optimizer_path ++ "src/glsl/lower_offset_array.cpp",
-    glsl_optimizer_path ++ "src/glsl/lower_output_reads.cpp",
-    glsl_optimizer_path ++ "src/glsl/lower_packed_varyings.cpp",
-    glsl_optimizer_path ++ "src/glsl/lower_packing_builtins.cpp",
-    glsl_optimizer_path ++ "src/glsl/lower_ubo_reference.cpp",
-    glsl_optimizer_path ++ "src/glsl/lower_variable_index_to_cond_assign.cpp",
-    glsl_optimizer_path ++ "src/glsl/lower_vec_index_to_cond_assign.cpp",
-    glsl_optimizer_path ++ "src/glsl/lower_vec_index_to_swizzle.cpp",
-    glsl_optimizer_path ++ "src/glsl/lower_vector.cpp",
-    glsl_optimizer_path ++ "src/glsl/lower_vector_insert.cpp",
-    glsl_optimizer_path ++ "src/glsl/lower_vertex_id.cpp",
-    glsl_optimizer_path ++ "src/glsl/opt_algebraic.cpp",
-    glsl_optimizer_path ++ "src/glsl/opt_array_splitting.cpp",
-    glsl_optimizer_path ++ "src/glsl/opt_constant_folding.cpp",
-    glsl_optimizer_path ++ "src/glsl/opt_constant_propagation.cpp",
-    glsl_optimizer_path ++ "src/glsl/opt_constant_variable.cpp",
-    glsl_optimizer_path ++ "src/glsl/opt_copy_propagation.cpp",
-    glsl_optimizer_path ++ "src/glsl/opt_copy_propagation_elements.cpp",
-    glsl_optimizer_path ++ "src/glsl/opt_cse.cpp",
-    glsl_optimizer_path ++ "src/glsl/opt_dead_builtin_variables.cpp",
-    glsl_optimizer_path ++ "src/glsl/opt_dead_builtin_varyings.cpp",
-    glsl_optimizer_path ++ "src/glsl/opt_dead_code.cpp",
-    glsl_optimizer_path ++ "src/glsl/opt_dead_code_local.cpp",
-    glsl_optimizer_path ++ "src/glsl/opt_dead_functions.cpp",
-    glsl_optimizer_path ++ "src/glsl/opt_flatten_nested_if_blocks.cpp",
-    glsl_optimizer_path ++ "src/glsl/opt_flip_matrices.cpp",
-    glsl_optimizer_path ++ "src/glsl/opt_function_inlining.cpp",
-    glsl_optimizer_path ++ "src/glsl/opt_if_simplification.cpp",
-    glsl_optimizer_path ++ "src/glsl/opt_minmax.cpp",
-    glsl_optimizer_path ++ "src/glsl/opt_noop_swizzle.cpp",
-    glsl_optimizer_path ++ "src/glsl/opt_rebalance_tree.cpp",
-    glsl_optimizer_path ++ "src/glsl/opt_redundant_jumps.cpp",
-    glsl_optimizer_path ++ "src/glsl/opt_structure_splitting.cpp",
-    glsl_optimizer_path ++ "src/glsl/opt_swizzle_swizzle.cpp",
-    glsl_optimizer_path ++ "src/glsl/opt_tree_grafting.cpp",
-    glsl_optimizer_path ++ "src/glsl/opt_vectorize.cpp",
-    glsl_optimizer_path ++ "src/glsl/s_expression.cpp",
-    glsl_optimizer_path ++ "src/glsl/standalone_scaffolding.cpp",
 };
 
 const glsl_lang_files = .{
@@ -814,6 +590,7 @@ const glsl_lang_files = .{
     glslang_path ++ "glslang/MachineIndependent/preprocessor/PpTokens.cpp",
     glslang_path ++ "glslang/MachineIndependent/propagateNoContraction.cpp",
     glslang_path ++ "glslang/MachineIndependent/reflection.cpp",
+    glslang_path ++ "glslang/ResourceLimits/ResourceLimits.cpp",
 };
 
 const spirv_opt_files = .{
@@ -966,6 +743,7 @@ const spirv_opt_files = .{
     spirv_opt_path ++ "source/opt/resolve_binding_conflicts_pass.cpp",
     spirv_opt_path ++ "source/opt/canonicalize_ids_pass.cpp",
     spirv_opt_path ++ "source/opt/legalize_multidim_array_pass.cpp",
+    spirv_opt_path ++ "source/opt/convert_to_untyped.cpp",
 
     spirv_opt_path ++ "source/reduce/change_operand_reduction_opportunity.cpp",
     spirv_opt_path ++ "source/reduce/change_operand_to_undef_reduction_opportunity.cpp",
@@ -1051,4 +829,5 @@ const spirv_opt_files = .{
     spirv_opt_path ++ "source/val/validate_group.cpp",
     spirv_opt_path ++ "source/val/validate_dot_product.cpp",
     spirv_opt_path ++ "source/val/validate_pipe.cpp",
+    spirv_opt_path ++ "source/val/validate_explicit_layout.cpp",
 };

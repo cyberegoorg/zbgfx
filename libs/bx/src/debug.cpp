@@ -8,6 +8,7 @@
 #include <bx/readerwriter.h> // WriterI
 #include <bx/os.h>           // exit
 #include <bx/process.h>      // ProcessReader
+#include <bx/scanner.h>      // Scanner
 
 #include <inttypes.h>        // PRIx*
 
@@ -46,6 +47,10 @@
 #	include <backtrace.h> // backtrace_syminfo
 #endif // BX_CONFIG_CALLSTACK_*
 
+#ifndef BX_CONFIG_CALLSTACK_USE_DBGHELP
+#	define BX_CONFIG_CALLSTACK_USE_DBGHELP BX_PLATFORM_WINDOWS
+#endif // BX_CONFIG_CALLSTACK_USE_DBGHELP
+
 #ifndef BX_CONFIG_EXCEPTION_HANDLING_USE_WINDOWS_SEH
 #	define BX_CONFIG_EXCEPTION_HANDLING_USE_WINDOWS_SEH BX_PLATFORM_WINDOWS
 #endif // BX_CONFIG_EXCEPTION_HANDLING_USE_WINDOWS_SEH
@@ -61,6 +66,12 @@
 #	include <signal.h>
 #endif // BX_CONFIG_EXCEPTION_HANDLING_*
 
+#if BX_CONFIG_EXCEPTION_HANDLING_USE_WINDOWS_SEH && BX_CRT_MSVC
+#	include <stdlib.h> // _set_abort_behavior, _set_invalid_parameter_handler, _set_purecall_handler
+#	include <crtdbg.h> // _CrtSetReportMode, _CrtSetReportHook
+extern "C" __declspec(dllimport) unsigned int __stdcall SetErrorMode(unsigned int uMode);
+#endif // BX_CONFIG_EXCEPTION_HANDLING_USE_WINDOWS_SEH && BX_CRT_MSVC
+
 #if BX_CRT_NONE
 #	include <bx/crt0.h>
 #elif BX_PLATFORM_ANDROID
@@ -68,7 +79,9 @@
 #elif  BX_PLATFORM_WINDOWS \
 	|| BX_PLATFORM_WINRT   \
 	|| BX_PLATFORM_XBOXONE
-extern "C" __declspec(dllimport) void __stdcall OutputDebugStringA(const char* _str);
+extern "C" __declspec(dllimport) void  __stdcall OutputDebugStringA(const char* _str);
+extern "C" __declspec(dllimport) void* __stdcall GetStdHandle(unsigned long _stdHandle);
+extern "C" __declspec(dllimport) int   __stdcall WriteFile(void* _file, const void* _buffer, unsigned long _sizeInBytes, unsigned long* _outNumberOfBytesWritten, struct _OVERLAPPED* _overlapped);
 #elif BX_PLATFORM_IOS || BX_PLATFORM_OSX || BX_PLATFORM_VISIONOS
 #	if defined(__OBJC__)
 #		import <Foundation/NSObjCRuntime.h>
@@ -112,6 +125,45 @@ namespace bx
 #endif // BX
 	}
 
+#if BX_PLATFORM_WINDOWS \
+ || BX_PLATFORM_WINRT   \
+ || BX_PLATFORM_XBOXONE
+	typedef void (*DebugOutputFn)(const char*);
+
+	static void stubDebugOutput(const char* _out);
+
+	static void*  s_debugConsoleHandle = NULL;
+	static DebugOutputFn s_debugOutput = stubDebugOutput;
+
+	static void debugOutputDbg(const char* _out)
+	{
+		OutputDebugStringA(_out);
+	}
+
+	static void debugOutputDbgAndConsole(const char* _out)
+	{
+		OutputDebugStringA(_out);
+
+		unsigned long written;
+		WriteFile(s_debugConsoleHandle, _out, (unsigned long)strLen(_out), &written, NULL);
+	}
+
+	static void stubDebugOutput(const char* _out)
+	{
+		void* handle = GetStdHandle(uint32_t(-12) /*STD_ERROR_HANDLE*/);
+		s_debugConsoleHandle = (handle == (void*)-1)
+			? NULL
+			: handle
+			;
+
+		s_debugOutput = (NULL != s_debugConsoleHandle)
+			? debugOutputDbgAndConsole
+			: debugOutputDbg
+			;
+		s_debugOutput(_out);
+	}
+#endif // BX_PLATFORM_*
+
 	void debugOutput(const char* _out)
 	{
 #if BX_CRT_NONE
@@ -124,7 +176,7 @@ namespace bx
 #elif  BX_PLATFORM_WINDOWS \
 	|| BX_PLATFORM_WINRT   \
 	|| BX_PLATFORM_XBOXONE
-		OutputDebugStringA(_out);
+		s_debugOutput(_out);
 #elif  BX_PLATFORM_IOS \
 	|| BX_PLATFORM_OSX   \
 	|| BX_PLATFORM_VISIONOS
@@ -152,7 +204,7 @@ namespace bx
 		char temp[4096];
 		while (0 != size)
 		{
-			uint32_t len = uint32_min(sizeof(temp)-1, size);
+			uint32_t len = uint32_t(min(sizeof(temp)-1, size) );
 			memCopy(temp, data, len);
 			temp[len] = '\0';
 			data += len;
@@ -632,7 +684,7 @@ namespace bx
 
 		int32_t total = write(_writer, _err, "Callstack (%d):\n", _num);
 
-		total += write(_writer, _err, "\t #: %-*s  Line  %-*s  Function ---\n", kWidth, "File ---", kWidthPc, "PC ---");
+		total += write(_writer, _err, "\t #: %-*s   Line  %-*s  Function ---\n", kWidth, "File ---", kWidthPc, "PC ---");
 
 		CallbackData cbData;
 
@@ -658,7 +710,7 @@ namespace bx
 			const StringView fileName = strTail(cbData.fileName, kWidth);
 
 			total += write(_writer, _err
-				, "\t%2d: %-*S % 5d  %*p  %S\n"
+				, "\t%2d: %-*S % 6d  %*p  %S\n"
 				, ii
 				, kWidth
 				, &fileName
@@ -684,7 +736,7 @@ namespace bx
 		return total;
 	}
 
-#elif BX_PLATFORM_WINDOWS
+#elif BX_CONFIG_CALLSTACK_USE_DBGHELP
 
 	struct DbgHelpSymbolInfo
 	{
@@ -729,7 +781,7 @@ namespace bx
 
 	struct DbgHelpSymbolResolve
 	{
-		DbgHelpSymbolResolve()
+		void init()
 		{
 			m_imageHlpDll = dlopen("dbghelp.dll");
 
@@ -853,7 +905,16 @@ namespace bx
 	{
 		int32_t total = write(_writer, _err, "Callstack (%d):\n", _num);
 
-		total += write(_writer, _err, "\t #: %-*s  Line  %-*s  Function ---\n", kWidth, "File ---", kWidthPc, "PC ---");
+		total += write(_writer, _err, "\t #: %-*s   Line  %-*s  Function ---\n", kWidth, "File ---", kWidthPc, "PC ---");
+
+		static bool initCalled = false;
+
+		if (!initCalled)
+		{
+			initCalled = true;
+
+			s_dbgHelpSymbolResolve.init();
+		}
 
 		for (uint32_t ii = 0; ii < _num && _err->isOk(); ++ii)
 		{
@@ -871,7 +932,7 @@ namespace bx
 			const StringView fileName = strTail(filePath, kWidth);
 
 			total += write(_writer, _err
-				, "\t%2d: %-*S % 5d  %*p  %s\n"
+				, "\t%2d: %-*S % 6d  %*p  %s\n"
 				, ii
 				, kWidth
 				, &fileName
@@ -886,22 +947,6 @@ namespace bx
 	}
 
 #elif BX_CONFIG_CALLSTACK_USE_EXECINFO
-
-	StringView strConsumeTo(StringView& _input, const StringView& _find)
-	{
-		const StringView to = strFind(_input, _find);
-
-		if (!to.isEmpty() )
-		{
-			const StringView result(_input.getPtr(), to.getPtr() );
-
-			_input.set(to.getTerm(), _input.getTerm() );
-
-			return result;
-		}
-
-		return StringView();
-	}
 
 	int32_t writeCallstack(WriterI* _writer, const uintptr_t* _stack, uint32_t _num, Error* _err)
 	{
@@ -1017,7 +1062,7 @@ namespace bx
 
 #	endif // BX_PLATFORM_*
 
-		total += write(_writer, _err, "\t #: %-*s  Line  %-*s  Function ---\n", kWidth, "File ---", kWidthPc, "PC ---");
+		total += write(_writer, _err, "\t #: %-*s   Line  %-*s  Function ---\n", kWidth, "File ---", kWidthPc, "PC ---");
 
 		for (uint32_t ii = 0; ii < _num && _err->isOk(); ++ii)
 		{
@@ -1066,16 +1111,18 @@ namespace bx
 					{
 						for (LineReader lr({atosBuffer, bytes}); !lr.isDone();)
 						{
-							StringView input = lr.next();
+							Scanner scanner(lr.next() );
 
-							atosFunctionName = strConsumeTo(input, " (");
+							atosFunctionName = scanner.acceptUntil(" (");
 
 							if (atosFunctionName.isEmpty() )
 							{
 								break;
 							}
 
-							filePath = strConsumeTo(input, ":");
+							scanner.accept(" (");
+
+							filePath = scanner.acceptUntil(":");
 
 							if (filePath.isEmpty() )
 							{
@@ -1083,7 +1130,9 @@ namespace bx
 								break;
 							}
 
-							const StringView lineStr = strConsumeTo(input, ")");
+							scanner.accept(':');
+
+							const StringView lineStr = scanner.acceptUntil(")");
 
 							if (!lineStr.isEmpty() )
 							{
@@ -1115,7 +1164,7 @@ namespace bx
 			const StringView fileName = strTail(filePath, kWidth);
 
 			total += write(_writer, _err
-				, "\t%2d: %-*S % 5d  %*p  %s\n"
+				, "\t%2d: %-*S % 6d  %*p  %s\n"
 				, ii
 				, kWidth
 				, &fileName
@@ -1137,7 +1186,7 @@ namespace bx
 	{
 		int32_t total = write(_writer, _err, "Callstack (%d): - symbol resolve is not available\n", _num);
 
-		total += write(_writer, _err, "\t #: %-*s  Line  %-*s  Function ---\n", kWidth, "File ---", kWidthPc, "PC ---");
+		total += write(_writer, _err, "\t #: %-*s   Line  %-*s  Function ---\n", kWidth, "File ---", kWidthPc, "PC ---");
 
 		const StringView fileName      = "<unknown?>";
 		const StringView demangledName = "<unknown?>";
@@ -1145,7 +1194,7 @@ namespace bx
 		for (uint32_t ii = 0; ii < _num && _err->isOk(); ++ii)
 		{
 			total += write(_writer, _err
-				, "\t%2d: %-*S % 5d  %*p  %S\n"
+				, "\t%2d: %-*S % 6d  %*p  %S\n"
 				, ii
 				, kWidth
 				, &fileName
@@ -1291,6 +1340,96 @@ namespace bx
 	typedef uint32_t (__stdcall* TopLevelExceptionFilterFn)(ExceptionPointers* _exceptionInfo);
 	typedef TopLevelExceptionFilterFn (__stdcall* SetUnhandledExceptionFilterFn)(TopLevelExceptionFilterFn _topLevelExceptionFilter);
 
+#if BX_CRT_MSVC
+	template<uint16_t MaxCapacityT>
+	static void wcharToNarrow(FixedStringT<MaxCapacityT>& _dst, const wchar_t* _src)
+	{
+		if (NULL == _src)
+		{
+			_dst.set("<unknown>");
+			return;
+		}
+
+		typename FixedStringT<MaxCapacityT>::Pod& pod = _dst.asPod();
+		const uint32_t last = MaxCapacityT - 1;
+		uint32_t ii = 0;
+		for (; ii < last && _src[ii] != L'\0'; ++ii)
+		{
+			const wchar_t wc = _src[ii];
+			pod.storage[ii] = (wc >= 0x20 && wc < 0x7f) ? char(wc) : '?';
+		}
+		pod.storage[ii] = '\0';
+		pod.len = int32_t(ii);
+	}
+
+	static void invalidParameterHandler(const wchar_t* _expression, const wchar_t* _function, const wchar_t* _file, unsigned int _line, uintptr_t /*_reserved*/)
+	{
+		FixedString256 expression;
+		FixedString256 function;
+		FixedString1024 file;
+		wcharToNarrow(expression, _expression);
+		wcharToNarrow(function,   _function);
+		wcharToNarrow(file,       _file);
+
+		const StringView svExpression = expression;
+		const StringView svFunction   = function;
+		const StringView svFile       = file;
+
+		if (assertFunction(
+			  Location("MSVC CRT Debug Error", UINT32_MAX)
+			, 3
+			, "CRT Invalid parameter: %S (%S:%u) %S"
+			, &svFunction
+			, &svFile
+			, _line
+			, &svExpression
+			) )
+		{
+			exit(kExitFailure, false);
+		}
+	}
+
+	static void pureCallHandler()
+	{
+		if (assertFunction(Location("Exception Handler", UINT32_MAX), 1, "CRT Pure virtual function call.") )
+		{
+			exit(kExitFailure, false);
+		}
+	}
+
+#	if BX_CONFIG_DEBUG
+	static int __cdecl crtReportHook(int _reportType, char* _message, int* _returnValue)
+	{
+		const char* type = "Report";
+		switch (_reportType)
+		{
+		case 0 /*_CRT_WARN  */: type = "Warning"; break;
+		case 1 /*_CRT_ERROR */: type = "Error";   break;
+		case 2 /*_CRT_ASSERT*/: type = "Assert";  break;
+		default: break;
+		}
+
+		if (assertFunction(
+			  Location("MSVC CRT Debug Error", UINT32_MAX)
+			, 3
+			, "CRT %s: %s"
+			, type
+			, NULL != _message ? _message : "<unknown>"
+			) )
+		{
+			exit(kExitFailure, false);
+		}
+
+		if (NULL != _returnValue)
+		{
+			*_returnValue = 0;
+		}
+
+		return 1 /* TRUE: report handled, suppress dialog */;
+	}
+#	endif // BX_CONFIG_DEBUG
+#endif // BX_CRT_MSVC
+
 	struct ExceptionHandler
 	{
 		ExceptionHandler()
@@ -1309,6 +1448,30 @@ namespace bx
 
 				bx::dlclose(kernel32Dll);
 			}
+
+#if BX_CRT_MSVC
+			// Suppress Windows error mode dialogs ("application has stopped working").
+			SetErrorMode(0
+				| 0x0001 /* SEM_FAILCRITICALERRORS */
+				| 0x0002 /* SEM_NOGPFAULTERRORBOX  */
+				);
+
+			// Suppress the "abort() has been called" message box and Windows Error Reporting.
+			_set_abort_behavior(0, _WRITE_ABORT_MSG | _CALL_REPORTFAULT);
+
+			// Route CRT invalid parameter and pure virtual call into bx assert handler.
+			_set_invalid_parameter_handler(invalidParameterHandler);
+			_set_thread_local_invalid_parameter_handler(invalidParameterHandler);
+			_set_purecall_handler(pureCallHandler);
+
+#	if BX_CONFIG_DEBUG
+			// Route _CrtDbgReport "Debug Error!" dialogs through bx assert handler.
+			_CrtSetReportMode(_CRT_WARN,   _CRTDBG_MODE_DEBUG);
+			_CrtSetReportMode(_CRT_ERROR,  _CRTDBG_MODE_DEBUG);
+			_CrtSetReportMode(_CRT_ASSERT, _CRTDBG_MODE_DEBUG);
+			_CrtSetReportHook(crtReportHook);
+#	endif // BX_CONFIG_DEBUG
+#endif // BX_CRT_MSVC
 		}
 
 		static uint32_t __stdcall topLevelExceptionFilter(ExceptionPointers* _info)

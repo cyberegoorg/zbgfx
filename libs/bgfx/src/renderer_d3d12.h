@@ -13,6 +13,7 @@
 
 #if BX_PLATFORM_LINUX || BX_PLATFORM_WINDOWS || BX_PLATFORM_WINRT
 #   include <d3d12.h>
+#   include <d3d12video.h>
 #else
 #   if !BGFX_CONFIG_DEBUG
 #      define D3DCOMPILE_NO_DEBUG 1
@@ -22,7 +23,6 @@
 
 #include "renderer.h"
 #include "renderer_d3d.h"
-#include "shader_dxbc.h"
 #include "debug_renderdoc.h"
 #include "nvapi.h"
 #include "dxgi.h"
@@ -108,6 +108,13 @@ namespace bgfx { namespace d3d12
 	{
 	public:
 		ScratchBufferD3D12()
+			: m_heap(NULL)
+			, m_incrementSize(0)
+			, m_size(0)
+			, m_max(0)
+			, m_pos(0)
+			, m_high(0)
+			, m_overflow(false)
 		{
 		}
 
@@ -115,19 +122,23 @@ namespace bgfx { namespace d3d12
 		{
 		}
 
-		void create(uint32_t _size, uint32_t _maxDescriptors);
+		void create(uint32_t _maxDescriptors, uint32_t _initDescriptors);
 		void destroy();
-		void reset(D3D12_GPU_DESCRIPTOR_HANDLE& _gpuHandle);
+		void reset(D3D12_GPU_DESCRIPTOR_HANDLE& _gpuHandle, uint32_t _minDescriptors = 0);
 
 		void  allocEmpty(D3D12_GPU_DESCRIPTOR_HANDLE& _gpuHandle);
 
-		void* allocCbv(D3D12_GPU_VIRTUAL_ADDRESS& _gpuAddress, uint32_t _size);
+		void  allocSrv(D3D12_GPU_DESCRIPTOR_HANDLE& _gpuHandle, struct TextureD3D12& _texture, uint16_t _firstLayer = 0, uint16_t _numLayers = UINT16_MAX, uint8_t _firstMip = 0, uint8_t _numMips = UINT8_MAX, bool _stencil = false, TextureDimension::Enum _dimension = TextureDimension::Count);
+		void  allocSrv(D3D12_GPU_DESCRIPTOR_HANDLE& _gpuHandle, struct BufferD3D12& _buffer, bool _raw);
 
-		void  allocSrv(D3D12_GPU_DESCRIPTOR_HANDLE& _gpuHandle, struct TextureD3D12& _texture, uint8_t _mip = 0);
-		void  allocSrv(D3D12_GPU_DESCRIPTOR_HANDLE& _gpuHandle, struct BufferD3D12& _buffer);
+		void  allocUav(D3D12_GPU_DESCRIPTOR_HANDLE& _gpuHandle, struct TextureD3D12& _texture, uint8_t _mip = 0, uint16_t _firstLayer = 0, uint16_t _numLayers = UINT16_MAX);
+		void  allocSrv(D3D12_GPU_DESCRIPTOR_HANDLE& _gpuHandle, ID3D12Resource* _resource, const D3D12_SHADER_RESOURCE_VIEW_DESC& _desc);
 
-		void  allocUav(D3D12_GPU_DESCRIPTOR_HANDLE& _gpuHandle, struct TextureD3D12& _texture, uint8_t _mip = 0);
-		void  allocUav(D3D12_GPU_DESCRIPTOR_HANDLE& _gpuHandle, struct BufferD3D12& _buffer);
+		void  allocUav(D3D12_GPU_DESCRIPTOR_HANDLE& _gpuHandle, struct BufferD3D12& _buffer, bool _raw);
+		void  allocUav(D3D12_GPU_DESCRIPTOR_HANDLE& _gpuHandle, ID3D12Resource* _resource, const D3D12_UNORDERED_ACCESS_VIEW_DESC& _desc);
+
+		void  allocSrvArray(D3D12_GPU_DESCRIPTOR_HANDLE& _gpuHandle, struct TextureD3D12& _texture, uint32_t _numSlices);
+		void  allocUavArray(D3D12_GPU_DESCRIPTOR_HANDLE& _gpuHandle, struct TextureD3D12& _texture, uint8_t _mip, uint32_t _numSlices);
 
 		ID3D12DescriptorHeap* getHeap()
 		{
@@ -135,15 +146,43 @@ namespace bgfx { namespace d3d12
 		}
 
 	private:
+		void allocHeap(uint32_t _num);
+		bool alloc(D3D12_GPU_DESCRIPTOR_HANDLE& _gpuHandle, D3D12_CPU_DESCRIPTOR_HANDLE& _cpuHandle);
+
 		ID3D12DescriptorHeap* m_heap;
-		ID3D12Resource* m_upload;
-		D3D12_GPU_VIRTUAL_ADDRESS m_gpuVA;
 		D3D12_CPU_DESCRIPTOR_HANDLE m_cpuHandle;
 		D3D12_GPU_DESCRIPTOR_HANDLE m_gpuHandle;
+		D3D12_CPU_DESCRIPTOR_HANDLE m_cpuHandleStart;
+		D3D12_GPU_DESCRIPTOR_HANDLE m_gpuHandleStart;
 		uint32_t m_incrementSize;
-		uint8_t* m_data;
 		uint32_t m_size;
+		uint32_t m_max;
 		uint32_t m_pos;
+		uint32_t m_high;
+		bool m_overflow;
+	};
+
+	struct ChunkedScratchBufferOffset
+	{
+		D3D12_GPU_VIRTUAL_ADDRESS buffer;
+		uint32_t offsets[2];
+	};
+
+	struct ChunkD3D12
+	{
+		D3D12_GPU_VIRTUAL_ADDRESS buffer;
+		ID3D12Resource* upload;
+		uint8_t* data;
+	};
+
+	struct ChunkedScratchBufferD3D12 : ChunkedScratchBufferT<ChunkedScratchBufferD3D12, D3D12_GPU_VIRTUAL_ADDRESS, ChunkD3D12>
+	{
+		void createUniform(uint32_t _chunkSize, uint32_t _numChunks);
+
+		void createChunk(ChunkD3D12& _chunk);
+		void destroyChunk(ChunkD3D12& _chunk);
+		void flushChunk(ChunkD3D12& _chunk, uint32_t _size);
+		uint32_t currentFrameInFlight() const;
 	};
 
 	class DescriptorAllocatorD3D12
@@ -162,9 +201,14 @@ namespace bgfx { namespace d3d12
 		void destroy();
 
 		uint16_t alloc(ID3D12Resource* _ptr, const D3D12_SHADER_RESOURCE_VIEW_DESC* _desc);
-		uint16_t alloc(const uint32_t* _flags, uint32_t _num, const float _palette[][4]);
+		uint16_t alloc(uint32_t _hash, const uint32_t* _flags, uint32_t _num, const float _palette[][4]);
 		void free(uint16_t _handle);
 		void reset();
+
+		uint32_t getCount() const
+		{
+			return m_stateCache.getCount();
+		}
 
 		D3D12_GPU_DESCRIPTOR_HANDLE get(uint16_t _handle);
 
@@ -174,12 +218,17 @@ namespace bgfx { namespace d3d12
 		}
 
 	private:
+		static constexpr uint16_t kMaxBlocks = 2048;
+
+		StateCache m_stateCache;
 		ID3D12DescriptorHeap* m_heap;
-		bx::HandleAlloc* m_handleAlloc;
+		bx::HandleAllocLruT<kMaxBlocks> m_handleAlloc;
+		uint32_t m_blockHash[kMaxBlocks];
 		D3D12_CPU_DESCRIPTOR_HANDLE m_cpuHandle;
 		D3D12_GPU_DESCRIPTOR_HANDLE m_gpuHandle;
 		uint32_t m_incrementSize;
 		uint16_t m_numDescriptorsPerBlock;
+		uint16_t m_numBlocks;
 	};
 
 	struct BufferD3D12
@@ -201,6 +250,10 @@ namespace bgfx { namespace d3d12
 
 		D3D12_SHADER_RESOURCE_VIEW_DESC  m_srvd;
 		D3D12_UNORDERED_ACCESS_VIEW_DESC m_uavd;
+
+		D3D12_SHADER_RESOURCE_VIEW_DESC  m_srvdRaw;
+		D3D12_UNORDERED_ACCESS_VIEW_DESC m_uavdRaw;
+
 		ID3D12Resource* m_ptr;
 		D3D12_GPU_VIRTUAL_ADDRESS m_gpuVA;
 		D3D12_RESOURCE_STATES m_state;
@@ -222,12 +275,33 @@ namespace bgfx { namespace d3d12
 			: m_code(NULL)
 			, m_constantBuffer(NULL)
 			, m_hash(0)
+			, m_rawSrvMask(0)
+			, m_rawUavMask(0)
 			, m_numUniforms(0)
 			, m_numPredefined(0)
 		{
+			bx::memSet(m_textureDimension, uint8_t(TextureDimension::Count), sizeof(m_textureDimension) );
 		}
 
 		void create(const Memory* _mem);
+
+		bool isRawSrv(uint8_t _stage) const
+		{
+			return 0 != (m_rawSrvMask & (UINT32_C(1) << _stage) );
+		}
+
+		bool isRawUav(uint8_t _stage) const
+		{
+			return 0 != (m_rawUavMask & (UINT32_C(1) << _stage) );
+		}
+
+		TextureDimension::Enum getTextureDimension(uint8_t _stage) const
+		{
+			return _stage < BX_COUNTOF(m_textureDimension)
+				? TextureDimension::Enum(m_textureDimension[_stage])
+				: TextureDimension::Count
+				;
+		}
 
 		void destroy()
 		{
@@ -254,6 +328,12 @@ namespace bgfx { namespace d3d12
 		uint16_t m_attrMask[Attrib::Count];
 
 		uint32_t m_hash;
+
+		uint32_t m_rawSrvMask;
+		uint32_t m_rawUavMask;
+
+		uint8_t m_textureDimension[BGFX_CONFIG_MAX_TEXTURE_SAMPLERS];
+
 		uint16_t m_numUniforms;
 		uint16_t m_size;
 		uint8_t m_numPredefined;
@@ -264,6 +344,7 @@ namespace bgfx { namespace d3d12
 		ProgramD3D12()
 			: m_vsh(NULL)
 			, m_fsh(NULL)
+			, m_textureDimensionHash(0)
 		{
 		}
 
@@ -281,6 +362,15 @@ namespace bgfx { namespace d3d12
 				bx::memCopy(&m_predefined[m_numPredefined], _fsh->m_predefined, _fsh->m_numPredefined*sizeof(PredefinedUniform));
 				m_numPredefined += _fsh->m_numPredefined;
 			}
+
+			bx::HashMurmur2A murmur;
+			murmur.begin();
+			for (uint8_t stage = 0; stage < BGFX_CONFIG_MAX_TEXTURE_SAMPLERS; ++stage)
+			{
+				const uint8_t dim = uint8_t(getTextureDimension(stage) );
+				murmur.add(dim);
+			}
+			m_textureDimensionHash = murmur.end();
 		}
 
 		void destroy()
@@ -288,14 +378,53 @@ namespace bgfx { namespace d3d12
 			m_numPredefined = 0;
 			m_vsh = NULL;
 			m_fsh = NULL;
+			m_textureDimensionHash = 0;
+		}
+
+		uint32_t getRawSrvMask() const
+		{
+			return (NULL != m_vsh ? m_vsh->m_rawSrvMask : 0)
+				|  (NULL != m_fsh ? m_fsh->m_rawSrvMask : 0)
+				;
+		}
+
+		uint32_t getRawUavMask() const
+		{
+			return (NULL != m_vsh ? m_vsh->m_rawUavMask : 0)
+				|  (NULL != m_fsh ? m_fsh->m_rawUavMask : 0)
+				;
+		}
+
+		TextureDimension::Enum getTextureDimension(uint8_t _stage) const
+		{
+			TextureDimension::Enum dim = NULL != m_fsh
+				? m_fsh->getTextureDimension(_stage)
+				: TextureDimension::Count
+				;
+
+			if (TextureDimension::Count == dim
+			&&  NULL != m_vsh)
+			{
+				dim = m_vsh->getTextureDimension(_stage);
+			}
+
+			return dim;
+		}
+
+		uint32_t getTextureDimensionHash() const
+		{
+			return m_textureDimensionHash;
 		}
 
 		const ShaderD3D12* m_vsh;
 		const ShaderD3D12* m_fsh;
 
 		PredefinedUniform m_predefined[PredefinedUniform::Count * 2];
+		uint32_t m_textureDimensionHash;
 		uint8_t m_numPredefined;
 	};
+
+	struct VideoDecoderD3D12;
 
 	struct TextureD3D12
 	{
@@ -313,20 +442,26 @@ namespace bgfx { namespace d3d12
 			, m_directAccessPtr(NULL)
 			, m_state(D3D12_RESOURCE_STATE_COMMON)
 			, m_numMips(0)
+			, m_videoDecoder(NULL)
 		{
 			bx::memSet(&m_srvd, 0, sizeof(m_srvd) );
 			bx::memSet(&m_uavd, 0, sizeof(m_uavd) );
+			m_srvHandle.ptr = 0;
 		}
 
 		void* create(const Memory* _mem, uint64_t _flags, uint8_t _skip, uint64_t _external);
 		void destroy();
 		void overrideInternal(uintptr_t _ptr);
+		void clear(ID3D12GraphicsCommandList* _commandList, uint8_t _mip, uint8_t _numMips, uint16_t _layer, uint16_t _numLayers);
 		void update(ID3D12GraphicsCommandList* _commandList, uint8_t _side, uint8_t _mip, const Rect& _rect, uint16_t _z, uint16_t _depth, uint16_t _pitch, const Memory* _mem);
 		void resolve(ID3D12GraphicsCommandList* _commandList, uint8_t _resolve, uint32_t _layer, uint32_t _numLayers, uint32_t _mip);
 		D3D12_RESOURCE_STATES setState(ID3D12GraphicsCommandList* _commandList, D3D12_RESOURCE_STATES _state);
+		bool isMsaaSurface() const;
+		bool isMultisampled() const;
 
 		D3D12_SHADER_RESOURCE_VIEW_DESC  m_srvd;
 		D3D12_UNORDERED_ACCESS_VIEW_DESC m_uavd;
+		D3D12_CPU_DESCRIPTOR_HANDLE m_srvHandle;
 		ID3D12Resource* m_ptr;
 		ID3D12Resource* m_singleMsaa;
 		HANDLE m_handle;
@@ -337,17 +472,18 @@ namespace bgfx { namespace d3d12
 		uint32_t m_height;
 		uint32_t m_depth;
 		uint32_t m_numLayers;
-		uint16_t m_samplerIdx;
 		uint8_t m_type;
 		uint8_t m_requestedFormat;
 		uint8_t m_textureFormat;
 		uint8_t m_numMips;
+		VideoDecoderD3D12* m_videoDecoder;
 	};
 
 	struct FrameBufferD3D12
 	{
 		FrameBufferD3D12()
 			: m_swapChain(NULL)
+			, m_swapChainFormat(DXGI_FORMAT_UNKNOWN)
 			, m_nwh(NULL)
 			, m_width(0)
 			, m_height(0)
@@ -356,6 +492,7 @@ namespace bgfx { namespace d3d12
 			, m_numTh(0)
 			, m_state(D3D12_RESOURCE_STATE_PRESENT)
 			, m_needPresent(false)
+			, m_frameLatencyWaitableObject(NULL)
 		{
 			m_depth.idx = bgfx::kInvalidHandle;
 		}
@@ -373,6 +510,7 @@ namespace bgfx { namespace d3d12
 		TextureHandle m_texture[BGFX_CONFIG_MAX_FRAME_BUFFER_ATTACHMENTS];
 		TextureHandle m_depth;
 		Dxgi::SwapChainI* m_swapChain;
+		DXGI_FORMAT m_swapChainFormat;
 		void* m_nwh;
 		uint32_t m_width;
 		uint32_t m_height;
@@ -382,6 +520,7 @@ namespace bgfx { namespace d3d12
 		Attachment m_attachment[BGFX_CONFIG_MAX_FRAME_BUFFER_ATTACHMENTS];
 		D3D12_RESOURCE_STATES m_state;
 		bool m_needPresent;
+		void* m_frameLatencyWaitableObject;
 	};
 
 	struct CommandQueueD3D12
@@ -487,6 +626,7 @@ namespace bgfx { namespace d3d12
 			, m_maxDrawPerBatch(0)
 			, m_minIndirect(0)
 			, m_flushPerBatch(0)
+			, m_indirectAllocated(false)
 		{
 			bx::memSet(m_num, 0, sizeof(m_num) );
 		}
@@ -497,6 +637,8 @@ namespace bgfx { namespace d3d12
 
 		void create(uint32_t _maxDrawPerBatch);
 		void destroy();
+
+		void allocIndirectBuffers();
 
 		template<typename Ty>
 		Ty& getCmd(Enum _type);
@@ -549,11 +691,13 @@ namespace bgfx { namespace d3d12
 		BufferD3D12 m_indirect[32];
 		uint32_t m_currIndirect;
 		DrawIndexedIndirectCommand m_current;
+		uint8_t m_currentNumVbv;
 
 		Stats m_stats;
 		uint32_t m_maxDrawPerBatch;
 		uint32_t m_minIndirect;
 		uint32_t m_flushPerBatch;
+		bool m_indirectAllocated;
 	};
 
 	struct TimerQueryD3D12
@@ -615,11 +759,13 @@ namespace bgfx { namespace d3d12
 		void shutdown();
 		void begin(ID3D12GraphicsCommandList* _commandList, Frame* _render, OcclusionQueryHandle _handle);
 		void end(ID3D12GraphicsCommandList* _commandList);
+		void resolve(Frame* _render);
 		void invalidate(OcclusionQueryHandle _handle);
 
 		ID3D12Resource*  m_readback;
 		ID3D12QueryHeap* m_queryHeap;
 		OcclusionQueryHandle m_handle[BGFX_CONFIG_MAX_OCCLUSION_QUERIES];
+		uint64_t m_fence[BGFX_CONFIG_MAX_OCCLUSION_QUERIES];
 		uint64_t* m_result;
 		bx::RingBufferControl m_control;
 	};

@@ -16,6 +16,16 @@
     <a href="#license-bsd-2-clause">License</a>
 </p>
 
+<p align="center">
+ <a href="https://www.star-history.com/bkaradzic/bgfx">
+  <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/badge?repo=bkaradzic/bgfx&theme=dark" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/badge?repo=bkaradzic/bgfx" />
+   <img alt="Star History Rank" src="https://api.star-history.com/badge?repo=bkaradzic/bgfx" />
+  </picture>
+ </a>
+</p>
+
 [![GitHub Actions](https://github.com/bkaradzic/bgfx/actions/workflows/main.yml/badge.svg)](https://github.com/bkaradzic/bgfx/actions)
 [![License](https://img.shields.io/badge/license-BSD--2%20clause-blue.svg)](https://bkaradzic.github.io/bgfx/license.html)
 [![Join the chat at https://discord.gg/9eMbv7J](https://img.shields.io/discord/712512073522872352?color=%237289DA&label=bgfx&logo=discord&logoColor=white)](https://discord.gg/9eMbv7J)
@@ -36,12 +46,9 @@ Supported rendering backends:
  * Direct3D 12
  * GNM (only for licensed PS4 developers, search DevNet forums for source)
  * Metal
- * OpenGL 2.1
- * OpenGL 3.1+
- * OpenGL ES 2
- * OpenGL ES 3.1
+ * OpenGL 4.3+
+ * OpenGL ES 3.0+
  * Vulkan
- * WebGL 1.0
  * WebGL 2.0
  * WebGPU (Dawn Native only)
 
@@ -70,15 +77,14 @@ Languages:
  * [Beef API bindings](https://github.com/bkaradzic/bgfx/tree/master/bindings/bf)
  * [C# language API bindings](https://github.com/bkaradzic/bgfx/tree/master/bindings/cs)
  * [C3 language API bindings](https://github.com/bkaradzic/bgfx/tree/master/bindings/c3)
+ * [Python language API bindings](https://github.com/bkaradzic/bgfx/tree/master/bindings/py)
  * [D language API bindings](https://github.com/BindBC/bindbc-bgfx)
  * [Go language API bindings](https://github.com/james4k/go-bgfx)
  * [Haskell language API bindings](https://github.com/haskell-game/bgfx)
  * [Lightweight Java Game Library 3 bindings](https://github.com/LWJGL/lwjgl3)
  * [Lua language API bindings](https://github.com/cloudwu/lua-bgfx)
- * [Nim language API bindings](https://github.com/Halsys/nim-bgfx)
+ * [Nim language API bindings](https://github.com/puffball1567/bgfxim)
  * [Pascal language API bindings](https://github.com/Akira13641/PasBGFX)
- * [Python language API bindings #1](https://github.com/fbertola/bgfx-python#-----bgfx-python--)
- * [Python language API bindings #2](https://github.com/jnadro/pybgfx#pybgfx)
  * [Rust language API bindings (new)](https://github.com/emoon/bgfx-rs)
  * [Swift language API bindings](https://github.com/stuartcarnie/SwiftBGFX)
  * [Zig language API bindings](https://github.com/bkaradzic/bgfx/tree/master/bindings/zig)
@@ -92,7 +98,9 @@ https://www.carbongames.com/airmech-strike - AirMech is a free-to-play
 futuristic action real-time strategy video game developed and published by
 Carbon Games.
 
-![AirMech screenshot](https://www.mobygames.com/images/shots/l/830630-airmech-playstation-4-screenshot-blue-bar-on-your-mech-indicates.jpg)
+<a href="http://www.youtube.com/watch?feature=player_embedded&v=dMUSomUxrHk"
+target="_blank"><img src="http://img.youtube.com/vi/dMUSomUxrHk/0.jpg"
+alt="AirMech Wastelands Trailer 2" width="640" height="480" border="0" /></a>
 
 ## cmftStudio
 
@@ -703,6 +711,20 @@ Unravel Engine is a cutting-edge, cross-platform game engine and WYSIWYG (What Y
 
 <img width="2560" height="1380" alt="Screenshot 2026-02-08 211236" src="https://github.com/user-attachments/assets/a4e95c51-5e2b-4453-9fae-e80e8305366d" />
 
+## Match Morphosis
+[Match Morphosis](https://store.steampowered.com/app/4131100/Match_Morphosis) is an upcoming Match-3 deckbuilder game for PC using bgfx and only C, solo developed <a href="https://www.youtube.com/watch?v=t8XoT-HtUGo"
+target="_blank"><img src="https://img.youtube.com/vi/t8XoT-HtUGo/hqdefault.jpg"
+alt="Video"
+width="640" height="480" border="0" /></a>
+
+## Harbi2
+
+https://harbi2.com - Harbi2 is a native cross-platform MMORPG for Windows,
+macOS, iOS, and Android. Its modern client uses bgfx to preserve the design and
+visual identity of the original Harbi2 while bringing the game to desktop and
+mobile platforms.
+
+![Harbi2 screenshot](https://h2mb.b-cdn.net/image.webp)
 
 [License (BSD 2-clause)](https://bkaradzic.github.io/bgfx/license.html)
 -----------------------------------------------------------------------

@@ -52,7 +52,6 @@
 #include "config.h"
 
 #define BIMG_CHUNK_MAGIC_TEX BX_MAKEFOURCC('T', 'E', 'X', 0x0)
-#define BIMG_CHUNK_MAGIC_GNF BX_MAKEFOURCC('G', 'N', 'F', ' ')
 
 BX_ERROR_RESULT(BIMG_ERROR, BX_MAKEFOURCC('b', 'i', 'm', 'g') );
 
@@ -73,14 +72,14 @@ namespace bimg
 		TextureFormat::Enum m_format;
 		uint16_t m_width;
 		uint16_t m_height;
-		uint16_t m_depth;
+		uint16_t m_depth;      //!< Zero if this is not a volume (3D) texture.
 		uint16_t m_numLayers;
 		uint8_t m_numMips;
 		bool m_cubeMap;
 		const Memory* m_mem;
 	};
 
-	inline uint8_t calcNumMips(bool _hasMips, uint16_t _width, uint16_t _height, uint16_t _depth = 1)
+	inline uint8_t calcNumMips(bool _hasMips, uint32_t _width, uint32_t _height, uint32_t _depth = 1)
 	{
 		if (_hasMips)
 		{
@@ -117,9 +116,18 @@ namespace bimg
 		);
 
 	///
-	bool imageParseGnf(
+	bool imageParseKtx2(
 		  ImageContainer& _imageContainer
-		, bx::ReaderSeekerI* _reader
+		, const void* _src
+		, uint32_t _size
+		, bx::Error* _err
+		);
+
+	///
+	ImageContainer* imageParseWic(
+		  bx::AllocatorI* _allocator
+		, const void* _data
+		, uint32_t _size
 		, bx::Error* _err
 		);
 

@@ -75,6 +75,7 @@ namespace bgfx { namespace noop
 			g_caps.limits.maxComputeBindings = g_caps.limits.maxTextureSamplers;
 			g_caps.limits.maxFBAttachments   = BGFX_CONFIG_MAX_FRAME_BUFFER_ATTACHMENTS;
 			g_caps.limits.maxVertexStreams   = BGFX_CONFIG_MAX_VERTEX_STREAMS;
+			g_caps.limits.maxVertexAttributes = 32;
 		}
 
 		~RendererContextNOOP()
@@ -173,7 +174,15 @@ namespace bgfx { namespace noop
 		{
 		}
 
-		void readTexture(TextureHandle /*_handle*/, void* /*_data*/, uint8_t /*_mip*/) override
+		void clearTexture(TextureHandle /*_handle*/, uint8_t /*_mip*/, uint8_t /*_numMips*/, uint16_t /*_layer*/, uint16_t /*_numLayers*/) override
+		{
+		}
+
+		void readTexture(TextureHandle /*_handle*/, void* /*_data*/, uint16_t /*_layer*/, uint8_t /*_mip*/) override
+		{
+		}
+
+		void readBuffer(Handle /*_handle*/, void* /*_data*/, uint32_t /*_offset*/, uint32_t /*_size*/) override
 		{
 		}
 
@@ -238,7 +247,7 @@ namespace bgfx { namespace noop
 		{
 		}
 
-		void submit(Frame* _render, ClearQuad& /*_clearQuad*/, TextVideoMemBlitter& /*_textVideoMemBlitter*/) override
+		void submit(Frame* _render, const ClearQuad& /*_clearQuad*/, const MipGen& /*_mipGen*/, TextVideoMemBlitter& /*_textVideoMemBlitter*/) override
 		{
 			const int64_t timerFreq = bx::getHPFrequency();
 			const int64_t timeBegin = bx::getHPCounter();

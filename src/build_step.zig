@@ -95,8 +95,8 @@ pub const ShaderInput = struct {
     shaderType: shader.ShaderType,
     path: std.Build.LazyPath,
     parts: []const PartDef = &.{
-        .{ .profile = .glsl_120, .platform = .linux },
-        .{ .profile = .es_100, .platform = .android },
+        .{ .profile = .glsl_330, .platform = .linux },
+        .{ .profile = .es_300, .platform = .android },
         .{ .profile = .spirv, .platform = .linux },
         .{ .profile = .metal, .platform = .osx, .optimize = .o3 },
         .{ .profile = .s_5_0, .platform = .windows, .optimize = .o3 },
@@ -146,7 +146,6 @@ pub fn compileShaders(
 
 pub fn profileToPartName(profile: shader.Profile) []const u8 {
     return switch (profile) {
-        .es_100,
         .es_300,
         .es_310,
         .es_320,
@@ -154,7 +153,7 @@ pub fn profileToPartName(profile: shader.Profile) []const u8 {
 
         .s_4_0,
         .s_5_0,
-        => "dx11",
+        => "dxbc",
 
         .s_6_0,
         .s_6_1,
@@ -191,10 +190,6 @@ pub fn profileToPartName(profile: shader.Profile) []const u8 {
         .spirv16_13,
         => "spv",
 
-        .glsl_120,
-        .glsl_130,
-        .glsl_140,
-        .glsl_150,
         .glsl_330,
         .glsl_400,
         .glsl_410,
