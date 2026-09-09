@@ -10,7 +10,22 @@
 #endif // BX_MATH_H_HEADER_GUARD
 
 #include <bx/simd_t.h>
-#include <bx/uint32_t.h>
+
+#if BX_COMPILER_MSVC
+extern "C" unsigned char _BitScanReverse(unsigned long* _Index, unsigned long _Mask);
+#	pragma intrinsic(_BitScanReverse)
+
+extern "C" unsigned char _BitScanForward(unsigned long* _Index, unsigned long _Mask);
+#	pragma intrinsic(_BitScanForward)
+
+#	if BX_ARCH_64BIT
+extern "C" unsigned char _BitScanReverse64(unsigned long* _Index, unsigned __int64 _Mask);
+#		pragma intrinsic(_BitScanReverse64)
+
+extern "C" unsigned char _BitScanForward64(unsigned long* _Index, unsigned __int64 _Mask);
+#		pragma intrinsic(_BitScanForward64)
+#	endif // BX_ARCH_64BIT
+#endif // BX_COMPILER_MSVC
 
 namespace bx
 {
@@ -49,11 +64,13 @@ namespace bx
 		// Reference(s):
 		// - http://archive.fo/2012.12.08-212402/http://stereopsis.com/radix.html
 		//
-		const uint32_t tmp0   = uint32_sra(_value, 31);
-		const uint32_t tmp1   = uint32_neg(tmp0);
-		const uint32_t mask   = uint32_or(tmp1, kFloatSignMask);
-		const uint32_t result = uint32_xor(_value, mask);
-		return result;
+		const simd32_t signMask = simd32_splat(kFloatSignMask);
+		const simd32_t value    = simd32_splat(_value);
+		const simd32_t tmp0     = simd32_x32_sra(value, 31);
+		const simd32_t mask     = simd32_or(tmp0, signMask);
+		const simd32_t result   = simd32_xor(value, mask);
+
+		return result.u32;
 	}
 
 	inline BX_CONSTEXPR_FUNC bool isNan(float _f)
@@ -92,27 +109,159 @@ namespace bx
 		return tmp == kDoubleExponentMask;
 	}
 
-	inline BX_CONSTEXPR_FUNC float floor(float _a)
+	inline BX_CONSTEXPR_FUNC float truncRef(float _a)
 	{
-		if (_a < 0.0f)
-		{
-			const float fr = fract(-_a);
-			const float tr = trunc(-_a);
+		const uint32_t bits      = floatToBits(_a);
+		const uint32_t sign      = bits &  kFloatSignMask;
+		const uint32_t magnitude = bits & ~kFloatSignMask;
 
-			return -tr - float(0.0f != fr);
+		if (0x4b000000u <= magnitude)
+		{
+			return _a;
 		}
 
-		return _a - fract(_a);
+		const float    tr     = float(int(_a) );
+		const uint32_t trBits = floatToBits(tr) | sign;
+		const float    result = bitsToFloat(trBits);
+		return result;
+	}
+
+	inline BX_CONSTEXPR_FUNC float floorRef(float _a)
+	{
+		const uint32_t bits      = floatToBits(_a);
+		const uint32_t sign      = bits &  kFloatSignMask;
+		const uint32_t magnitude = bits & ~kFloatSignMask;
+
+		if (0x4b000000u <= magnitude)
+		{
+			return _a;
+		}
+
+		const float    tr     = float(int(_a) );
+		const float    fl     = tr > _a ? tr - 1.0f : tr;
+		const uint32_t flBits = floatToBits(fl) | sign;
+		const float    result = bitsToFloat(flBits);
+
+		return result;
+	}
+
+	inline BX_CONSTEXPR_FUNC float ceilRef(float _a)
+	{
+		const float na     = -_a;
+		const float fl     = floorRef(na);
+		const float result = -fl;
+		return result;
+	}
+
+#if BX_SIMD_SUPPORTED
+	inline BX_CONST_FUNC float truncSimd(float _a)
+	{
+		const simd128_t aa     = simd_splat<simd128_t>(_a);
+		const simd128_t result = simd_f32_trunc<simd128_t>(aa);
+
+		float out = 0.0f;
+		simd_x32_st1<simd128_t>(&out, result);
+
+		return out;
+	}
+
+	inline BX_CONST_FUNC float floorSimd(float _a)
+	{
+		const simd128_t aa     = simd_splat<simd128_t>(_a);
+		const simd128_t result = simd_f32_floor<simd128_t>(aa);
+
+		float out = 0.0f;
+		simd_x32_st1<simd128_t>(&out, result);
+
+		return out;
+	}
+
+	inline BX_CONST_FUNC float ceilSimd(float _a)
+	{
+		const simd128_t aa     = simd_splat<simd128_t>(_a);
+		const simd128_t result = simd_f32_ceil<simd128_t>(aa);
+
+		float out = 0.0f;
+		simd_x32_st1<simd128_t>(&out, result);
+
+		return out;
+	}
+#endif // BX_SIMD_SUPPORTED
+
+	inline BX_CONSTEXPR_FUNC float floor(float _a)
+	{
+#if BX_SIMD_SUPPORTED
+		if (isConstantEvaluated() )
+		{
+			return floorRef(_a);
+		}
+
+		return floorSimd(_a);
+#else
+		return floorRef(_a);
+#endif // BX_SIMD_SUPPORTED
 	}
 
 	inline BX_CONSTEXPR_FUNC float ceil(float _a)
 	{
-		return -floor(-_a);
+#if BX_SIMD_SUPPORTED
+		if (isConstantEvaluated() )
+		{
+			return ceilRef(_a);
+		}
+
+		return ceilSimd(_a);
+#else
+		return ceilRef(_a);
+#endif // BX_SIMD_SUPPORTED
 	}
+
+	inline BX_CONSTEXPR_FUNC float roundRef(float _a)
+	{
+		const uint32_t bits      = floatToBits(_a);
+		const uint32_t sign      = bits &  kFloatSignMask;
+		const uint32_t magnitude = bits & ~kFloatSignMask;
+
+		if (0x4b000000u <= magnitude)
+		{
+			return _a;
+		}
+
+		const float    fl     = floorRef(_a);
+		const float    fr     = _a - fl;
+		const bool     odd    = 0 != (int32_t(fl) & 1);
+		const bool     up     = fr > 0.5f || (fr == 0.5f && odd);
+		const float    rd     = up ? fl + 1.0f : fl;
+		const uint32_t rdBits = floatToBits(rd) | sign;
+		const float    result = bitsToFloat(rdBits);
+		return result;
+	}
+
+#if BX_SIMD_SUPPORTED
+	inline BX_CONST_FUNC float roundSimd(float _a)
+	{
+		const simd128_t aa     = simd_splat<simd128_t>(_a);
+		const simd128_t result = simd_f32_round<simd128_t>(aa);
+
+		float out = 0.0f;
+		simd_x32_st1<simd128_t>(&out, result);
+
+		return out;
+	}
+#endif // BX_SIMD_SUPPORTED
 
 	inline BX_CONSTEXPR_FUNC float round(float _a)
 	{
-		return floor(_a + 0.5f);
+#if BX_SIMD_SUPPORTED
+		if (isConstantEvaluated() )
+		{
+			return roundRef(_a);
+		}
+
+		return roundSimd(_a);
+#else
+		return roundRef(_a);
+#endif // BX_SIMD_SUPPORTED
 	}
 
 	inline BX_CONSTEXPR_FUNC float lerp(float _a, float _b, float _t)
@@ -136,13 +285,18 @@ namespace bx
 
 	inline BX_CONSTEXPR_FUNC bool signBit(float _a)
 	{
-		return -0.0f == _a ? 0.0f != _a : 0.0f > _a;
+		const uint32_t bits = floatToBits(_a);
+		return 0 != (bits & kFloatSignMask);
 	}
 
 	inline BX_CONSTEXPR_FUNC float copySign(float _value, float _sign)
 	{
 #if BX_COMPILER_MSVC
-		return signBit(_value) != signBit(_sign) ? -_value : _value;
+		const uint32_t magnitude = floatToBits(_value) & ~kFloatSignMask;
+		const uint32_t sign      = floatToBits(_sign)  &  kFloatSignMask;
+		const uint32_t bits      = magnitude | sign;
+		const float    result    = bitsToFloat(bits);
+		return result;
 #else
 		return __builtin_copysign(_value, _sign);
 #endif // BX_COMPILER_MSVC
@@ -160,7 +314,16 @@ namespace bx
 
 	inline BX_CONSTEXPR_FUNC float trunc(float _a)
 	{
-		return float(int(_a) );
+#if BX_SIMD_SUPPORTED
+		if (isConstantEvaluated() )
+		{
+			return truncRef(_a);
+		}
+
+		return truncSimd(_a);
+#else
+		return truncRef(_a);
+#endif // BX_SIMD_SUPPORTED
 	}
 
 	inline BX_CONSTEXPR_FUNC float fract(float _a)
@@ -170,7 +333,10 @@ namespace bx
 
 	inline BX_CONSTEXPR_FUNC float nms(float _a, float _b, float _c)
 	{
-		return _c - _a * _b;
+		const float na     = -_a;
+		const float result = mad(na, _b, _c);
+
+		return result;
 	}
 
 	inline BX_CONSTEXPR_FUNC float add(float _a, float _b)
@@ -183,6 +349,51 @@ namespace bx
 		return _a - _b;
 	}
 
+	template<typename Ty>
+	inline BX_CONSTEXPR_FUNC Ty satAdd(Ty _a, Ty _b)
+	{
+		static_assert(isInteger<Ty>(), "Type Ty must be an integer type.");
+
+		using UTy = MakeUnsignedType<Ty>;
+
+		const UTy ua  = UTy(_a);
+		const UTy ub  = UTy(_b);
+		const UTy sum = UTy(ua + ub);
+
+		if constexpr (isSigned<Ty>() )
+		{
+			const UTy signBit  = UTy(UTy(1) << (sizeof(Ty)*8 - 1) );
+			const UTy overflow = UTy(~(ua ^ ub) & (ua ^ sum) & signBit);
+			const Ty  satVal   = (ua & signBit) ? LimitsT<Ty>::min : LimitsT<Ty>::max;
+			return 0 != overflow ? satVal : Ty(sum);
+		}
+
+		return sum < ua ? LimitsT<Ty>::max : Ty(sum);
+	}
+
+	template<typename Ty>
+	inline BX_CONSTEXPR_FUNC Ty satSub(Ty _a, Ty _b)
+	{
+		static_assert(isInteger<Ty>(), "Type Ty must be an integer type.");
+
+		using UTy = MakeUnsignedType<Ty>;
+
+		const UTy ua   = UTy(_a);
+		const UTy ub   = UTy(_b);
+		const UTy diff = UTy(ua - ub);
+
+		if constexpr (isSigned<Ty>() )
+		{
+			const UTy signBit  = UTy(UTy(1) << (sizeof(Ty)*8 - 1) );
+			const UTy overflow = UTy( (ua ^ ub) & (ua ^ diff) & signBit);
+			const Ty  satVal   = (ua & signBit) ? LimitsT<Ty>::min : LimitsT<Ty>::max;
+
+			return 0 != overflow ? satVal : Ty(diff);
+		}
+
+		return ua > ub ? Ty(diff) : Ty(0);
+	}
+
 	inline BX_CONSTEXPR_FUNC float mul(float _a, float _b)
 	{
 		return _a * _b;
@@ -190,7 +401,12 @@ namespace bx
 
 	inline BX_CONSTEXPR_FUNC float mad(float _a, float _b, float _c)
 	{
-		return add(mul(_a, _b), _c);
+		const simd32_t aa     = simd32_ld(_a);
+		const simd32_t bb     = simd32_ld(_b);
+		const simd32_t cc     = simd32_ld(_c);
+		const simd32_t result = simd32_f32_madd(aa, bb, cc);
+
+		return bitCast<float>(result);
 	}
 
 	inline BX_CONSTEXPR_FUNC float rcp(float _a)
@@ -213,14 +429,19 @@ namespace bx
 		return mul(_a, rcpSafe(_b) );
 	}
 
+BX_FP_PRECISE_BEGIN()
+
 	inline BX_CONSTEXPR_FUNC float mod(float _a, float _b)
 	{
-		return _a - _b * floor(div(_a, _b) );
+		const float quotient = _a / _b;
+		const float whole    = floor(quotient);
+		const float result   = nms(_b, whole, _a);
+		return result;
 	}
 
 	inline BX_CONSTEXPR_FUNC float cos(float _a)
 	{
-		const float scaled = _a * 2.0f*kInvPi;
+		const float scaled = _a * (2.0f*kInvPi);
 		const float real   = floor(scaled);
 		const float xx     = _a - real * kPiHalf;
 		const int32_t bits = int32_t(real) & 3;
@@ -294,9 +515,10 @@ namespace bx
 		const float absA   = abs(aa);
 		const float cosA   = cos(absA);
 		const float cosASq = square(cosA);
-		const float tmp0   = sqrt(1.0f - cosASq);
-		const float tmp1   = aa > 0.0f && aa < kPi ? 1.0f : -1.0f;
-		const float sinA   = mul(tmp0, tmp1);
+		const float tmp0   = max(0.0f, 1.0f - cosASq);
+		const float tmp1   = sqrt(tmp0);
+		const float tmp2   = aa > 0.0f && aa < kPi ? 1.0f : -1.0f;
+		const float sinA   = mul(tmp1, tmp2);
 
 		_outSinApprox = sinA;
 		_outCos = cosA;
@@ -349,9 +571,11 @@ namespace bx
 		const float maxaxy = max(ax, ay);
 		const float minaxy = min(ax, ay);
 
+		const uint32_t ysign = floatToBits(_y) & kFloatSignMask;
+
 		if (maxaxy == 0.0f)
 		{
-			return _y < 0.0f ? -0.0f : 0.0f;
+			return bitsToFloat(ysign);
 		}
 
 		constexpr float kAtan2C0 = -0.013480470f;
@@ -361,33 +585,37 @@ namespace bx
 		constexpr float kAtan2C4 = -0.332994597f;
 		constexpr float kAtan2C5 =  0.999995630f;
 
-		const float mxy    = minaxy / maxaxy;
-		const float mxysq  = square(mxy);
-		const float tmp0   = mad(kAtan2C0, mxysq, kAtan2C1);
-		const float tmp1   = mad(tmp0,     mxysq, kAtan2C2);
-		const float tmp2   = mad(tmp1,     mxysq, kAtan2C3);
-		const float tmp3   = mad(tmp2,     mxysq, kAtan2C4);
-		const float tmp4   = mad(tmp3,     mxysq, kAtan2C5);
-		const float tmp5   = tmp4 * mxy;
-		const float tmp6   = ay > ax   ? kPiHalf - tmp5 : tmp5;
-		const float tmp7   = _x < 0.0f ? kPi     - tmp6 : tmp6;
-		const float result = _y < 0.0f ? -tmp7 : tmp7;
+		const float mxy   = minaxy / maxaxy;
+		const float mxysq = square(mxy);
+		const float tmp0  = mad(kAtan2C0, mxysq, kAtan2C1);
+		const float tmp1  = mad(tmp0,     mxysq, kAtan2C2);
+		const float tmp2  = mad(tmp1,     mxysq, kAtan2C3);
+		const float tmp3  = mad(tmp2,     mxysq, kAtan2C4);
+		const float tmp4  = mad(tmp3,     mxysq, kAtan2C5);
+		const float tmp5  = tmp4 * mxy;
+		const float tmp6  = ay > ax   ? kPiHalf - tmp5 : tmp5;
+		const float tmp7  = _x < 0.0f ? kPi     - tmp6 : tmp6;
+
+		const uint32_t bits = floatToBits(tmp7) | ysign;
+		const float  result = bitsToFloat(bits);
 
 		return result;
 	}
 
 	inline BX_CONSTEXPR_FUNC float ldexp(float _a, int32_t _b)
 	{
-		const uint32_t ftob     = floatToBits(_a);
-		const uint32_t masked   = uint32_and(ftob, kFloatSignMask | kFloatExponentMask);
-		const uint32_t expsign0 = uint32_sra(masked, kFloatExponentBitShift);
-		const uint32_t tmp      = uint32_iadd(expsign0, _b);
-		const uint32_t expsign1 = uint32_sll(tmp, kFloatExponentBitShift);
-		const uint32_t mantissa = uint32_and(ftob, kFloatMantissaMask);
-		const uint32_t bits     = uint32_or(mantissa, expsign1);
-		const float    result   = bitsToFloat(bits);
+		const simd32_t ftob        = simd32_splat(floatToBits(_a));
+		const simd32_t signexpmask = simd32_splat(kFloatSignMask | kFloatExponentMask);
+		const simd32_t mantmask    = simd32_splat(kFloatMantissaMask);
+		const simd32_t b           = simd32_splat(_b);
+		const simd32_t masked      = simd32_and(ftob, signexpmask);
+		const simd32_t expsign0    = simd32_x32_sra(masked, kFloatExponentBitShift);
+		const simd32_t tmp         = simd32_i32_add(expsign0, b);
+		const simd32_t expsign1    = simd32_x32_sll(tmp, kFloatExponentBitShift);
+		const simd32_t mantissa    = simd32_and(ftob, mantmask);
+		const simd32_t bits        = simd32_or(mantissa, expsign1);
 
-		return result;
+		return bitsToFloat(bits.u32);
 	}
 
 	inline BX_CONSTEXPR_FUNC float log(float _a)
@@ -402,15 +630,19 @@ namespace bx
 			return -kFloatInfinity;
 		}
 
-		const uint32_t ftob     = floatToBits(_a);
+		const simd32_t ftob         = simd32_splat(floatToBits(_a));
+		const simd32_t expmask      = simd32_splat(kFloatExponentMask);
+		const simd32_t signmantmask = simd32_splat(kFloatSignMask | kFloatMantissaMask);
+		const simd32_t half         = simd32_splat(UINT32_C(0x3f000000));
 
-		const uint32_t masked0  = uint32_and(ftob, kFloatExponentMask);
-		const uint32_t exp0     = uint32_srl(masked0, kFloatExponentBitShift);
-		int32_t exp = int32_t(exp0 - 0x7e);
+		const simd32_t masked0  = simd32_and(ftob, expmask);
+		const simd32_t exp0     = simd32_x32_srl(masked0, kFloatExponentBitShift);
 
-		const uint32_t masked1  = uint32_and(ftob,   kFloatSignMask | kFloatMantissaMask);
-		const uint32_t bits     = uint32_or(masked1, UINT32_C(0x3f000000) );
-		float ff = bitsToFloat(bits);
+		int32_t exp = int32_t(exp0.u32) - 0x7e;
+
+		const simd32_t masked1  = simd32_and(ftob, signmantmask);
+		const simd32_t bits     = simd32_or(masked1, half);
+		float ff = bitsToFloat(bits.u32);
 
 		if (ff < kSqrt2*0.5f)
 		{
@@ -418,13 +650,13 @@ namespace bx
 			--exp;
 		}
 
-		constexpr float kLogC0 = 6.666666666666735130e-01f;
-		constexpr float kLogC1 = 3.999999999940941908e-01f;
-		constexpr float kLogC2 = 2.857142874366239149e-01f;
-		constexpr float kLogC3 = 2.222219843214978396e-01f;
-		constexpr float kLogC4 = 1.818357216161805012e-01f;
-		constexpr float kLogC5 = 1.531383769920937332e-01f;
-		constexpr float kLogC6 = 1.479819860511658591e-01f;
+		constexpr float kLogC0     = 6.666666666666735130e-01f;
+		constexpr float kLogC1     = 3.999999999940941908e-01f;
+		constexpr float kLogC2     = 2.857142874366239149e-01f;
+		constexpr float kLogC3     = 2.222219843214978396e-01f;
+		constexpr float kLogC4     = 1.818357216161805012e-01f;
+		constexpr float kLogC5     = 1.531383769920937332e-01f;
+		constexpr float kLogC6     = 1.479819860511658591e-01f;
 		constexpr float kLogNat2Lo = 1.90821492927058770002e-10f;
 
 		ff -= 1.0f;
@@ -519,29 +751,31 @@ namespace bx
 		return log(_a) * kInvLogNat2;
 	}
 
+BX_FP_PRECISE_END()
+
 	template<>
 	inline BX_CONSTEXPR_FUNC uint8_t countBits(uint32_t _val)
 	{
 #if BX_COMPILER_GCC || BX_COMPILER_CLANG
 		return __builtin_popcount(_val);
 #else
-		const uint32_t tmp0   = uint32_srl(_val, 1);
-		const uint32_t tmp1   = uint32_and(tmp0, 0x55555555);
-		const uint32_t tmp2   = uint32_sub(_val, tmp1);
-		const uint32_t tmp3   = uint32_and(tmp2, 0xc30c30c3);
-		const uint32_t tmp4   = uint32_srl(tmp2, 2);
-		const uint32_t tmp5   = uint32_and(tmp4, 0xc30c30c3);
-		const uint32_t tmp6   = uint32_srl(tmp2, 4);
-		const uint32_t tmp7   = uint32_and(tmp6, 0xc30c30c3);
-		const uint32_t tmp8   = uint32_add(tmp3, tmp5);
-		const uint32_t tmp9   = uint32_add(tmp7, tmp8);
-		const uint32_t tmpA   = uint32_srl(tmp9, 6);
-		const uint32_t tmpB   = uint32_add(tmp9, tmpA);
-		const uint32_t tmpC   = uint32_srl(tmpB, 12);
-		const uint32_t tmpD   = uint32_srl(tmpB, 24);
-		const uint32_t tmpE   = uint32_add(tmpB, tmpC);
-		const uint32_t tmpF   = uint32_add(tmpD, tmpE);
-		const uint32_t result = uint32_and(tmpF, 0x3f);
+		const uint32_t tmp0   = (_val >> 1);
+		const uint32_t tmp1   = (tmp0 & 0x55555555);
+		const uint32_t tmp2   = (_val - tmp1);
+		const uint32_t tmp3   = (tmp2 & 0xc30c30c3);
+		const uint32_t tmp4   = (tmp2 >> 2);
+		const uint32_t tmp5   = (tmp4 & 0xc30c30c3);
+		const uint32_t tmp6   = (tmp2 >> 4);
+		const uint32_t tmp7   = (tmp6 & 0xc30c30c3);
+		const uint32_t tmp8   = (tmp3 + tmp5);
+		const uint32_t tmp9   = (tmp7 + tmp8);
+		const uint32_t tmpA   = (tmp9 >> 6);
+		const uint32_t tmpB   = (tmp9 + tmpA);
+		const uint32_t tmpC   = (tmpB >> 12);
+		const uint32_t tmpD   = (tmpB >> 24);
+		const uint32_t tmpE   = (tmpB + tmpC);
+		const uint32_t tmpF   = (tmpD + tmpE);
+		const uint32_t result = (tmpF & 0x3f);
 
 		return uint8_t(result);
 #endif // BX_COMPILER_*
@@ -581,20 +815,31 @@ namespace bx
 #if BX_COMPILER_GCC || BX_COMPILER_CLANG
 		return 0 == _val ? 32 : __builtin_clz(_val);
 #else
-		const uint32_t tmp0   = uint32_srl(_val, 1);
-		const uint32_t tmp1   = uint32_or(tmp0, _val);
-		const uint32_t tmp2   = uint32_srl(tmp1, 2);
-		const uint32_t tmp3   = uint32_or(tmp2, tmp1);
-		const uint32_t tmp4   = uint32_srl(tmp3, 4);
-		const uint32_t tmp5   = uint32_or(tmp4, tmp3);
-		const uint32_t tmp6   = uint32_srl(tmp5, 8);
-		const uint32_t tmp7   = uint32_or(tmp6, tmp5);
-		const uint32_t tmp8   = uint32_srl(tmp7, 16);
-		const uint32_t tmp9   = uint32_or(tmp8, tmp7);
-		const uint32_t tmpA   = uint32_not(tmp9);
-		const uint32_t result = uint32_cntbits(tmpA);
+#	if BX_COMPILER_MSVC
+		if (!isConstantEvaluated() )
+		{
+			unsigned long index;
+			return 0 != _BitScanReverse(&index, (unsigned long)_val)
+				? uint8_t(31 - index)
+				: uint8_t(32)
+				;
+		}
+#	endif // BX_COMPILER_MSVC
+		const simd32_t val    = simd32_splat(_val);
+		const simd32_t tmp0   = simd32_x32_srl(val, 1);
+		const simd32_t tmp1   = simd32_or(tmp0, val);
+		const simd32_t tmp2   = simd32_x32_srl(tmp1, 2);
+		const simd32_t tmp3   = simd32_or(tmp2, tmp1);
+		const simd32_t tmp4   = simd32_x32_srl(tmp3, 4);
+		const simd32_t tmp5   = simd32_or(tmp4, tmp3);
+		const simd32_t tmp6   = simd32_x32_srl(tmp5, 8);
+		const simd32_t tmp7   = simd32_or(tmp6, tmp5);
+		const simd32_t tmp8   = simd32_x32_srl(tmp7, 16);
+		const simd32_t tmp9   = simd32_or(tmp8, tmp7);
+		const simd32_t tmpA   = simd32_not(tmp9);
+		const simd32_t result = simd32_x32_cntbits(tmpA);
 
-		return uint8_t(result);
+		return uint8_t(result.u32);
 #endif // BX_COMPILER_*
 	}
 
@@ -604,6 +849,16 @@ namespace bx
 #if BX_COMPILER_GCC || BX_COMPILER_CLANG
 		return 0 == _val ? 64 : __builtin_clzll(_val);
 #else
+#	if BX_COMPILER_MSVC && BX_ARCH_64BIT
+		if (!isConstantEvaluated() )
+		{
+			unsigned long index;
+			return 0 != _BitScanReverse64(&index, (unsigned __int64)_val)
+				? uint8_t(63 - index)
+				: uint8_t(64)
+				;
+		}
+#	endif // BX_COMPILER_MSVC && BX_ARCH_64BIT
 		return _val & UINT64_C(0xffffffff00000000)
 			 ? countLeadingZeros<uint32_t>(uint32_t(_val>>32) )
 			 : countLeadingZeros<uint32_t>(uint32_t(_val) ) + 32
@@ -630,12 +885,24 @@ namespace bx
 #if BX_COMPILER_GCC || BX_COMPILER_CLANG
 		return 0 == _val ? 32 : __builtin_ctz(_val);
 #else
-		const uint32_t tmp0   = uint32_not(_val);
-		const uint32_t tmp1   = uint32_dec(_val);
-		const uint32_t tmp2   = uint32_and(tmp0, tmp1);
-		const uint32_t result = uint32_cntbits(tmp2);
+#	if BX_COMPILER_MSVC
+		if (!isConstantEvaluated() )
+		{
+			unsigned long index;
+			return 0 != _BitScanForward(&index, (unsigned long)_val)
+				? uint8_t(index)
+				: uint8_t(32)
+				;
+		}
+#	endif // BX_COMPILER_MSVC
+		const simd32_t val    = simd32_splat(_val);
+		const simd32_t one    = simd32_splat(1);
+		const simd32_t tmp0   = simd32_not(val);
+		const simd32_t tmp1   = simd32_u32_sub(val, one);
+		const simd32_t tmp2   = simd32_and(tmp0, tmp1);
+		const simd32_t result = simd32_x32_cntbits(tmp2);
 
-		return uint8_t(result);
+		return uint8_t(result.u32);
 #endif // BX_COMPILER_*
 	}
 
@@ -645,6 +912,16 @@ namespace bx
 #if BX_COMPILER_GCC || BX_COMPILER_CLANG
 		return 0 == _val ? 64 : __builtin_ctzll(_val);
 #else
+#	if BX_COMPILER_MSVC && BX_ARCH_64BIT
+		if (!isConstantEvaluated() )
+		{
+			unsigned long index;
+			return 0 != _BitScanForward64(&index, (unsigned __int64)_val)
+				? uint8_t(index)
+				: uint8_t(64)
+				;
+		}
+#	endif // BX_COMPILER_MSVC && BX_ARCH_64BIT
 		return _val & UINT64_C(0xffffffff)
 			? countTrailingZeros<uint32_t>(uint32_t(_val) )
 			: countTrailingZeros<uint32_t>(uint32_t(_val>>32) ) + 32
@@ -722,15 +999,11 @@ namespace bx
 			return kFloatInfinity;
 		}
 
-		const simd128_t aa = simd_splat(_a);
-#if BX_SIMD_NEON
-		const simd128_t rsqrta = simd_rsqrt_nr(aa);
-#else
-		const simd128_t rsqrta = simd_rsqrt_ni(aa);
-#endif // BX_SIMD_NEON
+		const simd128_t aa     = simd_splat<simd128_t>(_a);
+		const simd128_t rsqrta = simd_f32_rsqrt<simd128_t>(aa);
 
 		float result = 0.0f;
-		simd_stx(&result, rsqrta);
+		simd_x32_st1<simd128_t>(&result, rsqrta);
 
 		return result;
 	}
@@ -756,11 +1029,11 @@ namespace bx
 			return 0.0f;
 		}
 
-		const simd128_t aa   = simd_splat(_a);
-		const simd128_t sqrt = simd_sqrt(aa);
+		const simd128_t aa   = simd_splat<simd128_t>(_a);
+		const simd128_t sqrt = simd_f32_sqrt<simd128_t>(aa);
 
 		float result = 0.0f;
-		simd_stx(&result, sqrt);
+		simd_x32_st1<simd128_t>(&result, sqrt);
 
 		return result;
 	}
@@ -812,6 +1085,11 @@ namespace bx
 			result = isEqual(_a[ii], _b[ii], _epsilon);
 		}
 		return result;
+	}
+
+	inline BX_CONSTEXPR_FUNC bool isNearZero(float _v)
+	{
+		return isEqual(_v, 0.0f, 0.00001f);
 	}
 
 	inline BX_CONSTEXPR_FUNC float wrap(float _a, float _wrap)
@@ -969,7 +1247,7 @@ namespace bx
 	{
 	}
 
-	inline BX_CONSTEXPR_FUNC Vec3 round(const Vec3 _a)
+	inline BX_CONSTEXPR_FUNC Vec3 round(const Vec3& _a)
 	{
 		return
 		{
@@ -979,7 +1257,7 @@ namespace bx
 		};
 	}
 
-	inline BX_CONSTEXPR_FUNC Vec3 abs(const Vec3 _a)
+	inline BX_CONSTEXPR_FUNC Vec3 abs(const Vec3& _a)
 	{
 		return
 		{
@@ -989,7 +1267,7 @@ namespace bx
 		};
 	}
 
-	inline BX_CONSTEXPR_FUNC Vec3 neg(const Vec3 _a)
+	inline BX_CONSTEXPR_FUNC Vec3 neg(const Vec3& _a)
 	{
 		return
 		{
@@ -999,7 +1277,7 @@ namespace bx
 		};
 	}
 
-	inline BX_CONSTEXPR_FUNC Vec3 add(const Vec3 _a, const Vec3 _b)
+	inline BX_CONSTEXPR_FUNC Vec3 add(const Vec3& _a, const Vec3& _b)
 	{
 		return
 		{
@@ -1009,7 +1287,7 @@ namespace bx
 		};
 	}
 
-	inline BX_CONSTEXPR_FUNC Vec3 add(const Vec3 _a, float _b)
+	inline BX_CONSTEXPR_FUNC Vec3 add(const Vec3& _a, float _b)
 	{
 		return
 		{
@@ -1019,7 +1297,7 @@ namespace bx
 		};
 	}
 
-	inline BX_CONSTEXPR_FUNC Vec3 sub(const Vec3 _a, const Vec3 _b)
+	inline BX_CONSTEXPR_FUNC Vec3 sub(const Vec3& _a, const Vec3& _b)
 	{
 		return
 		{
@@ -1029,7 +1307,7 @@ namespace bx
 		};
 	}
 
-	inline BX_CONSTEXPR_FUNC Vec3 sub(const Vec3 _a, float _b)
+	inline BX_CONSTEXPR_FUNC Vec3 sub(const Vec3& _a, float _b)
 	{
 		return
 		{
@@ -1039,7 +1317,7 @@ namespace bx
 		};
 	}
 
-	inline BX_CONSTEXPR_FUNC Vec3 mul(const Vec3 _a, const Vec3 _b)
+	inline BX_CONSTEXPR_FUNC Vec3 mul(const Vec3& _a, const Vec3& _b)
 	{
 		return
 		{
@@ -1049,7 +1327,7 @@ namespace bx
 		};
 	}
 
-	inline BX_CONSTEXPR_FUNC Vec3 mul(const Vec3 _a, float _b)
+	inline BX_CONSTEXPR_FUNC Vec3 mul(const Vec3& _a, float _b)
 	{
 		return
 		{
@@ -1059,52 +1337,64 @@ namespace bx
 		};
 	}
 
-	inline BX_CONSTEXPR_FUNC Vec3 div(const Vec3 _a, const Vec3 _b)
+	inline BX_CONSTEXPR_FUNC Vec3 div(const Vec3& _a, const Vec3& _b)
 	{
 		return mul(_a, rcp(_b) );
 	}
 
-	inline BX_CONSTEXPR_FUNC Vec3 divSafe(const Vec3 _a, const Vec3 _b)
+	inline BX_CONSTEXPR_FUNC Vec3 divSafe(const Vec3& _a, const Vec3& _b)
 	{
 		return mul(_a, rcpSafe(_b) );
 	}
 
-	inline BX_CONSTEXPR_FUNC Vec3 div(const Vec3 _a, float _b)
+	inline BX_CONSTEXPR_FUNC Vec3 div(const Vec3& _a, float _b)
 	{
 		return mul(_a, rcp(_b) );
 	}
 
-	inline BX_CONSTEXPR_FUNC Vec3 divSafe(const Vec3 _a, float _b)
+	inline BX_CONSTEXPR_FUNC Vec3 divSafe(const Vec3& _a, float _b)
 	{
 		return mul(_a, rcpSafe(_b) );
 	}
 
-	inline BX_CONSTEXPR_FUNC Vec3 nms(const Vec3 _a, const float _b, const Vec3 _c)
+	inline BX_CONSTEXPR_FUNC Vec3 nms(const Vec3& _a, const float _b, const Vec3& _c)
 	{
 		return sub(_c, mul(_a, _b) );
 	}
 
-	inline BX_CONSTEXPR_FUNC Vec3 nms(const Vec3 _a, const Vec3 _b, const Vec3 _c)
+	inline BX_CONSTEXPR_FUNC Vec3 nms(const Vec3& _a, const Vec3& _b, const Vec3& _c)
 	{
-		return sub(_c, mul(_a, _b) );
+		const float xx = nms(_a.x, _b.x, _c.x);
+		const float yy = nms(_a.y, _b.y, _c.y);
+		const float zz = nms(_a.z, _b.z, _c.z);
+
+		return Vec3(xx, yy, zz);
 	}
 
-	inline BX_CONSTEXPR_FUNC Vec3 mad(const Vec3 _a, const float _b, const Vec3 _c)
+	inline BX_CONSTEXPR_FUNC Vec3 mad(const Vec3& _a, const float _b, const Vec3& _c)
 	{
-		return add(mul(_a, _b), _c);
+		const float xx = mad(_a.x, _b, _c.x);
+		const float yy = mad(_a.y, _b, _c.y);
+		const float zz = mad(_a.z, _b, _c.z);
+
+		return Vec3(xx, yy, zz);
 	}
 
-	inline BX_CONSTEXPR_FUNC Vec3 mad(const Vec3 _a, const Vec3 _b, const Vec3 _c)
+	inline BX_CONSTEXPR_FUNC Vec3 mad(const Vec3& _a, const Vec3& _b, const Vec3& _c)
 	{
-		return add(mul(_a, _b), _c);
+		const float xx = mad(_a.x, _b.x, _c.x);
+		const float yy = mad(_a.y, _b.y, _c.y);
+		const float zz = mad(_a.z, _b.z, _c.z);
+
+		return Vec3(xx, yy, zz);
 	}
 
-	inline BX_CONSTEXPR_FUNC float dot(const Vec3 _a, const Vec3 _b)
+	inline BX_CONSTEXPR_FUNC float dot(const Vec3& _a, const Vec3& _b)
 	{
 		return _a.x*_b.x + _a.y*_b.y + _a.z*_b.z;
 	}
 
-	inline BX_CONSTEXPR_FUNC Vec3 cross(const Vec3 _a, const Vec3 _b)
+	inline BX_CONSTEXPR_FUNC Vec3 cross(const Vec3& _a, const Vec3& _b)
 	{
 		return
 		{
@@ -1114,23 +1404,23 @@ namespace bx
 		};
 	}
 
-	inline BX_CONSTEXPR_FUNC float length(const Vec3 _a)
+	inline BX_CONSTEXPR_FUNC float length(const Vec3& _a)
 	{
 		return sqrt(dot(_a, _a) );
 	}
 
-	inline BX_CONSTEXPR_FUNC float distanceSq(const Vec3 _a, const Vec3 _b)
+	inline BX_CONSTEXPR_FUNC float distanceSq(const Vec3& _a, const Vec3& _b)
 	{
 		const Vec3 ba = sub(_b, _a);
 		return dot(ba, ba);
 	}
 
-	inline BX_CONSTEXPR_FUNC float distance(const Vec3 _a, const Vec3 _b)
+	inline BX_CONSTEXPR_FUNC float distance(const Vec3& _a, const Vec3& _b)
 	{
 		return length(sub(_b, _a) );
 	}
 
-	inline BX_CONSTEXPR_FUNC Vec3 lerp(const Vec3 _a, const Vec3 _b, float _t)
+	inline BX_CONSTEXPR_FUNC Vec3 lerp(const Vec3& _a, const Vec3& _b, float _t)
 	{
 		return
 		{
@@ -1140,7 +1430,7 @@ namespace bx
 		};
 	}
 
-	inline BX_CONSTEXPR_FUNC Vec3 lerp(const Vec3 _a, const Vec3 _b, const Vec3 _t)
+	inline BX_CONSTEXPR_FUNC Vec3 lerp(const Vec3& _a, const Vec3& _b, const Vec3& _t)
 	{
 		return
 		{
@@ -1150,14 +1440,14 @@ namespace bx
 		};
 	}
 
-	inline BX_CONSTEXPR_FUNC Vec3 normalize(const Vec3 _a)
+	inline BX_CONSTEXPR_FUNC Vec3 normalize(const Vec3& _a)
 	{
 		const float len   = length(_a);
 		const Vec3 result = divSafe(_a, len);
 		return result;
 	}
 
-	inline BX_CONSTEXPR_FUNC Vec3 min(const Vec3 _a, const Vec3 _b)
+	inline BX_CONSTEXPR_FUNC Vec3 min(const Vec3& _a, const Vec3& _b)
 	{
 		return
 		{
@@ -1167,7 +1457,7 @@ namespace bx
 		};
 	}
 
-	inline BX_CONSTEXPR_FUNC Vec3 max(const Vec3 _a, const Vec3 _b)
+	inline BX_CONSTEXPR_FUNC Vec3 max(const Vec3& _a, const Vec3& _b)
 	{
 		return
 		{
@@ -1177,7 +1467,7 @@ namespace bx
 		};
 	}
 
-	inline BX_CONSTEXPR_FUNC Vec3 rcp(const Vec3 _a)
+	inline BX_CONSTEXPR_FUNC Vec3 rcp(const Vec3& _a)
 	{
 		return
 		{
@@ -1187,7 +1477,7 @@ namespace bx
 		};
 	}
 
-	inline BX_CONSTEXPR_FUNC Vec3 rcpSafe(const Vec3 _a)
+	inline BX_CONSTEXPR_FUNC Vec3 rcpSafe(const Vec3& _a)
 	{
 		return
 		{
@@ -1197,7 +1487,7 @@ namespace bx
 		};
 	}
 
-	inline BX_CONSTEXPR_FUNC bool isEqual(const Vec3 _a, const Vec3 _b, float _epsilon)
+	inline BX_CONSTEXPR_FUNC bool isEqual(const Vec3& _a, const Vec3& _b, float _epsilon)
 	{
 		return isEqual(_a.x, _b.x, _epsilon)
 			&& isEqual(_a.y, _b.y, _epsilon)
@@ -1205,7 +1495,12 @@ namespace bx
 			;
 	}
 
-	inline void calcTangentFrame(Vec3& _outT, Vec3& _outB, const Vec3 _n)
+	inline BX_CONSTEXPR_FUNC bool isNearZero(const Vec3& _v)
+	{
+		return isNearZero(dot(_v, _v) );
+	}
+
+	inline void calcTangentFrame(Vec3& _outT, Vec3& _outB, const Vec3& _n)
 	{
 		const float nx = _n.x;
 		const float ny = _n.y;
@@ -1229,7 +1524,7 @@ namespace bx
 		_outB = cross(_n, _outT);
 	}
 
-	inline void calcTangentFrame(Vec3& _outT, Vec3& _outB, const Vec3 _n, float _angle)
+	inline void calcTangentFrame(Vec3& _outT, Vec3& _outB, const Vec3& _n, float _angle)
 	{
 		calcTangentFrame(_outT, _outB, _n);
 
@@ -1261,7 +1556,7 @@ namespace bx
 		};
 	}
 
-	inline void toLatLong(float* _outU, float* _outV, const Vec3 _dir)
+	inline void toLatLong(float* _outU, float* _outV, const Vec3& _dir)
 	{
 		const float phi   = atan2(_dir.x, _dir.z);
 		const float theta = acos(_dir.y);
@@ -1270,7 +1565,18 @@ namespace bx
 		*_outV = theta*kInvPi;
 	}
 
-	inline BX_CONSTEXPR_FUNC Quaternion invert(const Quaternion _a)
+	inline BX_CONSTEXPR_FUNC Quaternion neg(const Quaternion& _a)
+	{
+		return
+		{
+			-_a.x,
+			-_a.y,
+			-_a.z,
+			-_a.w,
+		};
+	}
+
+	inline BX_CONSTEXPR_FUNC Quaternion conjugate(const Quaternion& _a)
 	{
 		return
 		{
@@ -1281,7 +1587,7 @@ namespace bx
 		};
 	}
 
-	inline BX_CONSTEXPR_FUNC Vec3 mulXyz(const Quaternion _a, const Quaternion _b)
+	inline BX_CONSTEXPR_FUNC Vec3 mulXyz(const Quaternion& _a, const Quaternion& _b)
 	{
 		const float ax = _a.x;
 		const float ay = _a.y;
@@ -1301,7 +1607,7 @@ namespace bx
 		};
 	}
 
-	inline BX_CONSTEXPR_FUNC Quaternion add(const Quaternion _a, const Quaternion _b)
+	inline BX_CONSTEXPR_FUNC Quaternion add(const Quaternion& _a, const Quaternion& _b)
 	{
 		return
 		{
@@ -1312,7 +1618,7 @@ namespace bx
 		};
 	}
 
-	inline BX_CONSTEXPR_FUNC Quaternion sub(const Quaternion _a, const Quaternion _b)
+	inline BX_CONSTEXPR_FUNC Quaternion sub(const Quaternion& _a, const Quaternion& _b)
 	{
 		return
 		{
@@ -1323,7 +1629,7 @@ namespace bx
 		};
 	}
 
-	inline BX_CONSTEXPR_FUNC Quaternion mul(const Quaternion _a, float _b)
+	inline BX_CONSTEXPR_FUNC Quaternion mul(const Quaternion& _a, float _b)
 	{
 		return
 		{
@@ -1334,7 +1640,7 @@ namespace bx
 		};
 	}
 
-	inline BX_CONSTEXPR_FUNC Quaternion mul(const Quaternion _a, const Quaternion _b)
+	inline BX_CONSTEXPR_FUNC Quaternion mul(const Quaternion& _a, const Quaternion& _b)
 	{
 		const float ax = _a.x;
 		const float ay = _a.y;
@@ -1355,17 +1661,16 @@ namespace bx
 		};
 	}
 
-	inline BX_CONSTEXPR_FUNC Vec3 mul(const Vec3 _v, const Quaternion _q)
+	inline BX_CONSTEXPR_FUNC Vec3 mul(const Vec3& _v, const Quaternion& _q)
 	{
-		const Quaternion tmp0 = invert(_q);
 		const Quaternion qv   = { _v.x, _v.y, _v.z, 0.0f };
-		const Quaternion tmp1 = mul(tmp0, qv);
-		const Vec3 result     = mulXyz(tmp1, _q);
+		const Quaternion tmp0 = mul(_q, qv);
+		const Vec3 result     = mulXyz(tmp0, conjugate(_q) );
 
 		return result;
 	}
 
-	inline BX_CONSTEXPR_FUNC float dot(const Quaternion _a, const Quaternion _b)
+	inline BX_CONSTEXPR_FUNC float dot(const Quaternion& _a, const Quaternion& _b)
 	{
 		return
 			  _a.x * _b.x
@@ -1375,7 +1680,7 @@ namespace bx
 			;
 	}
 
-	inline BX_CONSTEXPR_FUNC Quaternion normalize(const Quaternion _a)
+	inline BX_CONSTEXPR_FUNC Quaternion normalize(const Quaternion& _a)
 	{
 		const float norm = dot(_a, _a);
 		if (0.0f < norm)
@@ -1394,7 +1699,7 @@ namespace bx
 		};
 	}
 
-	inline BX_CONSTEXPR_FUNC Quaternion lerp(const Quaternion _a, const Quaternion _b, float _t)
+	inline BX_CONSTEXPR_FUNC Quaternion lerp(const Quaternion& _a, const Quaternion& _b, float _t)
 	{
 		const float sa    = 1.0f - _t;
 		const float adotb = dot(_a, _b);
@@ -1407,7 +1712,37 @@ namespace bx
 		return normalize(qq);
 	}
 
-	inline BX_CONST_FUNC Quaternion fromEuler(const Vec3 _euler)
+	inline BX_CONST_FUNC Quaternion slerp(const Quaternion& _a, const Quaternion& _b, float _t)
+	{
+		float cosTheta = dot(_a, _b);
+
+		Quaternion bb = _b;
+		if (cosTheta < 0.0f)
+		{
+			cosTheta = -cosTheta;
+			bb = neg(_b);
+		}
+
+		if (cosTheta > 0.9995f)
+		{
+			return lerp(_a, bb, _t);
+		}
+
+		const float theta  = acos(cosTheta);
+		const float invSin = rcp(sin(theta) );
+		const float sa     = sin( (1.0f - _t) * theta) * invSin;
+		const float sb     = sin(_t * theta)           * invSin;
+
+		return
+		{
+			_a.x * sa + bb.x * sb,
+			_a.y * sa + bb.y * sb,
+			_a.z * sa + bb.z * sb,
+			_a.w * sa + bb.w * sb,
+		};
+	}
+
+	inline BX_CONST_FUNC Quaternion fromEuler(const Vec3& _euler)
 	{
 		const float sx = sin(_euler.x * 0.5f);
 		const float cx = cos(_euler.x * 0.5f);
@@ -1425,7 +1760,7 @@ namespace bx
 		};
 	}
 
-	inline BX_CONST_FUNC Vec3 toEuler(const Quaternion _a)
+	inline BX_CONST_FUNC Vec3 toEuler(const Quaternion& _a)
 	{
 		const float xx  = _a.x;
 		const float yy  = _a.y;
@@ -1443,7 +1778,7 @@ namespace bx
 		};
 	}
 
-	inline BX_CONST_FUNC Vec3 toXAxis(const Quaternion _a)
+	inline BX_CONST_FUNC Vec3 toXAxis(const Quaternion& _a)
 	{
 		const float xx  = _a.x;
 		const float yy  = _a.y;
@@ -1460,7 +1795,7 @@ namespace bx
 		};
 	}
 
-	inline BX_CONST_FUNC Vec3 toYAxis(const Quaternion _a)
+	inline BX_CONST_FUNC Vec3 toYAxis(const Quaternion& _a)
 	{
 		const float xx  = _a.x;
 		const float yy  = _a.y;
@@ -1477,7 +1812,7 @@ namespace bx
 		};
 	}
 
-	inline BX_CONST_FUNC Vec3 toZAxis(const Quaternion _a)
+	inline BX_CONST_FUNC Vec3 toZAxis(const Quaternion& _a)
 	{
 		const float xx  = _a.x;
 		const float yy  = _a.y;
@@ -1494,7 +1829,7 @@ namespace bx
 		};
 	}
 
-	inline BX_CONST_FUNC Quaternion fromAxisAngle(const Vec3 _axis, float _angle)
+	inline BX_CONST_FUNC Quaternion fromAxisAngle(const Vec3& _axis, float _angle)
 	{
 		const float ha = _angle * 0.5f;
 		const float sa = sin(ha);
@@ -1508,7 +1843,7 @@ namespace bx
 		};
 	}
 
-	inline void toAxisAngle(Vec3& _outAxis, float& _outAngle, const Quaternion _a)
+	inline void toAxisAngle(Vec3& _outAxis, float& _outAngle, const Quaternion& _a)
 	{
 		const float ww = _a.w;
 		const float sa = sqrt(1.0f - square(ww) );
@@ -1565,7 +1900,7 @@ namespace bx
 		};
 	}
 
-	inline BX_CONSTEXPR_FUNC bool isEqual(const Quaternion _a, const Quaternion _b, float _epsilon)
+	inline BX_CONSTEXPR_FUNC bool isEqual(const Quaternion& _a, const Quaternion& _b, float _epsilon)
 	{
 		return isEqual(_a.x, _b.x, _epsilon)
 			&& isEqual(_a.y, _b.y, _epsilon)
@@ -1806,6 +2141,20 @@ namespace bx
 		const float hi     = pow(abs(_a), 1.0f/2.4f) * 1.055f - 0.055f;
 		const float result = lerp(hi, lo, _a <= 0.0031308f);
 		return result;
+	}
+
+	inline BX_CONST_FUNC uint16_t halfFromFloat(float _a)
+	{
+		const simd32_t a      = { .u32 = bitCast<uint32_t>(_a) };
+		const simd32_t result = simd_f16_fromf32_ni(a);
+		return uint16_t(result.u32);
+	}
+
+	inline BX_CONST_FUNC float halfToFloat(uint16_t _a)
+	{
+		const simd32_t a      = simd32_splat(uint32_t(_a) );
+		const simd32_t result = simd_f16_tof32_ni(a);
+		return bitCast<float>(result.u32);
 	}
 
 } // namespace bx

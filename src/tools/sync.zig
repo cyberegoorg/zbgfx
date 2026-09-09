@@ -24,7 +24,6 @@ const sync_list = SyncConfig{
         .{
             .lib = .bx,
             .entries = &.{
-                "3rdparty/ini",
                 "include",
                 "src",
                 ".gitattributes",
@@ -51,8 +50,6 @@ const sync_list = SyncConfig{
                 "3rdparty/d3d4linux",
                 "3rdparty/dawn",
                 "3rdparty/directx-headers",
-                "3rdparty/fcpp",
-                "3rdparty/glsl-optimizer",
                 "3rdparty/glslang",
                 "3rdparty/khronos",
                 "3rdparty/metal-cpp",
@@ -60,6 +57,7 @@ const sync_list = SyncConfig{
                 "3rdparty/spirv-cross",
                 "3rdparty/spirv-headers",
                 "3rdparty/spirv-tools",
+                "3rdparty/h264",
 
                 "bindings/zig",
 

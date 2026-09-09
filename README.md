@@ -38,9 +38,9 @@ Minimal is `0.16.0`. But you know try your version and believe.
 
 ## Bgfx version
 
-- [BX](https://github.com/bkaradzic/bx/compare/cac72f6cfa0893393ea12692ebfacb4495f8c826...master)
-- [BImg](https://github.com/bkaradzic/bimg/compare/9114b47f532ce59cd0c6c9f8932df2c48888d4c1...master)
-- [BGFX](https://github.com/bkaradzic/bgfx/compare/8532b2c45d2f4332a9ac9734b85c2ea2253cb8d5...master)
+- [BX](https://github.com/bkaradzic/bx/compare/98ad3bec2a7ee1a5cbabdcabc25252572dcb1d88...master)
+- [BImg](https://github.com/bkaradzic/bimg/compare/ddbeeae05779f84f97694553eb41605a60f86f0a...master)
+- [BGFX](https://github.com/bkaradzic/bgfx/compare/a5a3d30421c38c369b5946fa174f7a14b1a60bf9...master)
 
 ## Useful tools
 - [bgfx_shader_analyzer](https://github.com/r0ckHopper/bgfx_shader_analyzer) - LSP for bgfx shaders.

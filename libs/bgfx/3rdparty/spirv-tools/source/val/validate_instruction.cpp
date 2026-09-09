@@ -491,6 +491,10 @@ spv_result_t InstructionPass(ValidationState_t& _, const Instruction* inst) {
         spv::ExecutionMode::OutputPrimitivesEXT) {
       _.RegisterEntryPointOutputPrimitivesEXT(entry_point, inst);
     }
+    if (inst->GetOperandAs<spv::ExecutionMode>(1) ==
+        spv::ExecutionMode::OutputVertices) {
+      _.RegisterEntryPointOutputVertices(entry_point, inst);
+    }
   } else if (opcode == spv::Op::OpVariable) {
     const auto storage_class = inst->GetOperandAs<spv::StorageClass>(2);
     if (auto error = LimitCheckNumVars(_, inst->id(), storage_class)) {
@@ -512,6 +516,16 @@ spv_result_t InstructionPass(ValidationState_t& _, const Instruction* inst) {
              << "OpSamplerImageAddressingModeNV bitwidth should be 64 or 32";
     }
     _.set_samplerimage_variable_address_mode(bitwidth);
+  } else if (opcode == spv::Op::OpSourceContinued) {
+    const auto& instructions = _.ordered_instructions();
+    size_t idx = inst - &instructions.front();
+    const Instruction* prev_inst = &instructions[idx - 1];
+    if (prev_inst->opcode() != spv::Op::OpSource &&
+        prev_inst->opcode() != spv::Op::OpSourceContinued) {
+      return _.diag(SPV_ERROR_INVALID_LAYOUT, inst)
+             << "OpSourceContinued must be preceded by OpSource or "
+                "OpSourceContinued.";
+    }
   }
 
   if (auto error = ReservedCheck(_, inst)) return error;

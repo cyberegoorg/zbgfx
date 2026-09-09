@@ -38,21 +38,28 @@ namespace bgfx { namespace gl
 	{
 		GlContext()
 			: m_eglDll(NULL)
+			, m_nwh(NULL)
 			, m_current(NULL)
+			, m_config(NULL)
 			, m_context(NULL)
 			, m_display(NULL)
 			, m_surface(NULL)
-#if BX_PLATFORM_LINUX
+			, m_readSurface(NULL)
+#if BX_PLATFORM_WINDOWS
+			, m_hdc(NULL)
+#elif BX_PLATFORM_LINUX
 			, m_waylandEglDll(NULL)
 			, m_eglWindow(NULL)
-#endif
+#endif // BX_PLATFORM_*
+			, m_ownsContext(false)
 			, m_msaaContext(false)
+			, m_swapInterval(0)
 		{
 		}
 
-		void create(const Resolution& _resolution);
+		void create(const SwapChain& _swapChain, uint32_t _reset);
 		void destroy();
-		void resize(const Resolution& _resolution);
+		void resize(const SwapChain& _swapChain, uint32_t _reset);
 
 		uint64_t getCaps() const;
 		SwapChainGL* createSwapChain(void* _nwh, int32_t _width, int32_t _height);
@@ -68,19 +75,24 @@ namespace bgfx { namespace gl
 		}
 
 		void* m_eglDll;
+		void* m_nwh;
 		SwapChainGL* m_current;
 		EGLConfig  m_config;
 		EGLContext m_context;
 		EGLDisplay m_display;
 		EGLSurface m_surface;
+		EGLSurface m_readSurface;
 
-#if BX_PLATFORM_LINUX
+#if BX_PLATFORM_WINDOWS
+		HDC m_hdc;
+#elif BX_PLATFORM_LINUX
 		void*  m_waylandEglDll;
 		struct wl_egl_window *m_eglWindow;
-#endif
+#endif // BX_PLATFORM_*
 
-		// true when MSAA is handled by the context instead of using MSAA FBO
+		bool m_ownsContext;
 		bool m_msaaContext;
+		int  m_swapInterval;
 	};
 } /* namespace gl */ } // namespace bgfx
 

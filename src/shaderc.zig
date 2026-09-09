@@ -77,7 +77,6 @@ pub const Platform = enum {
 };
 
 pub const Profile = enum {
-    es_100,
     es_300,
     es_310,
     es_320,
@@ -117,10 +116,6 @@ pub const Profile = enum {
     spirv15_12,
     spirv16_13,
 
-    glsl_120,
-    glsl_130,
-    glsl_140,
-    glsl_150,
     glsl_330,
     glsl_400,
     glsl_410,
@@ -131,7 +126,6 @@ pub const Profile = enum {
     pub fn toStr(profile: Profile) [:0]const u8 {
         return switch (profile) {
             // ES
-            .es_100 => "100_es",
             .es_300 => "300_es",
             .es_310 => "310_es",
             .es_320 => "320_es",
@@ -156,10 +150,6 @@ pub const Profile = enum {
             .spirv16_13 => "spirv16-13",
 
             // GLSL
-            .glsl_120 => "120",
-            .glsl_130 => "130",
-            .glsl_140 => "140",
-            .glsl_150 => "150",
             .glsl_330 => "330",
             .glsl_400 => "400",
             .glsl_410 => "410",
@@ -205,14 +195,14 @@ pub fn createDefaultOptionsForRenderer(renderer: bgfx.RendererType) ShadercOptio
         .OpenGLES => {
             return .{
                 .shaderType = .vertex,
-                .profile = .es_100,
+                .profile = .es_300,
                 .platform = .android,
             };
         },
         .OpenGL => {
             return .{
                 .shaderType = .vertex,
-                .profile = .glsl_120,
+                .profile = .glsl_330,
                 .platform = .linux,
             };
         },

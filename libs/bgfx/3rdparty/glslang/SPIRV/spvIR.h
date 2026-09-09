@@ -189,6 +189,11 @@ public:
         operands[idx] = immediate;
     }
 
+    void clearOperands() {
+        operands.clear();
+        idOperand.clear();
+    }
+
     void addStringOperand(const char* str)
     {
         unsigned int word = 0;
@@ -381,6 +386,7 @@ public:
         case Op::OpReturn:
         case Op::OpReturnValue:
         case Op::OpUnreachable:
+        case Op::OpAbortKHR:
             return true;
         default:
             return false;
@@ -475,6 +481,10 @@ public:
     Id getReturnType() const { return functionInstruction.getTypeId(); }
     Id getFuncId() const { return functionInstruction.getResultId(); }
     Id getFuncTypeId() const { return functionInstruction.getIdOperand(1); }
+    void setFunctionControl(FunctionControlMask functionControl)
+    {
+        functionInstruction.setImmediateOperand(0, static_cast<unsigned>(functionControl));
+    }
     void setReturnPrecision(Decoration precision)
     {
         if (precision == Decoration::RelaxedPrecision)

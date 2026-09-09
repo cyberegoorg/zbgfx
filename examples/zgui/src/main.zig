@@ -54,9 +54,9 @@ pub fn main(init: std.process.Init) anyerror!u8 {
 
     const framebufferSize = window.getFramebufferSize();
 
-    bgfx_init.resolution.width = @intCast(framebufferSize[0]);
-    bgfx_init.resolution.height = @intCast(framebufferSize[1]);
-    bgfx_init.platformData.ndt = null;
+    bgfx_init.swapChain.width = @intCast(framebufferSize[0]);
+    bgfx_init.swapChain.height = @intCast(framebufferSize[1]);
+    bgfx_init.swapChain.ndt = null;
     bgfx_init.debug = true;
 
     // TODO: read note in zbgfx.callbacks.ZigAllocator
@@ -72,19 +72,19 @@ pub fn main(init: std.process.Init) anyerror!u8 {
         .linux => {
             if (zglfw.getPlatform() == .wayland) {
                 bgfx_init.platformData.type = bgfx.NativeWindowHandleType.Wayland;
-                bgfx_init.platformData.nwh = zglfw.getWaylandWindow(window);
-                bgfx_init.platformData.ndt = zglfw.getWaylandDisplay();
+                bgfx_init.swapChain.nwh = zglfw.getWaylandWindow(window);
+                bgfx_init.swapChain.ndt = zglfw.getWaylandDisplay();
             } else {
                 bgfx_init.platformData.type = .Default;
-                bgfx_init.platformData.nwh = @ptrFromInt(zglfw.getX11Window(window));
-                bgfx_init.platformData.ndt = zglfw.getX11Display();
+                bgfx_init.swapChain.nwh = @ptrFromInt(zglfw.getX11Window(window));
+                bgfx_init.swapChain.ndt = zglfw.getX11Display();
             }
         },
         .windows => {
-            bgfx_init.platformData.nwh = zglfw.getWin32Window(window);
+            bgfx_init.swapChain.nwh = zglfw.getWin32Window(window);
         },
         else => |v| if (v.isDarwin()) {
-            bgfx_init.platformData.nwh = zglfw.getCocoaWindow(window);
+            bgfx_init.swapChain.nwh = zglfw.getCocoaWindow(window);
         } else undefined,
     }
 
@@ -106,16 +106,10 @@ pub fn main(init: std.process.Init) anyerror!u8 {
     //
     // Reset and clear
     //
-    bgfx.reset(@intCast(framebufferSize[0]), @intCast(framebufferSize[1]), reset_flags, bgfx_init.resolution.formatColor);
+    bgfx.reset(reset_flags, &bgfx_init.swapChain);
 
     // Set view 0 clear state.
     bgfx.setViewClear(0, bgfx.ClearFlags_Color | bgfx.ClearFlags_Depth, 0x303030ff, 1.0, 0);
-
-    //
-    // Default state
-    //
-    const state = 0 | bgfx.StateFlags_WriteRgb | bgfx.StateFlags_WriteA | bgfx.StateFlags_WriteZ | bgfx.StateFlags_DepthTestLess | bgfx.StateFlags_CullCcw | bgfx.StateFlags_Msaa;
-    _ = state; // autofix
 
     const gpa_allocator = init.gpa;
 
@@ -172,9 +166,9 @@ pub fn main(init: std.process.Init) anyerror!u8 {
         // Show debug
         //
         if (debug) {
-            bgfx.setDebug(bgfx.DebugFlags_Stats);
+            bgfx.setDebug(bgfx.DebugFlags_Stats, .{ .idx = std.math.maxInt(c_ushort) }, 0);
         } else {
-            bgfx.setDebug(bgfx.DebugFlags_None);
+            bgfx.setDebug(bgfx.DebugFlags_None, .{ .idx = std.math.maxInt(c_ushort) }, 0);
         }
 
         //
@@ -182,12 +176,11 @@ pub fn main(init: std.process.Init) anyerror!u8 {
         //
         const size = window.getFramebufferSize();
         if (old_flags != reset_flags or old_size[0] != size[0] or old_size[1] != size[1]) {
-            bgfx.reset(
-                @intCast(size[0]),
-                @intCast(size[1]),
-                reset_flags,
-                bgfx_init.resolution.formatColor,
-            );
+            var swap_chain = bgfx_init.swapChain;
+            swap_chain.width = @intCast(size[0]);
+            swap_chain.height = @intCast(size[1]);
+
+            bgfx.reset(reset_flags, &swap_chain);
             old_size = size;
             old_flags = reset_flags;
         }

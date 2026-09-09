@@ -91,9 +91,9 @@ public:
             parsingBuiltins(parsingBuiltins), scanContext(nullptr), ppContext(nullptr),
             limits(resources.limits),
             globalUniformBlock(nullptr),
-            globalUniformBinding(TQualifier::layoutBindingEnd),
-            globalUniformSet(TQualifier::layoutSetEnd),
-            atomicCounterBlockSet(TQualifier::layoutSetEnd)
+            globalUniformBinding(TQualifier::layoutNotSet),
+            globalUniformSet(TQualifier::layoutNotSet),
+            atomicCounterBlockSet(TQualifier::layoutNotSet)
     {
         // use storage buffer on SPIR-V 1.3 and up
         if (spvVersion.spv >= EShTargetSpv_1_3)
@@ -230,8 +230,8 @@ protected:
 
     // Manage the global uniform block (default uniforms in GLSL, $Global in HLSL)
     TVariable* globalUniformBlock;     // the actual block, inserted into the symbol table
-    unsigned int globalUniformBinding; // the block's binding number
-    unsigned int globalUniformSet;     // the block's set number
+    int globalUniformBinding;          // the block's binding number
+    int globalUniformSet;              // the block's set number
     int firstNewMember;                // the index of the first member not yet inserted into the symbol table
     // override this to set the language-specific name
     virtual const char* getGlobalUniformBlockName() const { return ""; }
@@ -240,7 +240,7 @@ protected:
 
     // Manage the atomic counter block (used for atomic_uints with Vulkan-Relaxed)
     TMap<int, TVariable*> atomicCounterBuffers;
-    unsigned int atomicCounterBlockSet;
+    int atomicCounterBlockSet;
     TMap<int, int> atomicCounterBlockFirstNewMember;
     // override this to set the language-specific name
     virtual const char* getAtomicCounterBlockName() const { return ""; }
@@ -358,6 +358,7 @@ public:
     TIntermTyped* addOutputArgumentConversions(const TFunction&, TIntermAggregate&) const;
     TIntermTyped* addAssign(const TSourceLoc&, TOperator op, TIntermTyped* left, TIntermTyped* right);
     void builtInOpCheck(const TSourceLoc&, const TFunction&, TIntermOperator&);
+    void requireDerivativeLayout(const TSourceLoc&, const char* featureDesc, bool isDerivativeOp);
     void nonOpBuiltInCheck(const TSourceLoc&, const TFunction&, TIntermAggregate&);
     void userFunctionCallCheck(const TSourceLoc&, TIntermAggregate&);
     void samplerConstructorLocationCheck(const TSourceLoc&, const char* token, TIntermNode*);
@@ -457,7 +458,7 @@ public:
     TParameter getParamWithDefault(const TPublicType& ty, TString* identifier, TIntermTyped* initializer,
                                    const TSourceLoc& loc);
     void inheritMemoryQualifiers(const TQualifier& from, TQualifier& to);
-    void descHeapBuiltinRemap(TType* type, bool isInnerBlock);
+    void descHeapBuiltinRemap(TType* type, bool rootNode);
     bool untypedHeapCheck(TSymbol* symbol, const TType& type, const TSourceLoc& loc, const char* name);
     TIntermNode* declareBlock(const TSourceLoc&, TTypeList& typeList, const TString* instanceName = nullptr, TArraySizes* arraySizes = nullptr);
     void blockStorageRemap(const TSourceLoc&, const TString*, TQualifier&);
@@ -489,7 +490,7 @@ public:
     // Determine loop control from attributes
     void handleLoopAttributes(const TAttributes& attributes, TIntermNode*);
     // Function attributes
-    void handleFunctionAttributes(const TSourceLoc&, const TAttributes&);
+    void handleFunctionAttributes(const TSourceLoc&, TFunction&, const TAttributes&);
 
     // GL_EXT_spirv_intrinsics
     TSpirvRequirement* makeSpirvRequirement(const TSourceLoc& loc, const TString& name,
@@ -530,6 +531,32 @@ protected:
     virtual void setAtomicCounterBlockDefaults(TType& block) const override;
     virtual void setInvariant(const TSourceLoc& loc, const char* builtin) override;
 
+    // Returns true if the given long vector type is correctly parameterized.
+    // Otherwise emits an error and returns false.
+    template<typename TTYPE>
+    bool isValidLongVectorElseError(const TSourceLoc& loc, const TTYPE& type) {
+        assert(type.isLongVector());
+        const TTypeParameters* typeParams = type.getTypeParameters();
+        if (typeParams == nullptr) {
+            error(loc, "vector type missing type parameters", "", "");
+            return false;
+        }
+        const auto basicType = typeParams->basicType;
+        if (!isTypeInt(basicType) && !isTypeFloat(basicType) && basicType != EbtBool) {
+            error(loc, "invalid element type for vector", TType::getBasicString(typeParams->basicType), "");
+            return false;
+        }
+        if (typeParams->arraySizes == nullptr) {
+            error(loc, "vector type missing element count", "", "");
+            return false;
+        }
+        if (typeParams->arraySizes->getNumDims() != 1) {
+            error(loc, "vector type requires exactly 1 element count", "", "");
+            return false;
+        }
+        return true;
+    }
+
 public:
     //
     // Generally, bison productions, the scanner, and the PP need read/write access to these; just give them direct access
@@ -558,6 +585,7 @@ protected:
     TString currentCaller;        // name of last function body entered (not valid when at global scope)
     int* atomicUintOffsets;       // to become an array of the right size to hold an offset per binding point
     bool anyIndexLimits;
+    bool khrDerivativeLayoutQualifierSpecified;
     TIdSetType inductiveLoopIds;
     TVector<TIntermTyped*> needsIndexLimitationChecking;
     TStructRecord matrixFixRecord;

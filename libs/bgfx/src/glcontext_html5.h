@@ -21,9 +21,9 @@ namespace bgfx { namespace gl
 		{
 		}
 
-		void create(const Resolution& _resolution);
+		void create(const SwapChain& _swapChain, uint32_t _reset);
 		void destroy();
-		void resize(const Resolution& _resolution);
+		void resize(const SwapChain& _swapChain, uint32_t _reset);
 
 		uint64_t getCaps() const;
 		SwapChainGL* createSwapChain(void* _nwh, int32_t _width, int32_t _height);
@@ -31,7 +31,7 @@ namespace bgfx { namespace gl
 		void swap(SwapChainGL* _swapChain = NULL);
 		void makeCurrent(SwapChainGL* _swapChain = NULL);
 
-		void import(int webGLVersion);
+		void import();
 
 		bool isValid() const
 		{

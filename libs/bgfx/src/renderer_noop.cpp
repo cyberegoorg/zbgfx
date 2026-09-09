@@ -13,35 +13,22 @@ namespace bgfx { namespace noop
 		{
 			// Pretend all features are available.
 			g_caps.supported = 0
-				| BGFX_CAPS_ALPHA_TO_COVERAGE
 				| BGFX_CAPS_BLEND_INDEPENDENT
 				| BGFX_CAPS_COMPUTE
 				| BGFX_CAPS_CONSERVATIVE_RASTER
 				| BGFX_CAPS_DRAW_INDIRECT
 				| BGFX_CAPS_DRAW_INDIRECT_COUNT
-				| BGFX_CAPS_FRAGMENT_DEPTH
 				| BGFX_CAPS_FRAGMENT_ORDERING
 				| BGFX_CAPS_GRAPHICS_DEBUGGER
 				| BGFX_CAPS_HDR10
-				| BGFX_CAPS_HIDPI
 				| BGFX_CAPS_IMAGE_RW
 				| BGFX_CAPS_INDEX32
-				| BGFX_CAPS_INSTANCING
-				| BGFX_CAPS_OCCLUSION_QUERY
 				| BGFX_CAPS_PRIMITIVE_ID
 				| BGFX_CAPS_RENDERER_MULTITHREADED
 				| BGFX_CAPS_SWAP_CHAIN
-				| BGFX_CAPS_TEXTURE_2D_ARRAY
-				| BGFX_CAPS_TEXTURE_3D
-				| BGFX_CAPS_TEXTURE_BLIT
-				| BGFX_CAPS_TEXTURE_COMPARE_ALL
-				| BGFX_CAPS_TEXTURE_COMPARE_LEQUAL
 				| BGFX_CAPS_TEXTURE_CUBE_ARRAY
-				| BGFX_CAPS_TEXTURE_READ_BACK
 				| BGFX_CAPS_TRANSPARENT_BACKBUFFER
-				| BGFX_CAPS_VERTEX_ATTRIB_HALF
 				| BGFX_CAPS_VERTEX_ATTRIB_UINT10
-				| BGFX_CAPS_VERTEX_ID
 				| BGFX_CAPS_VIEWPORT_LAYER_ARRAY
 				;
 
@@ -75,6 +62,7 @@ namespace bgfx { namespace noop
 			g_caps.limits.maxComputeBindings = g_caps.limits.maxTextureSamplers;
 			g_caps.limits.maxFBAttachments   = BGFX_CONFIG_MAX_FRAME_BUFFER_ATTACHMENTS;
 			g_caps.limits.maxVertexStreams   = BGFX_CONFIG_MAX_VERTEX_STREAMS;
+			g_caps.limits.maxVertexAttributes = 32;
 		}
 
 		~RendererContextNOOP()
@@ -173,15 +161,19 @@ namespace bgfx { namespace noop
 		{
 		}
 
-		void readTexture(TextureHandle /*_handle*/, void* /*_data*/, uint8_t /*_mip*/) override
+		void clearTexture(TextureHandle /*_handle*/, uint8_t /*_mip*/, uint8_t /*_numMips*/, uint16_t /*_layer*/, uint16_t /*_numLayers*/) override
+		{
+		}
+
+		void readTexture(TextureHandle /*_handle*/, void* /*_data*/, uint16_t /*_layer*/, uint8_t /*_mip*/) override
+		{
+		}
+
+		void readBuffer(Handle /*_handle*/, void* /*_data*/, uint32_t /*_offset*/, uint32_t /*_size*/) override
 		{
 		}
 
 		void resizeTexture(TextureHandle /*_handle*/, uint16_t /*_width*/, uint16_t /*_height*/, uint8_t /*_numMips*/, uint16_t /*_numLayers*/) override
-		{
-		}
-
-		void overrideInternal(TextureHandle /*_handle*/, uintptr_t /*_ptr*/, uint16_t /*_layerIndex*/) override
 		{
 		}
 
@@ -198,7 +190,7 @@ namespace bgfx { namespace noop
 		{
 		}
 
-		void createFrameBuffer(FrameBufferHandle /*_handle*/, void* /*_nwh*/, uint32_t /*_width*/, uint32_t /*_height*/, TextureFormat::Enum /*_format*/, TextureFormat::Enum /*_depthFormat*/) override
+		void createFrameBuffer(FrameBufferHandle /*_handle*/, const SwapChain& /*_desc*/) override
 		{
 		}
 
@@ -238,7 +230,7 @@ namespace bgfx { namespace noop
 		{
 		}
 
-		void submit(Frame* _render, ClearQuad& /*_clearQuad*/, TextVideoMemBlitter& /*_textVideoMemBlitter*/) override
+		void submit(Frame* _render, const ClearQuad& /*_clearQuad*/, const MipGen& /*_mipGen*/, TextVideoMemBlitter& /*_textVideoMemBlitter*/) override
 		{
 			const int64_t timerFreq = bx::getHPFrequency();
 			const int64_t timeBegin = bx::getHPCounter();
@@ -259,7 +251,7 @@ namespace bgfx { namespace noop
 			perfStats.gpuMemoryUsed = -INT64_MAX;
 		}
 
-		void dbgTextRenderBegin(TextVideoMemBlitter& /*_blitter*/) override
+		void dbgTextRenderBegin(TextVideoMemBlitter& /*_blitter*/, FrameBufferHandle /*_handle*/) override
 		{
 		}
 

@@ -1,7 +1,7 @@
 const std = @import("std");
 
 fn prefixToPlatform(prefix: []const u8) []const u8 {
-    if (std.mem.eql(u8, prefix, "dx11")) return "Direct3D11";
+    if (std.mem.eql(u8, prefix, "dxbc")) return "Direct3D11";
     if (std.mem.eql(u8, prefix, "dxil")) return "Direct3D12";
     if (std.mem.eql(u8, prefix, "mtl")) return "Metal";
     if (std.mem.eql(u8, prefix, "spv")) return "Vulkan";

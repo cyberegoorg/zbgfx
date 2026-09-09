@@ -50,6 +50,29 @@ BGFX_C99_STRUCT_SIZE_CHECK(bgfx::InternalData,          bgfx_internal_data_t);
 
 #undef BGFX_C99_STRUCT_SIZE_CHECK
 
+#if BGFX_CONFIG_C99_API
+
+BGFX_C_API void bgfx_texture_region_init(bgfx_texture_region_t* _this, bgfx_texture_handle_t _handle, uint16_t _x, uint16_t _y, uint16_t _width, uint16_t _height)
+{
+	bgfx::TextureRegion* This = (bgfx::TextureRegion*)_this;
+	union { bgfx_texture_handle_t c; bgfx::TextureHandle cpp; } handle = { _handle };
+	This->init(handle.cpp, _x, _y, _width, _height);
+}
+
+BGFX_C_API void bgfx_buffer_region_init_texture(bgfx_buffer_region_t* _this, const bgfx_texture_region_t * _texture)
+{
+	bgfx::BufferRegion* This = (bgfx::BufferRegion*)_this;
+	const bgfx::TextureRegion & texture = *(const bgfx::TextureRegion *)_texture;
+	This->init(texture);
+}
+
+BGFX_C_API void bgfx_buffer_region_init_buffer(bgfx_buffer_region_t* _this, bgfx_buffer_handle_t _handle, uint32_t _offset, uint32_t _size)
+{
+	bgfx::BufferRegion* This = (bgfx::BufferRegion*)_this;
+	union { bgfx_buffer_handle_t c; bgfx::BufferHandle cpp; } handle = { _handle };
+	This->init(handle.cpp, _offset, _size);
+}
+
 BGFX_C_API void bgfx_attachment_init(bgfx_attachment_t* _this, bgfx_texture_handle_t _handle, bgfx_access_t _access, uint16_t _layer, uint16_t _numLayers, uint16_t _mip, uint8_t _resolve)
 {
 	bgfx::Attachment* This = (bgfx::Attachment*)_this;
@@ -132,12 +155,6 @@ BGFX_C_API void bgfx_vertex_convert(const bgfx_vertex_layout_t * _dstLayout, voi
 	bgfx::vertexConvert(dstLayout, _dstData, srcLayout, _srcData, _num);
 }
 
-BGFX_C_API uint32_t bgfx_weld_vertices(void* _output, const bgfx_vertex_layout_t * _layout, const void* _data, uint32_t _num, bool _index32, float _epsilon)
-{
-	const bgfx::VertexLayout & layout = *(const bgfx::VertexLayout *)_layout;
-	return bgfx::weldVertices(_output, layout, _data, _num, _index32, _epsilon);
-}
-
 BGFX_C_API uint32_t bgfx_topology_convert(bgfx_topology_convert_t _conversion, void* _dst, uint32_t _dstSize, const void* _indices, uint32_t _numIndices, bool _index32)
 {
 	return bgfx::topologyConvert((bgfx::TopologyConvert::Enum)_conversion, _dst, _dstSize, _indices, _numIndices, _index32);
@@ -167,9 +184,9 @@ BGFX_C_API void bgfx_shutdown(void)
 	bgfx::shutdown();
 }
 
-BGFX_C_API void bgfx_reset(uint32_t _width, uint32_t _height, uint32_t _flags, bgfx_texture_format_t _format)
+BGFX_C_API void bgfx_reset(uint32_t _flags, const bgfx_swap_chain_t* _swapChain)
 {
-	bgfx::reset(_width, _height, _flags, (bgfx::TextureFormat::Enum)_format);
+	bgfx::reset(_flags, (const bgfx::SwapChain*)_swapChain);
 }
 
 BGFX_C_API uint32_t bgfx_frame(uint8_t _flags)
@@ -212,9 +229,10 @@ BGFX_C_API const bgfx_memory_t* bgfx_make_ref_release(const void* _data, uint32_
 	return (const bgfx_memory_t*)bgfx::makeRef(_data, _size, (bgfx::ReleaseFn)_releaseFn, _userData);
 }
 
-BGFX_C_API void bgfx_set_debug(uint32_t _debug)
+BGFX_C_API void bgfx_set_debug(uint32_t _debug, bgfx_frame_buffer_handle_t _handle, uint8_t _scale)
 {
-	bgfx::setDebug(_debug);
+	union { bgfx_frame_buffer_handle_t c; bgfx::FrameBufferHandle cpp; } handle = { _handle };
+	bgfx::setDebug(_debug, handle.cpp, _scale);
 }
 
 BGFX_C_API void bgfx_dbg_text_clear(uint8_t _attr, bool _small)
@@ -245,6 +263,12 @@ BGFX_C_API bgfx_index_buffer_handle_t bgfx_create_index_buffer(const bgfx_memory
 	union { bgfx_index_buffer_handle_t c; bgfx::IndexBufferHandle cpp; } handle_ret;
 	handle_ret.cpp = bgfx::createIndexBuffer((const bgfx::Memory*)_mem, _flags);
 	return handle_ret.c;
+}
+
+BGFX_C_API uint32_t bgfx_read_buffer(const bgfx_buffer_region_t * _src, void* _data)
+{
+	const bgfx::BufferRegion & src = *(const bgfx::BufferRegion *)_src;
+	return bgfx::read(src, _data);
 }
 
 BGFX_C_API void bgfx_set_index_buffer_name(bgfx_index_buffer_handle_t _handle, const char* _name, int32_t _len)
@@ -451,6 +475,11 @@ BGFX_C_API bool bgfx_is_texture_valid(uint16_t _depth, bool _cubeMap, uint16_t _
 	return bgfx::isTextureValid(_depth, _cubeMap, _numLayers, (bgfx::TextureFormat::Enum)_format, _flags);
 }
 
+BGFX_C_API bool bgfx_is_video_codec_valid(bgfx_video_codec_t _codec, uint8_t _chroma, uint8_t _bitDepth, uint16_t _codedWidth, uint16_t _codedHeight, uint8_t _maxDpbSlots, uint8_t _maxActiveReferences)
+{
+	return bgfx::isVideoCodecValid((bgfx::VideoCodec::Enum)_codec, _chroma, _bitDepth, _codedWidth, _codedHeight, _maxDpbSlots, _maxActiveReferences);
+}
+
 BGFX_C_API bool bgfx_is_frame_buffer_valid(uint8_t _num, const bgfx_attachment_t* _attachment)
 {
 	return bgfx::isFrameBufferValid(_num, (const bgfx::Attachment*)_attachment);
@@ -515,10 +544,16 @@ BGFX_C_API void bgfx_update_texture_cube(bgfx_texture_handle_t _handle, uint16_t
 	bgfx::updateTextureCube(handle.cpp, _layer, _side, _mip, _x, _y, _width, _height, (const bgfx::Memory*)_mem, _pitch);
 }
 
-BGFX_C_API uint32_t bgfx_read_texture(bgfx_texture_handle_t _handle, void* _data, uint8_t _mip)
+BGFX_C_API void bgfx_clear_texture(bgfx_texture_handle_t _handle, uint8_t _mip, uint8_t _numMips, uint16_t _layer, uint16_t _numLayers)
 {
 	union { bgfx_texture_handle_t c; bgfx::TextureHandle cpp; } handle = { _handle };
-	return bgfx::readTexture(handle.cpp, _data, _mip);
+	bgfx::clear(handle.cpp, _mip, _numMips, _layer, _numLayers);
+}
+
+BGFX_C_API uint32_t bgfx_read_texture(const bgfx_texture_region_t * _src, void* _data)
+{
+	const bgfx::TextureRegion & src = *(const bgfx::TextureRegion *)_src;
+	return bgfx::read(src, _data);
 }
 
 BGFX_C_API void bgfx_set_texture_name(bgfx_texture_handle_t _handle, const char* _name, int32_t _len)
@@ -567,11 +602,19 @@ BGFX_C_API bgfx_frame_buffer_handle_t bgfx_create_frame_buffer_from_attachment(u
 	return handle_ret.c;
 }
 
-BGFX_C_API bgfx_frame_buffer_handle_t bgfx_create_frame_buffer_from_nwh(void* _nwh, uint16_t _width, uint16_t _height, bgfx_texture_format_t _format, bgfx_texture_format_t _depthFormat)
+BGFX_C_API bgfx_frame_buffer_handle_t bgfx_create_frame_buffer_from_swap_chain(const bgfx_swap_chain_t* _desc)
 {
+	const bgfx::SwapChain& desc = *(const bgfx::SwapChain*)_desc;
 	union { bgfx_frame_buffer_handle_t c; bgfx::FrameBufferHandle cpp; } handle_ret;
-	handle_ret.cpp = bgfx::createFrameBuffer(_nwh, _width, _height, (bgfx::TextureFormat::Enum)_format, (bgfx::TextureFormat::Enum)_depthFormat);
+	handle_ret.cpp = bgfx::createFrameBuffer(desc);
 	return handle_ret.c;
+}
+
+BGFX_C_API void bgfx_update_swap_chain(bgfx_frame_buffer_handle_t _handle, const bgfx_swap_chain_t* _desc)
+{
+	union { bgfx_frame_buffer_handle_t c; bgfx::FrameBufferHandle cpp; } handle = { _handle };
+	const bgfx::SwapChain& desc = *(const bgfx::SwapChain*)_desc;
+	bgfx::updateSwapChain(handle.cpp, desc);
 }
 
 BGFX_C_API void bgfx_set_frame_buffer_name(bgfx_frame_buffer_handle_t _handle, const char* _name, int32_t _len)
@@ -660,12 +703,12 @@ BGFX_C_API void bgfx_set_view_name(bgfx_view_id_t _id, const char* _name, int32_
 	bgfx::setViewName((bgfx::ViewId)_id, _name, _len);
 }
 
-BGFX_C_API void bgfx_set_view_rect(bgfx_view_id_t _id, uint16_t _x, uint16_t _y, uint16_t _width, uint16_t _height)
+BGFX_C_API void bgfx_set_view_rect(bgfx_view_id_t _id, int16_t _x, int16_t _y, uint16_t _width, uint16_t _height)
 {
 	bgfx::setViewRect((bgfx::ViewId)_id, _x, _y, _width, _height);
 }
 
-BGFX_C_API void bgfx_set_view_rect_ratio(bgfx_view_id_t _id, uint16_t _x, uint16_t _y, bgfx_backbuffer_ratio_t _ratio)
+BGFX_C_API void bgfx_set_view_rect_ratio(bgfx_view_id_t _id, int16_t _x, int16_t _y, bgfx_backbuffer_ratio_t _ratio)
 {
 	bgfx::setViewRect((bgfx::ViewId)_id, _x, _y, (bgfx::BackbufferRatio::Enum)_ratio);
 }
@@ -903,6 +946,14 @@ BGFX_C_API void bgfx_encoder_set_texture(bgfx_encoder_t* _this, uint8_t _stage, 
 	This->setTexture(_stage, sampler.cpp, handle.cpp, _flags);
 }
 
+BGFX_C_API void bgfx_encoder_set_texture_view(bgfx_encoder_t* _this, uint8_t _stage, bgfx_uniform_handle_t _sampler, bgfx_texture_handle_t _handle, uint16_t _firstLayer, uint16_t _numLayers, uint8_t _firstMip, uint8_t _numMips, uint32_t _flags)
+{
+	bgfx::Encoder* This = (bgfx::Encoder*)_this;
+	union { bgfx_uniform_handle_t c; bgfx::UniformHandle cpp; } sampler = { _sampler };
+	union { bgfx_texture_handle_t c; bgfx::TextureHandle cpp; } handle = { _handle };
+	This->setTexture(_stage, sampler.cpp, handle.cpp, _firstLayer, _numLayers, _firstMip, _numMips, _flags);
+}
+
 BGFX_C_API void bgfx_encoder_touch(bgfx_encoder_t* _this, bgfx_view_id_t _id)
 {
 	bgfx::Encoder* This = (bgfx::Encoder*)_this;
@@ -983,6 +1034,13 @@ BGFX_C_API void bgfx_encoder_set_image(bgfx_encoder_t* _this, uint8_t _stage, bg
 	This->setImage(_stage, handle.cpp, _mip, (bgfx::Access::Enum)_access, (bgfx::TextureFormat::Enum)_format);
 }
 
+BGFX_C_API void bgfx_encoder_set_image_view(bgfx_encoder_t* _this, uint8_t _stage, bgfx_texture_handle_t _handle, uint16_t _firstLayer, uint16_t _numLayers, uint8_t _mip, bgfx_access_t _access, bgfx_texture_format_t _format)
+{
+	bgfx::Encoder* This = (bgfx::Encoder*)_this;
+	union { bgfx_texture_handle_t c; bgfx::TextureHandle cpp; } handle = { _handle };
+	This->setImage(_stage, handle.cpp, _firstLayer, _numLayers, _mip, (bgfx::Access::Enum)_access, (bgfx::TextureFormat::Enum)_format);
+}
+
 BGFX_C_API void bgfx_encoder_dispatch(bgfx_encoder_t* _this, bgfx_view_id_t _id, bgfx_program_handle_t _program, uint32_t _numX, uint32_t _numY, uint32_t _numZ, uint8_t _flags)
 {
 	bgfx::Encoder* This = (bgfx::Encoder*)_this;
@@ -1004,12 +1062,36 @@ BGFX_C_API void bgfx_encoder_discard(bgfx_encoder_t* _this, uint8_t _flags)
 	This->discard(_flags);
 }
 
-BGFX_C_API void bgfx_encoder_blit(bgfx_encoder_t* _this, bgfx_view_id_t _id, bgfx_texture_handle_t _dst, uint8_t _dstMip, uint16_t _dstX, uint16_t _dstY, uint16_t _dstZ, bgfx_texture_handle_t _src, uint8_t _srcMip, uint16_t _srcX, uint16_t _srcY, uint16_t _srcZ, uint16_t _width, uint16_t _height, uint16_t _depth)
+BGFX_C_API void bgfx_encoder_blit(bgfx_encoder_t* _this, bgfx_view_id_t _id, const bgfx_texture_region_t * _dst, const bgfx_texture_region_t * _src)
 {
 	bgfx::Encoder* This = (bgfx::Encoder*)_this;
-	union { bgfx_texture_handle_t c; bgfx::TextureHandle cpp; } dst = { _dst };
-	union { bgfx_texture_handle_t c; bgfx::TextureHandle cpp; } src = { _src };
-	This->blit((bgfx::ViewId)_id, dst.cpp, _dstMip, _dstX, _dstY, _dstZ, src.cpp, _srcMip, _srcX, _srcY, _srcZ, _width, _height, _depth);
+	const bgfx::TextureRegion & dst = *(const bgfx::TextureRegion *)_dst;
+	const bgfx::TextureRegion & src = *(const bgfx::TextureRegion *)_src;
+	This->blit((bgfx::ViewId)_id, dst, src);
+}
+
+BGFX_C_API void bgfx_encoder_blit_buffer(bgfx_encoder_t* _this, bgfx_view_id_t _id, const bgfx_buffer_region_t * _dst, const bgfx_buffer_region_t * _src)
+{
+	bgfx::Encoder* This = (bgfx::Encoder*)_this;
+	const bgfx::BufferRegion & dst = *(const bgfx::BufferRegion *)_dst;
+	const bgfx::BufferRegion & src = *(const bgfx::BufferRegion *)_src;
+	This->blit((bgfx::ViewId)_id, dst, src);
+}
+
+BGFX_C_API void bgfx_encoder_blit_to_buffer(bgfx_encoder_t* _this, bgfx_view_id_t _id, const bgfx_buffer_region_t * _dst, const bgfx_texture_region_t * _src)
+{
+	bgfx::Encoder* This = (bgfx::Encoder*)_this;
+	const bgfx::BufferRegion & dst = *(const bgfx::BufferRegion *)_dst;
+	const bgfx::TextureRegion & src = *(const bgfx::TextureRegion *)_src;
+	This->blit((bgfx::ViewId)_id, dst, src);
+}
+
+BGFX_C_API void bgfx_encoder_blit_from_buffer(bgfx_encoder_t* _this, bgfx_view_id_t _id, const bgfx_texture_region_t * _dst, const bgfx_buffer_region_t * _src)
+{
+	bgfx::Encoder* This = (bgfx::Encoder*)_this;
+	const bgfx::TextureRegion & dst = *(const bgfx::TextureRegion *)_dst;
+	const bgfx::BufferRegion & src = *(const bgfx::BufferRegion *)_src;
+	This->blit((bgfx::ViewId)_id, dst, src);
 }
 
 BGFX_C_API void bgfx_request_screen_shot(bgfx_frame_buffer_handle_t _handle, const char* _filePath)
@@ -1023,27 +1105,9 @@ BGFX_C_API bgfx_render_frame_t bgfx_render_frame(int32_t _msecs)
 	return (bgfx_render_frame_t)bgfx::renderFrame(_msecs);
 }
 
-BGFX_C_API void bgfx_set_platform_data(const bgfx_platform_data_t * _data)
-{
-	const bgfx::PlatformData & data = *(const bgfx::PlatformData *)_data;
-	bgfx::setPlatformData(data);
-}
-
 BGFX_C_API const bgfx_internal_data_t* bgfx_get_internal_data(void)
 {
 	return (const bgfx_internal_data_t*)bgfx::getInternalData();
-}
-
-BGFX_C_API uintptr_t bgfx_override_internal_texture_ptr(bgfx_texture_handle_t _handle, uintptr_t _ptr, uint16_t _layerIndex)
-{
-	union { bgfx_texture_handle_t c; bgfx::TextureHandle cpp; } handle = { _handle };
-	return bgfx::overrideInternal(handle.cpp, _ptr, _layerIndex);
-}
-
-BGFX_C_API uintptr_t bgfx_override_internal_texture(bgfx_texture_handle_t _handle, uint16_t _width, uint16_t _height, uint8_t _numMips, bgfx_texture_format_t _format, uint64_t _flags)
-{
-	union { bgfx_texture_handle_t c; bgfx::TextureHandle cpp; } handle = { _handle };
-	return bgfx::overrideInternal(handle.cpp, _width, _height, _numMips, (bgfx::TextureFormat::Enum)_format, _flags);
 }
 
 BGFX_C_API void bgfx_set_marker(const char* _name, int32_t _len)
@@ -1186,6 +1250,13 @@ BGFX_C_API void bgfx_set_texture(uint8_t _stage, bgfx_uniform_handle_t _sampler,
 	bgfx::setTexture(_stage, sampler.cpp, handle.cpp, _flags);
 }
 
+BGFX_C_API void bgfx_set_texture_view(uint8_t _stage, bgfx_uniform_handle_t _sampler, bgfx_texture_handle_t _handle, uint16_t _firstLayer, uint16_t _numLayers, uint8_t _firstMip, uint8_t _numMips, uint32_t _flags)
+{
+	union { bgfx_uniform_handle_t c; bgfx::UniformHandle cpp; } sampler = { _sampler };
+	union { bgfx_texture_handle_t c; bgfx::TextureHandle cpp; } handle = { _handle };
+	bgfx::setTexture(_stage, sampler.cpp, handle.cpp, _firstLayer, _numLayers, _firstMip, _numMips, _flags);
+}
+
 BGFX_C_API void bgfx_touch(bgfx_view_id_t _id)
 {
 	bgfx::touch((bgfx::ViewId)_id);
@@ -1255,6 +1326,12 @@ BGFX_C_API void bgfx_set_image(uint8_t _stage, bgfx_texture_handle_t _handle, ui
 	bgfx::setImage(_stage, handle.cpp, _mip, (bgfx::Access::Enum)_access, (bgfx::TextureFormat::Enum)_format);
 }
 
+BGFX_C_API void bgfx_set_image_view(uint8_t _stage, bgfx_texture_handle_t _handle, uint16_t _firstLayer, uint16_t _numLayers, uint8_t _mip, bgfx_access_t _access, bgfx_texture_format_t _format)
+{
+	union { bgfx_texture_handle_t c; bgfx::TextureHandle cpp; } handle = { _handle };
+	bgfx::setImage(_stage, handle.cpp, _firstLayer, _numLayers, _mip, (bgfx::Access::Enum)_access, (bgfx::TextureFormat::Enum)_format);
+}
+
 BGFX_C_API void bgfx_dispatch(bgfx_view_id_t _id, bgfx_program_handle_t _program, uint32_t _numX, uint32_t _numY, uint32_t _numZ, uint8_t _flags)
 {
 	union { bgfx_program_handle_t c; bgfx::ProgramHandle cpp; } program = { _program };
@@ -1273,11 +1350,32 @@ BGFX_C_API void bgfx_discard(uint8_t _flags)
 	bgfx::discard(_flags);
 }
 
-BGFX_C_API void bgfx_blit(bgfx_view_id_t _id, bgfx_texture_handle_t _dst, uint8_t _dstMip, uint16_t _dstX, uint16_t _dstY, uint16_t _dstZ, bgfx_texture_handle_t _src, uint8_t _srcMip, uint16_t _srcX, uint16_t _srcY, uint16_t _srcZ, uint16_t _width, uint16_t _height, uint16_t _depth)
+BGFX_C_API void bgfx_blit(bgfx_view_id_t _id, const bgfx_texture_region_t * _dst, const bgfx_texture_region_t * _src)
 {
-	union { bgfx_texture_handle_t c; bgfx::TextureHandle cpp; } dst = { _dst };
-	union { bgfx_texture_handle_t c; bgfx::TextureHandle cpp; } src = { _src };
-	bgfx::blit((bgfx::ViewId)_id, dst.cpp, _dstMip, _dstX, _dstY, _dstZ, src.cpp, _srcMip, _srcX, _srcY, _srcZ, _width, _height, _depth);
+	const bgfx::TextureRegion & dst = *(const bgfx::TextureRegion *)_dst;
+	const bgfx::TextureRegion & src = *(const bgfx::TextureRegion *)_src;
+	bgfx::blit((bgfx::ViewId)_id, dst, src);
+}
+
+BGFX_C_API void bgfx_blit_buffer(bgfx_view_id_t _id, const bgfx_buffer_region_t * _dst, const bgfx_buffer_region_t * _src)
+{
+	const bgfx::BufferRegion & dst = *(const bgfx::BufferRegion *)_dst;
+	const bgfx::BufferRegion & src = *(const bgfx::BufferRegion *)_src;
+	bgfx::blit((bgfx::ViewId)_id, dst, src);
+}
+
+BGFX_C_API void bgfx_blit_to_buffer(bgfx_view_id_t _id, const bgfx_buffer_region_t * _dst, const bgfx_texture_region_t * _src)
+{
+	const bgfx::BufferRegion & dst = *(const bgfx::BufferRegion *)_dst;
+	const bgfx::TextureRegion & src = *(const bgfx::TextureRegion *)_src;
+	bgfx::blit((bgfx::ViewId)_id, dst, src);
+}
+
+BGFX_C_API void bgfx_blit_from_buffer(bgfx_view_id_t _id, const bgfx_texture_region_t * _dst, const bgfx_buffer_region_t * _src)
+{
+	const bgfx::TextureRegion & dst = *(const bgfx::TextureRegion *)_dst;
+	const bgfx::BufferRegion & src = *(const bgfx::BufferRegion *)_src;
+	bgfx::blit((bgfx::ViewId)_id, dst, src);
 }
 
 
@@ -1320,6 +1418,9 @@ BGFX_C_API bgfx_interface_vtbl_t* bgfx_get_interface(uint32_t _version)
 	{
 		static bgfx_interface_vtbl_t s_bgfx_interface =
 		{
+			bgfx_texture_region_init,
+			bgfx_buffer_region_init_texture,
+			bgfx_buffer_region_init_buffer,
 			bgfx_attachment_init,
 			bgfx_vertex_layout_begin,
 			bgfx_vertex_layout_add,
@@ -1333,7 +1434,6 @@ BGFX_C_API bgfx_interface_vtbl_t* bgfx_get_interface(uint32_t _version)
 			bgfx_vertex_pack,
 			bgfx_vertex_unpack,
 			bgfx_vertex_convert,
-			bgfx_weld_vertices,
 			bgfx_topology_convert,
 			bgfx_topology_sort_tri_list,
 			bgfx_get_supported_renderers,
@@ -1356,6 +1456,7 @@ BGFX_C_API bgfx_interface_vtbl_t* bgfx_get_interface(uint32_t _version)
 			bgfx_dbg_text_vprintf,
 			bgfx_dbg_text_image,
 			bgfx_create_index_buffer,
+			bgfx_read_buffer,
 			bgfx_set_index_buffer_name,
 			bgfx_destroy_index_buffer,
 			bgfx_create_vertex_layout,
@@ -1388,6 +1489,7 @@ BGFX_C_API bgfx_interface_vtbl_t* bgfx_get_interface(uint32_t _version)
 			bgfx_create_compute_program,
 			bgfx_destroy_program,
 			bgfx_is_texture_valid,
+			bgfx_is_video_codec_valid,
 			bgfx_is_frame_buffer_valid,
 			bgfx_calc_texture_size,
 			bgfx_create_texture,
@@ -1398,6 +1500,7 @@ BGFX_C_API bgfx_interface_vtbl_t* bgfx_get_interface(uint32_t _version)
 			bgfx_update_texture_2d,
 			bgfx_update_texture_3d,
 			bgfx_update_texture_cube,
+			bgfx_clear_texture,
 			bgfx_read_texture,
 			bgfx_set_texture_name,
 			bgfx_get_direct_access_ptr,
@@ -1406,7 +1509,8 @@ BGFX_C_API bgfx_interface_vtbl_t* bgfx_get_interface(uint32_t _version)
 			bgfx_create_frame_buffer_scaled,
 			bgfx_create_frame_buffer_from_handles,
 			bgfx_create_frame_buffer_from_attachment,
-			bgfx_create_frame_buffer_from_nwh,
+			bgfx_create_frame_buffer_from_swap_chain,
+			bgfx_update_swap_chain,
 			bgfx_set_frame_buffer_name,
 			bgfx_get_texture,
 			bgfx_destroy_frame_buffer,
@@ -1461,6 +1565,7 @@ BGFX_C_API bgfx_interface_vtbl_t* bgfx_get_interface(uint32_t _version)
 			bgfx_encoder_set_instance_data_from_dynamic_vertex_buffer,
 			bgfx_encoder_set_instance_count,
 			bgfx_encoder_set_texture,
+			bgfx_encoder_set_texture_view,
 			bgfx_encoder_touch,
 			bgfx_encoder_submit,
 			bgfx_encoder_submit_occlusion_query,
@@ -1472,16 +1577,17 @@ BGFX_C_API bgfx_interface_vtbl_t* bgfx_get_interface(uint32_t _version)
 			bgfx_encoder_set_compute_dynamic_vertex_buffer,
 			bgfx_encoder_set_compute_indirect_buffer,
 			bgfx_encoder_set_image,
+			bgfx_encoder_set_image_view,
 			bgfx_encoder_dispatch,
 			bgfx_encoder_dispatch_indirect,
 			bgfx_encoder_discard,
 			bgfx_encoder_blit,
+			bgfx_encoder_blit_buffer,
+			bgfx_encoder_blit_to_buffer,
+			bgfx_encoder_blit_from_buffer,
 			bgfx_request_screen_shot,
 			bgfx_render_frame,
-			bgfx_set_platform_data,
 			bgfx_get_internal_data,
-			bgfx_override_internal_texture_ptr,
-			bgfx_override_internal_texture,
 			bgfx_set_marker,
 			bgfx_set_state,
 			bgfx_set_condition,
@@ -1507,6 +1613,7 @@ BGFX_C_API bgfx_interface_vtbl_t* bgfx_get_interface(uint32_t _version)
 			bgfx_set_instance_data_from_dynamic_vertex_buffer,
 			bgfx_set_instance_count,
 			bgfx_set_texture,
+			bgfx_set_texture_view,
 			bgfx_touch,
 			bgfx_submit,
 			bgfx_submit_occlusion_query,
@@ -1518,10 +1625,14 @@ BGFX_C_API bgfx_interface_vtbl_t* bgfx_get_interface(uint32_t _version)
 			bgfx_set_compute_dynamic_vertex_buffer,
 			bgfx_set_compute_indirect_buffer,
 			bgfx_set_image,
+			bgfx_set_image_view,
 			bgfx_dispatch,
 			bgfx_dispatch_indirect,
 			bgfx_discard,
-			bgfx_blit
+			bgfx_blit,
+			bgfx_blit_buffer,
+			bgfx_blit_to_buffer,
+			bgfx_blit_from_buffer
 		};
 
 		return &s_bgfx_interface;
@@ -1529,3 +1640,5 @@ BGFX_C_API bgfx_interface_vtbl_t* bgfx_get_interface(uint32_t _version)
 
 	return NULL;
 }
+
+#endif // BGFX_CONFIG_C99_API

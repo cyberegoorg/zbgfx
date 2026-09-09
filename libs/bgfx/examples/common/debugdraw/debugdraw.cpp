@@ -13,7 +13,6 @@
 #include <bx/mutex.h>
 #include <bx/math.h>
 #include <bx/sort.h>
-#include <bx/uint32_t.h>
 #include <bx/handlealloc.h>
 
 #ifndef DEBUG_DRAW_CONFIG_MAX_GEOMETRY
@@ -290,7 +289,7 @@ uint32_t genSphere(uint8_t _subdiv0, void* _pos0 = NULL, uint16_t _posStride0 = 
 		} gen(_pos0, _posStride0, _normals0, _normalStride0, _subdiv0);
 	}
 
-	uint32_t numVertices = 20*3*bx::uint32_max(1, (uint32_t)bx::pow(4.0f, _subdiv0) );
+	uint32_t numVertices = 20*3*bx::max(1, (uint32_t)bx::pow(4.0f, _subdiv0) );
 	return numVertices;
 }
 
@@ -1133,9 +1132,9 @@ struct DebugDrawEncoderImpl
 
 		bgfx::Transform transform;
 		stack.mtx  = m_encoder->allocTransform(&transform, _num);
-		stack.num  = _num;
+		stack.num  = transform.num;
 		stack.data = transform.data;
-		bx::memCopy(transform.data, _mtx, _num*64);
+		bx::memCopy(transform.data, _mtx, transform.num*64);
 	}
 
 	void setTranslate(float _x, float _y, float _z)
@@ -1651,7 +1650,7 @@ struct DebugDrawEncoderImpl
 	void drawFrustum(const float* _viewProj)
 	{
 		bx::Plane planes[6] = { bx::InitNone, bx::InitNone, bx::InitNone, bx::InitNone, bx::InitNone, bx::InitNone };
-		buildFrustumPlanes(planes, _viewProj);
+		buildFrustumPlanes(planes, _viewProj, bgfx::getCaps()->homogeneousDepth);
 
 		const bx::Vec3 points[8] =
 		{
