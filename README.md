@@ -38,9 +38,17 @@ Minimal is `0.16.0`. But you know try your version and believe.
 
 ## Bgfx version
 
-- [BX](https://github.com/bkaradzic/bx/compare/98ad3bec2a7ee1a5cbabdcabc25252572dcb1d88...master)
+See `build.zig.zon` for pinned commits.
+
+- [BX](https://github.com/bkaradzic/bx/compare/f86bece7967be1b8a7fd39262cdc8ce99d123c3b...master)
 - [BImg](https://github.com/bkaradzic/bimg/compare/ddbeeae05779f84f97694553eb41605a60f86f0a...master)
-- [BGFX](https://github.com/bkaradzic/bgfx/compare/a5a3d30421c38c369b5946fa174f7a14b1a60bf9...master)
+- [BGFX](https://github.com/bkaradzic/bgfx/compare/9499caafb06706715da78a7436a85de00ffc2497...master)
+
+### Upgrade BGFX by your self.
+- Uncomment deps in `build.zig.zon`.
+- Change commit ref and hash for deps you need.
+- `zig build -Dwith_sync sync`.
+- `zig build`.
 
 ## Useful tools
 - [bgfx_shader_analyzer](https://github.com/r0ckHopper/bgfx_shader_analyzer) - LSP for bgfx shaders.
@@ -97,7 +105,7 @@ zig build
 Minimal setup with GLFW for window and input.
 
 ```sh
-examples/zig-out/bin/minimal-glfw
+zig-out/bin/minimal-glfw
 ```
 
 | Key | Description  |
@@ -110,7 +118,7 @@ examples/zig-out/bin/minimal-glfw
 Basic usage of shaders compiled in build and embed to zig module.
 
 ```sh
-examples/zig-out/bin/shader-embed
+zig-out/bin/shader-embed
 ```
 
 | Key | Description  |
@@ -124,7 +132,7 @@ Basic usage of shader compile in runtime.
 Try edit shaders in `zig-out/bin/shaders` and hit `r` to recompile.
 
 ```sh
-examples/zig-out/bin/shader-runtime
+zig-out/bin/shader-runtime
 ```
 
 | Key | Description                 |
@@ -138,7 +146,7 @@ examples/zig-out/bin/shader-runtime
 Minimal setup for zgui/ImGui.
 
 ```sh
-examples/zig-out/bin/zgui
+zig-out/bin/zgui
 ```
 
 | Key | Description  |
@@ -151,7 +159,7 @@ examples/zig-out/bin/zgui
 DebugDraw api usage example.
 
 ```sh
-examples/zig-out/bin/debugdraw
+zig-out/bin/debugdraw
 ```
 
 | Key | Description  |
