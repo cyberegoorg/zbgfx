@@ -272,7 +272,7 @@ pub fn main(init: std.process.Init) anyerror!u8 {
         //  Preapare view
         //
         bgfx.setViewTransform(0, &zm.matToArr(viewMtx), &zm.matToArr(projMtx));
-        bgfx.setViewRect(0, 0, 0, @intCast(size[0]), @intCast(size[1]));
+        bgfx.setViewRect(0, 0, 0, @intCast(size[0]), @intCast(size[1]), 0, 1);
         bgfx.touch(0);
         bgfx.dbgTextClear(0, false);
 

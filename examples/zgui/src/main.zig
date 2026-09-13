@@ -185,7 +185,7 @@ pub fn main(init: std.process.Init) anyerror!u8 {
             old_flags = reset_flags;
         }
 
-        bgfx.setViewRect(0, 0, 0, @intCast(size[0]), @intCast(size[1]));
+        bgfx.setViewRect(0, 0, 0, @intCast(size[0]), @intCast(size[1]), 0, 1);
         bgfx.touch(0);
         bgfx.dbgTextClear(0, false);
 
