@@ -1,4 +1,5 @@
 const std = @import("std");
+const testing = std.testing;
 const bgfx = @import("bgfx");
 const builtin = @import("builtin");
 
@@ -8,24 +9,87 @@ const Self = @This();
 
 //
 // Allocator
-// FIXME: Does not work because `panic: integer cast truncated bits` from true zig allocator.
 //
 
 pub const CAllocInterfaceT = extern struct { vtable: *const CAllocVtblT };
 pub const CAllocVtblT = extern struct {
-    realloc: *const fn (_this: *CAllocInterfaceT, _ptr: [*c]u8, _size: usize, _align: usize, _file: [*:0]const u8, _line: u32) callconv(.c) ?*anyopaque,
+    realloc: *const fn (_this: *CAllocInterfaceT, _ptr: [*c]u8, _size: usize, _align: usize, _file: [*:0]const u8, _line: u32) callconv(.c) [*c]u8,
 };
 
 pub const ZigAllocatorVtbl = extern struct {
-    fn realloc(_this: *CAllocInterfaceT, _ptr: [*c]u8, _size: usize, _align: usize, _file: [*:0]const u8, _line: u32) callconv(.c) ?*anyopaque {
+    fn realloc(_this: *CAllocInterfaceT, _ptr: [*c]u8, _size: usize, _align: usize, _file: [*:0]const u8, _line: u32) callconv(.c) [*c]u8 {
         var self: *ZigAllocator = @ptrCast(_this);
         _ = _file; // autofix
         _ = _line; // autofix
 
+        const alloc_align = ZigAllocator.getAllocationAlignment(_align);
+        const alignment = std.mem.Alignment.fromByteUnits(alloc_align);
+
         if (_size != 0) {
-            return self.allocator.rawAlloc(_size, @truncate(_align), 0);
+            const alloc_size = ZigAllocator.getAllocationSize(_size, alloc_align);
+
+            if (_ptr) |ptr| {
+                // realloc
+
+                const base_ptr = ZigAllocator.getBasePointer(ptr, alloc_align);
+                var header_ptr = ZigAllocator.getHeaderPointer(base_ptr);
+
+                const old_size = header_ptr.size;
+                const old_mem = base_ptr[0..header_ptr.size];
+
+                const new_mem = blk: {
+                    if (self.allocator.rawRemap(old_mem, alignment, alloc_size, @returnAddress())) |mem| {
+                        break :blk mem[0..alloc_size];
+                    }
+
+                    if (self.allocator.rawAlloc(alloc_size, alignment, @returnAddress())) |mem| {
+                        const copy_size = @min(old_size, alloc_size);
+                        @memcpy(mem[0..copy_size], old_mem[0..copy_size]);
+
+                        self.allocator.rawFree(old_mem, alignment, @returnAddress());
+
+                        break :blk mem[0..alloc_size];
+                    }
+
+                    break :blk null;
+                };
+
+                if (new_mem) |mem| {
+                    header_ptr = ZigAllocator.getHeaderPointer(mem.ptr);
+                    header_ptr.size = alloc_size;
+
+                    return ZigAllocator.getPayloadPointer(mem.ptr, alloc_align);
+                }
+
+                return null;
+            } else {
+                // alloc
+
+                const new_mem = if (self.allocator.rawAlloc(alloc_size, alignment, @returnAddress())) |mem| mem[0..alloc_size] else null;
+
+                if (new_mem) |mem| {
+                    var header_ptr = ZigAllocator.getHeaderPointer(mem.ptr);
+                    header_ptr.size = alloc_size;
+
+                    return ZigAllocator.getPayloadPointer(mem.ptr, alloc_align);
+                }
+
+                return null;
+            }
+        } else if (_ptr) |ptr| {
+            // free
+
+            const base_ptr = ZigAllocator.getBasePointer(ptr, alloc_align);
+            const header_ptr = ZigAllocator.getHeaderPointer(base_ptr);
+
+            const old_size = header_ptr.size;
+            const old_mem = base_ptr[0..old_size];
+
+            self.allocator.rawFree(old_mem, alignment, @returnAddress());
+
+            return null;
         }
-        self.allocator.free(_ptr[0.._size]);
+
         return null;
     }
     pub fn toVtbl() Self.CAllocVtblT {
@@ -36,12 +100,85 @@ pub const ZigAllocatorVtbl = extern struct {
 pub const ZigAllocator = extern struct {
     const _alloc_vtable = ZigAllocatorVtbl.toVtbl();
     vtable: ?*const CAllocVtblT = null,
-    allocator: *std.mem.Allocator,
+    allocator: *const std.mem.Allocator,
 
-    pub fn init(alloc: *std.mem.Allocator) ZigAllocator {
-        return .{ .vtable = &_alloc_vtable, .allocator = alloc };
+    pub fn init(alloc: *const std.mem.Allocator) ZigAllocator {
+        return .{
+            .vtable = &_alloc_vtable,
+            .allocator = alloc,
+        };
+    }
+
+    const AllocationHeader = struct {
+        size: usize,
+    };
+
+    pub fn getAllocationAlignment(_align: usize) usize {
+        return @max(_align, @alignOf(AllocationHeader));
+    }
+
+    pub fn getAllocationSize(_size: usize, _align: usize) usize {
+        return _size + @sizeOf(AllocationHeader) + _align - 1;
+    }
+
+    pub fn getPayloadPointer(_ptr: [*c]u8, _align: usize) [*c]u8 {
+        return std.mem.alignForward(usize, @intFromPtr(_ptr) + @sizeOf(AllocationHeader), _align);
+    }
+
+    pub fn getBasePointer(payload_ptr: [*c]u8, _align: usize) [*c]u8 {
+        return std.mem.alignBackward(usize, @intFromPtr(payload_ptr) - @sizeOf(AllocationHeader), _align);
+    }
+
+    pub fn getHeaderPointer(_ptr: [*c]u8) *AllocationHeader {
+        return @ptrCast(@alignCast(_ptr));
     }
 };
+
+test "zig allocator" {
+    var zig_alloc = ZigAllocator.init(&testing.allocator);
+
+    const realloc = zig_alloc.vtable.?.realloc;
+
+    var _align: usize = 64;
+
+    var ptr = realloc(@ptrCast(&zig_alloc), null, 100 * 1024, _align, "", 0);
+    try testing.expect(ptr != null);
+    ptr[10] = 5;
+
+    ptr = realloc(@ptrCast(&zig_alloc), ptr, 200 * 1024, _align, "", 0);
+    try testing.expect(ptr != null);
+    try testing.expectEqual(5, ptr[10]);
+
+    ptr = realloc(@ptrCast(&zig_alloc), ptr, 50, _align, "", 0);
+    try testing.expect(ptr != null);
+    try testing.expectEqual(5, ptr[10]);
+
+    ptr = realloc(@ptrCast(&zig_alloc), ptr, 0, _align, "", 0);
+    try testing.expect(ptr == null);
+
+    ptr = realloc(@ptrCast(&zig_alloc), null, 0, _align, "", 0);
+    try testing.expect(ptr == null);
+
+    _align = 0;
+
+    ptr = realloc(@ptrCast(&zig_alloc), null, 100 * 1024, _align, "", 0);
+    try testing.expect(ptr != null);
+    ptr[10] = 5;
+
+    ptr = realloc(@ptrCast(&zig_alloc), ptr, 200 * 1024, _align, "", 0);
+    try testing.expect(ptr != null);
+    try testing.expectEqual(5, ptr[10]);
+
+    ptr = realloc(@ptrCast(&zig_alloc), ptr, 50, _align, "", 0);
+    try testing.expect(ptr != null);
+    try testing.expectEqual(5, ptr[10]);
+
+    ptr = realloc(@ptrCast(&zig_alloc), ptr, 0, _align, "", 0);
+    try testing.expect(ptr == null);
+
+    ptr = realloc(@ptrCast(&zig_alloc), null, 0, _align, "", 0);
+    try testing.expect(ptr == null);
+}
 
 //
 // Callbacks

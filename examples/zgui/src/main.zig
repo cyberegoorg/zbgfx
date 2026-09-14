@@ -59,9 +59,8 @@ pub fn main(init: std.process.Init) anyerror!u8 {
     bgfx_init.swapChain.ndt = null;
     bgfx_init.debug = true;
 
-    // TODO: read note in zbgfx.callbacks.ZigAllocator
-    //bgfx_alloc = zbgfx.callbacks.ZigAllocator.init(&_allocator);
-    //bgfx_init.allocator = &bgfx_alloc;
+    bgfx_alloc = zbgfx.callbacks.ZigAllocator.init(&init.gpa);
+    bgfx_init.allocator = &bgfx_alloc;
 
     bgfx_init.callback = &bgfx_clbs;
 

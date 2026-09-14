@@ -14,3 +14,4 @@ GitHub commit log for a list of recent contributors. We would like to thank
 everyone who has contributed to the project in any way.
 
 * __[Sam Loeschen](https://github.com/samloeschen)__
+* __[Jairo Correa](https://github.com/jn-jairo)__

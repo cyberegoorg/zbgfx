@@ -14,7 +14,7 @@ When [zig](https://codeberg.org/ziglang/zig) meets [bgfx](https://github.com/bka
 - [x] Binding for [DebugDraw API](https://github.com/bkaradzic/bgfx/tree/master/examples/common/debugdraw)
 - [x] `imgui` render backend. Use build option `imgui_include` to enable. ex. for
   zgui: `.imgui_include = zgui.path("libs").getPath(b),`
-- [ ] Zig based allocator.
+- [x] Zig based allocator.
 
 > [!IMPORTANT]
 >
