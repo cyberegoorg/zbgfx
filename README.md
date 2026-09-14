@@ -14,7 +14,7 @@ When [zig](https://codeberg.org/ziglang/zig) meets [bgfx](https://github.com/bka
 - [x] Binding for [DebugDraw API](https://github.com/bkaradzic/bgfx/tree/master/examples/common/debugdraw)
 - [x] `imgui` render backend. Use build option `imgui_include` to enable. ex. for
   zgui: `.imgui_include = zgui.path("libs").getPath(b),`
-- [x] Zig based allocator.
+- [x] Zig based allocator. (Thx @jn-jairo)
 
 > [!IMPORTANT]
 >
@@ -49,9 +49,6 @@ See `build.zig.zon` for pinned commits.
 - Change commit ref and hash for deps you need.
 - `zig build -Dwith_sync sync`.
 - `zig build`.
-
-## Useful tools
-- [bgfx_shader_analyzer](https://github.com/r0ckHopper/bgfx_shader_analyzer) - LSP for bgfx shaders.
 
 ## Getting started
 
@@ -166,3 +163,8 @@ zig-out/bin/debugdraw
 |-----|--------------|
 | `v` | Vsync on/off |
 | `d` | Debug on/off |
+
+
+## Useful tools
+- [bgfx_shader_analyzer](https://github.com/r0ckHopper/bgfx_shader_analyzer) - LSP for bgfx shaders.
+
