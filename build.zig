@@ -254,13 +254,17 @@ pub fn build(b: *std.Build) !void {
 
         const shaderc_wf = b.addNamedWriteFiles("shaderc");
         if (target.result.os.tag == .windows) {
-            _ = shaderc_wf.addCopyFile(b.path("libs/bgfx/tools/bin/windows/d3d4linux.exe"), "d3d4linux.exe");
-            _ = shaderc_wf.addCopyFile(b.path("libs/bgfx/tools/bin/windows/d3dcompiler_47.dll"), "d3dcompiler_47.dll");
             _ = shaderc_wf.addCopyFile(b.path("libs/bgfx/tools/bin/windows/dxcompiler.dll"), "dxcompiler.dll");
             _ = shaderc_wf.addCopyFile(b.path("libs/bgfx/tools/bin/windows/dxil.dll"), "dxil.dll");
         } else if (!target.result.os.tag.isDarwin()) {
             _ = shaderc_wf.addCopyFile(b.path("libs/bgfx/tools/bin/linux/libdxcompiler.so"), "libdxcompiler.so");
             _ = shaderc_wf.addCopyFile(b.path("libs/bgfx/tools/bin/linux/libdxil.so"), "libdxil.so");
+        }
+
+        const shaderc_wine_wf = b.addNamedWriteFiles("shaderc_wine");
+        if (target.result.os.tag == .windows) {
+            _ = shaderc_wine_wf.addCopyFile(b.path("libs/bgfx/tools/bin/windows/d3d4linux.exe"), "d3d4linux.exe");
+            _ = shaderc_wine_wf.addCopyFile(b.path("libs/bgfx/tools/bin/windows/d3dcompiler_47.dll"), "d3dcompiler_47.dll");
         }
 
         if (target.result.os.tag.isDarwin()) {

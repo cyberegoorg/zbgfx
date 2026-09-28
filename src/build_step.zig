@@ -11,6 +11,14 @@ pub fn installShaderc(b: *std.Build, zbgfx_dep: *std.Build.Dependency) !*std.Bui
 
     install_deps.step.dependOn(&install_shaderc.step);
 
+    var install_wine_deps = b.addInstallDirectory(.{
+        .install_dir = .{ .custom = "windows" },
+        .install_subdir = "",
+        .source_dir = zbgfx_dep.namedWriteFiles("shaderc_wine").getDirectory(),
+    });
+    install_wine_deps.step.dependOn(&install_shaderc.step);
+    install_deps.step.dependOn(&install_wine_deps.step);
+
     return &install_deps.step;
 }
 

@@ -40,7 +40,7 @@ Minimal is `0.16.0`. But you know try your version and believe.
 
 See `build.zig.zon` for pinned commits.
 
-- [BX](https://github.com/bkaradzic/bx/compare/279a4f84cdf843028be099fdeddbe531ee76a06c ...master)
+- [BX](https://github.com/bkaradzic/bx/compare/279a4f84cdf843028be099fdeddbe531ee76a06c...master)
 - [BImg](https://github.com/bkaradzic/bimg/compare/87aaad3ac882e741889fdd4263224e5d12c26f99...master)
 - [BGFX](https://github.com/bkaradzic/bgfx/compare/7e3060ccb97959dcda3f091b96d82515197028e0...master)
 
