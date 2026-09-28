@@ -235,8 +235,10 @@ namespace bgfx { namespace metal
 		"BgfxISampler3D",
 		"BgfxUSampler3D",
 		"BgfxSamplerCube",
+		"BgfxSamplerCubeArray",
 		"BgfxSamplerCubeShadow",
 		"BgfxSampler2DMS",
+		"BgfxSampler2DMSArray",
 	};
 
 	static uint16_t writeUniformArray(bx::WriterI* _shaderWriter, const UniformArray& uniforms, bool isFragmentShader)

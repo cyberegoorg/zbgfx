@@ -1787,17 +1787,14 @@ static_assert(BX_COUNTOF(s_accessNames) == Access::Count, "Invalid s_accessNames
 			{
 				--m_numWindows;
 
-				if (m_numWindows > 1)
+				if (m_numWindows != denseIdx)
 				{
 					FrameBufferHandle handle = m_windows[m_numWindows];
-					m_windows[m_numWindows]  = {kInvalidHandle};
-
-					if (m_numWindows != denseIdx)
-					{
-						m_windows[denseIdx] = handle;
-						m_frameBuffers[handle.idx].m_denseIdx = denseIdx;
-					}
+					m_windows[denseIdx] = handle;
+					m_frameBuffers[handle.idx].m_denseIdx = denseIdx;
 				}
+
+				m_windows[m_numWindows] = {kInvalidHandle};
 			}
 		}
 
@@ -2134,6 +2131,7 @@ static_assert(BX_COUNTOF(s_accessNames) == Access::Count, "Invalid s_accessNames
 			||  m_mainSwapChain.height           !=  _swapChain.height
 			||  m_mainSwapChain.nwh              !=  _swapChain.nwh
 			||  m_mainSwapChain.ndt              !=  _swapChain.ndt
+			||  m_mainSwapChain.flags            !=  _swapChain.flags
 			|| (m_reset&maskFlags) != (_reset&maskFlags) )
 			{
 				m_mainSwapChain = _swapChain;
@@ -3326,6 +3324,8 @@ static_assert(BX_COUNTOF(s_accessNames) == Access::Count, "Invalid s_accessNames
 					MTL::RenderPipelineReflection* reflection = NULL;
 					pso->m_rps = newRenderPipelineStateWithDescriptor(m_device, pd, MTL::PipelineOptionBufferTypeInfo, &reflection);
 
+					BGFX_FATAL(NULL != pso->m_rps, Fatal::InvalidShader, "Failed to create graphics PSO!");
+
 					if (NULL != reflection)
 					{
 						if (m_usesMTLBindings)
@@ -3383,6 +3383,8 @@ static_assert(BX_COUNTOF(s_accessNames) == Access::Count, "Invalid s_accessNames
 					, MTL::PipelineOptionBufferTypeInfo
 					, &reflection
 					);
+
+				BGFX_FATAL(NULL != pso->m_cps, Fatal::InvalidShader, "Failed to create compute PSO!");
 
 				if (m_usesMTLBindings)
 				{
@@ -3878,7 +3880,15 @@ static_assert(BX_COUNTOF(s_accessNames) == Access::Count, "Invalid s_accessNames
 		const char* code = (const char*)reader.getDataPtr();
 		bx::skip(&reader, shaderSize+1);
 
-		m_lib = newLibraryWithSource(s_renderMtl->m_device, code);
+		if (shaderSize >= 4
+		&&  0 == bx::memCmp(code, "MTLB", 4) )
+		{
+			m_lib = newLibraryWithData(s_renderMtl->m_device, code, shaderSize);
+		}
+		else
+		{
+			m_lib = newLibraryWithSource(s_renderMtl->m_device, code);
+		}
 
 		if (NULL != m_lib)
 		{
@@ -4705,12 +4715,17 @@ static_assert(BX_COUNTOF(s_accessNames) == Access::Count, "Invalid s_accessNames
 			}
 		}
 
-		const uint32_t totalLayers = uint32_t(ptr->arrayLength() * (TextureCube == m_type ? 6 : 1) );
+		const bool     isCube      = TextureCube == m_type;
+		const uint32_t rangeScale  = isCube ? 6 : 1;
+		const uint32_t totalUnits  = uint32_t(ptr->arrayLength() );
+		const uint32_t totalLayers = totalUnits * rangeScale;
 
 		const uint8_t  firstMip   = bx::min<uint8_t>(_firstMip, uint8_t(m_numMips - 1) );
 		const uint8_t  numMips    = bx::min<uint8_t>(_numMips,  uint8_t(m_numMips - firstMip) );
-		const uint32_t firstLayer = bx::min<uint32_t>(_firstLayer, totalLayers - 1);
-		const uint32_t numLayers  = bx::min<uint32_t>(_numLayers,  totalLayers - firstLayer);
+		const uint32_t firstUnit  = bx::min<uint32_t>(_firstLayer, totalUnits - 1);
+		const uint32_t numUnits   = bx::min<uint32_t>(_numLayers,  totalUnits - firstUnit);
+		const uint32_t firstLayer = firstUnit * rangeScale;
+		const uint32_t numLayers  = numUnits  * rangeScale;
 
 		const bool fullRange = 0 == firstMip
 			&& 0 == firstLayer
@@ -4747,9 +4762,12 @@ static_assert(BX_COUNTOF(s_accessNames) == Access::Count, "Invalid s_accessNames
 
 		MTL::TextureType type = ptr->textureType();
 
-		if (TextureCube == m_type)
+		if (isCube)
 		{
-			type = (MTL::TextureType)MTL::TextureType2DArray;
+			type = 1 == numUnits
+				? (MTL::TextureType)MTL::TextureTypeCube
+				: (MTL::TextureType)MTL::TextureTypeCubeArray
+				;
 		}
 		else if (MTL::TextureType2DArray == type
 		     &&  1 == numLayers)
@@ -5131,6 +5149,8 @@ static_assert(BX_COUNTOF(s_accessNames) == Access::Count, "Invalid s_accessNames
 		murmur.add(m_metalLayer->pixelFormat() );
 		murmur.add(formatColor);
 		murmur.add(formatDepthStencil);
+		murmur.add(NULL != m_backBufferDepth   ? m_backBufferDepth->pixelFormat()   : MTL::PixelFormatInvalid);
+		murmur.add(NULL != m_backBufferStencil ? m_backBufferStencil->pixelFormat() : MTL::PixelFormatInvalid);
 		murmur.add(sampleCount);
 
 		return murmur.end();
@@ -6007,17 +6027,18 @@ static_assert(BX_COUNTOF(s_accessNames) == Access::Count, "Invalid s_accessNames
 				continue;
 			}
 
-			const uint16_t fbhIdx = 0 == ii ? kInvalidHandle : m_windows[ii].idx;
+			const bool     isMainWindow = !isValid(m_windows[ii]);
+			const uint16_t fbhIdx = isMainWindow ? kInvalidHandle : m_windows[ii].idx;
 
-			bool needScreenshot = 0 == ii && NULL != m_capture;
+			bool needScreenshot = isMainWindow && NULL != m_capture;
 
 			for (uint8_t jj = 0, numShots = _render->m_numScreenShots; jj < numShots && !needScreenshot; ++jj)
 			{
 				needScreenshot = _render->m_screenShot[jj].handle.idx == fbhIdx;
 			}
 
-			const uint32_t width  = 0 == ii ? m_mainSwapChain.width  : frameBuffer.m_width;
-			const uint32_t height = 0 == ii ? m_mainSwapChain.height : frameBuffer.m_height;
+			const uint32_t width  = isMainWindow ? m_mainSwapChain.width  : frameBuffer.m_width;
+			const uint32_t height = isMainWindow ? m_mainSwapChain.height : frameBuffer.m_height;
 
 			if (needScreenshot)
 			{

@@ -1208,6 +1208,8 @@ namespace bgfx { namespace d3d11
 
 							m_scd.bufferCount = m_swapBufferCount;
 							m_scd.swapEffect  = m_swapEffect;
+							// DXGI_SCALING_NONE is only valid for flip-model swap chains.
+							m_scd.scaling     = DXGI_SCALING_STRETCH;
 							hr = m_dxgi.createSwapChain(m_device
 								, m_scd
 								, &mainFrameBuffer().m_swapChain
@@ -2541,6 +2543,7 @@ namespace bgfx { namespace d3d11
 			||  m_mainSwapChain.formatDepthStencil != _swapChain.formatDepthStencil
 			||  m_mainSwapChain.nwh                != _swapChain.nwh
 			||  m_mainSwapChain.ndt                != _swapChain.ndt
+			||  m_mainSwapChain.flags              != _swapChain.flags
 			|| (m_reset&maskFlags)   != (_reset&maskFlags)
 			   )
 			{
@@ -5554,7 +5557,12 @@ namespace bgfx { namespace d3d11
 	{
 		ID3D11DeviceContext* deviceCtx = s_renderD3D11->m_deviceCtx;
 
-		const bool needResolve = NULL != m_rt;
+		const bx::EncodingType::Enum encoding = bx::EncodingType::Enum(bimg::getBlockInfo(bimg::TextureFormat::Enum(m_textureFormat) ).encoding);
+		const bool resolvable = bx::EncodingType::Int  != encoding
+			&&                  bx::EncodingType::Uint != encoding
+			;
+
+		const bool needResolve = NULL != m_rt && resolvable;
 		if (needResolve)
 		{
 			const DXGI_FORMAT resolveFormat = bimg::isDepth(bimg::TextureFormat::Enum(m_textureFormat) )
@@ -5700,6 +5708,8 @@ namespace bgfx { namespace d3d11
 			return;
 		}
 
+		const SwapChain prev = m_desc;
+
 		m_desc = _desc;
 		m_nwh  = _desc.nwh;
 
@@ -5713,10 +5723,19 @@ namespace bgfx { namespace d3d11
 		if (FAILED(hr) )
 		{
 			BX_TRACE("Failed to resize swap chain, hr 0x%08x.", hr);
-			DX_RELEASE(m_swapChain, 0);
-			m_num = 0;
+
+			m_descPending             = _desc;
+			m_needToRecreateSwapChain = true;
+
+			m_desc       = prev;
+			m_desc.depth = _desc.depth;
+
+			createSwapChainViews();
+
 			return;
 		}
+
+		m_needToRecreateSwapChain = false;
 
 		createSwapChainViews();
 	}
@@ -6770,6 +6789,16 @@ namespace bgfx { namespace d3d11
 		if (_render->m_capture)
 		{
 			renderDocTriggerCapture();
+		}
+
+		for (uint32_t ii = 1, num = m_numWindows; ii < num; ++ii)
+		{
+			FrameBufferD3D11& frameBuffer = m_frameBuffers[m_windows[ii].idx];
+
+			if (frameBuffer.m_needToRecreateSwapChain)
+			{
+				frameBuffer.update(frameBuffer.m_descPending);
+			}
 		}
 
 		BGFX_D3D11_PROFILER_BEGIN_LITERAL("rendererSubmit", kColorView);

@@ -3206,6 +3206,7 @@ namespace bgfx { namespace d3d12
 			||  m_mainSwapChain.formatDepthStencil !=  _swapChain.formatDepthStencil
 			||  m_mainSwapChain.nwh                !=  _swapChain.nwh
 			||  m_mainSwapChain.ndt                !=  _swapChain.ndt
+			||  m_mainSwapChain.flags              !=  _swapChain.flags
 			|| (m_reset&maskFlags)   != (_reset&maskFlags) )
 			{
 				uint32_t flags = _reset & (~BGFX_RESET_INTERNAL_FORCE);
@@ -3504,11 +3505,16 @@ namespace bgfx { namespace d3d12
 					{
 						TextureD3D12& texture = m_textures[frameBuffer.m_depth.idx];
 
-						texture.setState(m_commandList
-							, hasReadOnlyDepth(frameBuffer.m_attachment, frameBuffer.m_numTh)
+						const D3D12_RESOURCE_STATES depthState = hasReadOnlyDepth(frameBuffer.m_attachment, frameBuffer.m_numTh)
 							? D3D12_RESOURCE_STATE_DEPTH_READ|D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE
 							: D3D12_RESOURCE_STATE_DEPTH_WRITE
-							);
+							;
+						const D3D12_RESOURCE_STATES stencilState = hasReadOnlyStencil(frameBuffer.m_attachment, frameBuffer.m_numTh)
+							? D3D12_RESOURCE_STATE_DEPTH_READ|D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE
+							: D3D12_RESOURCE_STATE_DEPTH_WRITE
+							;
+
+						texture.setPlaneStates(m_commandList, depthState, stencilState);
 					}
 				}
 
@@ -3783,6 +3789,8 @@ namespace bgfx { namespace d3d12
 					, (void**)&pso
 					) );
 			}
+
+			BGFX_FATAL(NULL != pso, Fatal::InvalidShader, "Failed to create compute PSO!");
 
 			m_pipelineStateCache.add(hash, pso);
 
@@ -4787,7 +4795,7 @@ namespace bgfx { namespace d3d12
 			case D3D12_SRV_DIMENSION_TEXTURECUBEARRAY:
 				srvd->TextureCubeArray.MostDetailedMip     = _firstMip;
 				srvd->TextureCubeArray.MipLevels           = numMips;
-				srvd->TextureCubeArray.First2DArrayFace    = _firstLayer;
+				srvd->TextureCubeArray.First2DArrayFace    = _firstLayer * 6;
 				srvd->TextureCubeArray.NumCubes            = numLayers;
 				srvd->TextureCubeArray.ResourceMinLODClamp = 0;
 				break;
@@ -7418,9 +7426,20 @@ namespace bgfx { namespace d3d12
 			;
 	}
 
+	uint32_t TextureD3D12::getNumPlanes() const
+	{
+		return false
+			|| TextureFormat::D24S8  == m_textureFormat
+			|| TextureFormat::D32FS8 == m_textureFormat
+			|| TextureFormat::D0S8   == m_textureFormat
+			? 2
+			: 1
+			;
+	}
+
 	uint32_t TextureD3D12::getNumSubresources() const
 	{
-		return getNumPtrMips() * getNumSlices();
+		return getNumPtrMips() * getNumSlices() * getNumPlanes();
 	}
 
 	DXGI_FORMAT TextureD3D12::getSrvFormat(SrgbSelect::Enum _srgb) const
@@ -7507,17 +7526,56 @@ namespace bgfx { namespace d3d12
 			}
 		}
 
-		for (uint32_t slice = firstSlice, sliceEnd = firstSlice + numSlices; slice < sliceEnd; ++slice)
-		{
-			for (uint32_t mip = firstMip, mipEnd = firstMip + numMips; mip < mipEnd; ++mip)
-			{
-				const uint32_t subresource = mip + slice*mipCount;
+		const uint32_t numPlanes = getNumPlanes();
 
-				if (m_subStates[subresource] != _state)
+		for (uint32_t plane = 0; plane < numPlanes; ++plane)
+		{
+			for (uint32_t slice = firstSlice, sliceEnd = firstSlice + numSlices; slice < sliceEnd; ++slice)
+			{
+				for (uint32_t mip = firstMip, mipEnd = firstMip + numMips; mip < mipEnd; ++mip)
 				{
-					setResourceBarrier(_commandList, m_ptr, m_subStates[subresource], _state, subresource);
-					m_subStates[subresource] = _state;
+					const uint32_t subresource = mip + slice*mipCount + plane*mipCount*sliceCount;
+
+					if (m_subStates[subresource] != _state)
+					{
+						setResourceBarrier(_commandList, m_ptr, m_subStates[subresource], _state, subresource);
+						m_subStates[subresource] = _state;
+					}
 				}
+			}
+		}
+	}
+
+	void TextureD3D12::setPlaneStates(ID3D12GraphicsCommandList* _commandList, D3D12_RESOURCE_STATES _depthState, D3D12_RESOURCE_STATES _stencilState)
+	{
+		if (_depthState == _stencilState
+		||  2 != getNumPlanes() )
+		{
+			setState(_commandList, _depthState);
+			return;
+		}
+
+		const uint32_t numSubresources = getNumSubresources();
+		const uint32_t planeSize       = numSubresources / 2;
+
+		if (NULL == m_subStates)
+		{
+			m_subStates = (D3D12_RESOURCE_STATES*)bx::alloc(g_allocator, numSubresources*sizeof(D3D12_RESOURCE_STATES) );
+
+			for (uint32_t ii = 0; ii < numSubresources; ++ii)
+			{
+				m_subStates[ii] = m_state;
+			}
+		}
+
+		for (uint32_t ii = 0; ii < numSubresources; ++ii)
+		{
+			const D3D12_RESOURCE_STATES state = ii < planeSize ? _depthState : _stencilState;
+
+			if (m_subStates[ii] != state)
+			{
+				setResourceBarrier(_commandList, m_ptr, m_subStates[ii], state, ii);
+				m_subStates[ii] = state;
 			}
 		}
 	}
@@ -7734,6 +7792,8 @@ namespace bgfx { namespace d3d12
 			return;
 		}
 
+		const SwapChain prev = m_desc;
+
 		m_desc = _desc;
 		m_nwh  = _desc.nwh;
 
@@ -7760,19 +7820,21 @@ namespace bgfx { namespace d3d12
 		{
 			BX_TRACE("Failed to resize swap chain, hr 0x%08x.", hr);
 
-#if !BX_PLATFORM_LINUX
-			if (NULL != m_frameLatencyWaitableObject)
-			{
-				CloseHandle( (HANDLE)m_frameLatencyWaitableObject);
-				m_frameLatencyWaitableObject = NULL;
-			}
-#endif // !BX_PLATFORM_LINUX
+			m_descPending             = _desc;
+			m_needToRecreateSwapChain = true;
 
-			DX_RELEASE(m_swapChain, 0);
-			m_swapChainFormat = DXGI_FORMAT_UNKNOWN;
-			m_num = 0;
+			m_desc       = prev;
+			m_desc.depth = _desc.depth;
+
+			m_state           = D3D12_RESOURCE_STATE_PRESENT;
+			m_swapChainFormat = getSwapChainDesc().format;
+
+			createSwapChainViews();
+
 			return;
 		}
+
+		m_needToRecreateSwapChain = false;
 
 		m_state           = D3D12_RESOURCE_STATE_PRESENT;
 		m_swapChainFormat = scd.format;
@@ -7931,7 +7993,9 @@ namespace bgfx { namespace d3d12
 			setResourceBarrier(s_renderD3D12->m_commandList
 				, m_msaaRt
 				, D3D12_RESOURCE_STATE_COMMON
-				, D3D12_RESOURCE_STATE_RESOLVE_SOURCE
+				, fbh.idx == kMainFrameBufferIdx
+					? D3D12_RESOURCE_STATE_RESOLVE_SOURCE
+					: D3D12_RESOURCE_STATE_RENDER_TARGET
 				);
 		}
 
@@ -9274,6 +9338,18 @@ namespace bgfx { namespace d3d12
 			renderDocTriggerCapture();
 		}
 
+#if BX_PLATFORM_WINDOWS
+		for (uint32_t ii = 1, num = m_numWindows; ii < num; ++ii)
+		{
+			FrameBufferD3D12& frameBuffer = m_frameBuffers[m_windows[ii].idx];
+
+			if (frameBuffer.m_needToRecreateSwapChain)
+			{
+				frameBuffer.update(frameBuffer.m_descPending);
+			}
+		}
+#endif // BX_PLATFORM_WINDOWS
+
 		BGFX_D3D12_PROFILER_BEGIN_LITERAL("rendererSubmit", kColorFrame);
 
 		int64_t timeBegin = bx::getHPCounter();
@@ -9668,7 +9744,11 @@ namespace bgfx { namespace d3d12
 													? bind.m_samplerFlags
 													: uint32_t(texture.m_flags)
 													;
-												texture.setState(m_commandList, D3D12_RESOURCE_STATE_GENERIC_READ, bind.m_firstMip, bind.m_numMips, bind.m_firstLayer, bind.m_numLayers);
+												const bool isDepthAttach = isValid(m_fbh) && NULL == m_frameBuffers[m_fbh.idx].m_swapChain && m_frameBuffers[m_fbh.idx].m_depth.idx == bind.m_idx;
+												if (!isDepthAttach)
+												{
+													texture.setState(m_commandList, D3D12_RESOURCE_STATE_GENERIC_READ, bind.m_firstMip, bind.m_numMips, bind.m_firstLayer, bind.m_numLayers);
+												}
 												scratchBuffer.allocSrv(srvHandle[stage], texture, bind.m_firstLayer, bind.m_numLayers, bind.m_firstMip, bind.m_numMips
 													, 0 != (resolvedFlags & BGFX_SAMPLER_SAMPLE_STENCIL)
 													, program.getTextureDimension(uint8_t(stage) )
@@ -10046,7 +10126,11 @@ namespace bgfx { namespace d3d12
 													? bind.m_samplerFlags
 													: uint32_t(texture.m_flags)
 													;
-												texture.setState(m_commandList, D3D12_RESOURCE_STATE_GENERIC_READ, bind.m_firstMip, bind.m_numMips, bind.m_firstLayer, bind.m_numLayers);
+												const bool isDepthAttach = isValid(m_fbh) && NULL == m_frameBuffers[m_fbh.idx].m_swapChain && m_frameBuffers[m_fbh.idx].m_depth.idx == bind.m_idx;
+												if (!isDepthAttach)
+												{
+													texture.setState(m_commandList, D3D12_RESOURCE_STATE_GENERIC_READ, bind.m_firstMip, bind.m_numMips, bind.m_firstLayer, bind.m_numLayers);
+												}
 												scratchBuffer.allocSrv(srvHandle[stage], texture, bind.m_firstLayer, bind.m_numLayers, bind.m_firstMip, bind.m_numMips
 													, 0 != (resolvedFlags & BGFX_SAMPLER_SAMPLE_STENCIL)
 													, program.getTextureDimension(uint8_t(stage) )

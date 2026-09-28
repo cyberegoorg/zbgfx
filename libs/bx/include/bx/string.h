@@ -70,7 +70,7 @@ namespace bx
 		constexpr StringView(const StringLiteral& _str);
 
 		///
-		constexpr StringView(const StringView& _rhs);
+		constexpr StringView(const StringView& _rhs) = default;
 
 		///
 		constexpr StringView(const StringView& _rhs, int32_t _start, int32_t _len);
@@ -79,7 +79,7 @@ namespace bx
 		constexpr StringView& operator=(const char* _rhs);
 
 		///
-		constexpr StringView& operator=(const StringView& _rhs);
+		constexpr StringView& operator=(const StringView& _rhs) = default;
 
 		///
 		constexpr StringView(const char* _ptr);
@@ -419,6 +419,9 @@ namespace bx
 
 	/// Returns string view with whitespace characters trimmed from left.
 	StringView strLTrimSpace(const StringView& _str);
+
+	/// Returns string view with horizontal whitespace characters trimmed from left.
+	StringView strLTrimSpaceHoriz(const StringView& _str);
 
 	/// Returns string view with non-whitespace characters trimmed from left.
 	StringView strLTrimNonSpace(const StringView& _str);

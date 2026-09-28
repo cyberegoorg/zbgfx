@@ -40,9 +40,9 @@ Minimal is `0.16.0`. But you know try your version and believe.
 
 See `build.zig.zon` for pinned commits.
 
-- [BX](https://github.com/bkaradzic/bx/compare/f86bece7967be1b8a7fd39262cdc8ce99d123c3b...master)
-- [BImg](https://github.com/bkaradzic/bimg/compare/ddbeeae05779f84f97694553eb41605a60f86f0a...master)
-- [BGFX](https://github.com/bkaradzic/bgfx/compare/9499caafb06706715da78a7436a85de00ffc2497...master)
+- [BX](https://github.com/bkaradzic/bx/compare/279a4f84cdf843028be099fdeddbe531ee76a06c ...master)
+- [BImg](https://github.com/bkaradzic/bimg/compare/87aaad3ac882e741889fdd4263224e5d12c26f99...master)
+- [BGFX](https://github.com/bkaradzic/bgfx/compare/7e3060ccb97959dcda3f091b96d82515197028e0...master)
 
 ### Upgrade BGFX by your self.
 - Uncomment deps in `build.zig.zon`.
@@ -87,6 +87,10 @@ See examples for binding usage and [bgfx](https://github.com/bkaradzic/bgfx) for
 | `imgui_include` | `null`  | Path to ImGui includes (need for imgui bgfx backend) |
 | `multithread`   | `true`  | Compile with `BGFX_CONFIG_MULTITHREADED`             |
 | `with_shaderc`  | `true`  | Compile with `shaderc`                               |
+
+
+## Useful tools
+- [bgfx_shader_analyzer](https://github.com/r0ckHopper/bgfx_shader_analyzer) - LSP for bgfx shaders.
 
 ## Examples
 
@@ -164,7 +168,4 @@ zig-out/bin/debugdraw
 | `v` | Vsync on/off |
 | `d` | Debug on/off |
 
-
-## Useful tools
-- [bgfx_shader_analyzer](https://github.com/r0ckHopper/bgfx_shader_analyzer) - LSP for bgfx shaders.
 

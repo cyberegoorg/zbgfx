@@ -1065,6 +1065,38 @@ VK_IMPORT_DEVICE
 			);
 	}
 
+	VkImageLayout getDepthAttachmentLayout(VkImageAspectFlags _aspects, uint8_t _flags)
+	{
+		const bool hasDepthAspect   = 0 != (_aspects & VK_IMAGE_ASPECT_DEPTH_BIT);
+		const bool hasStencilAspect = 0 != (_aspects & VK_IMAGE_ASPECT_STENCIL_BIT);
+
+		const bool readOnlyDepth   = hasDepthAspect   && 0 != (_flags & BGFX_ATTACHMENT_READ_ONLY_DEPTH);
+		const bool readOnlyStencil = hasStencilAspect && 0 != (_flags & BGFX_ATTACHMENT_READ_ONLY_STENCIL);
+
+		const bool allReadOnly = true
+			&& (!hasDepthAspect   || readOnlyDepth  )
+			&& (!hasStencilAspect || readOnlyStencil)
+			;
+
+		return allReadOnly
+			? VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL
+			: readOnlyDepth
+				? VK_IMAGE_LAYOUT_DEPTH_READ_ONLY_STENCIL_ATTACHMENT_OPTIMAL
+				: readOnlyStencil
+					? VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_STENCIL_READ_ONLY_OPTIMAL
+					: VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL
+					;
+	}
+
+	bool isReadOnlyDepthStencilLayout(VkImageLayout _layout)
+	{
+		return false
+			|| VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL            == _layout
+			|| VK_IMAGE_LAYOUT_DEPTH_READ_ONLY_STENCIL_ATTACHMENT_OPTIMAL == _layout
+			|| VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_STENCIL_READ_ONLY_OPTIMAL == _layout
+			;
+	}
+
 	void setImageMemoryBarrier(
 		  VkCommandBuffer _commandBuffer
 		, VkImage _image
@@ -1317,6 +1349,7 @@ VK_IMPORT_DEVICE
 			VkPhysicalDeviceSwapchainMaintenance1FeaturesEXT swapchainMaintenance1Features = {};
 
 			m_fbh = BGFX_INVALID_HANDLE;
+			m_readOnlyDepthLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 			bx::memSet(&m_mainSwapChain, 0, sizeof(m_mainSwapChain) );
 
 			bool imported = true;
@@ -2871,22 +2904,21 @@ VK_IMPORT_DEVICE
 			if (m_fbh.idx == _handle.idx)
 			{
 				m_fbh = BGFX_INVALID_HANDLE;
+				m_readOnlyDepthLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 			}
 
 			uint16_t denseIdx = frameBuffer.destroy();
 			if (UINT16_MAX != denseIdx)
 			{
 				--m_numWindows;
-				if (m_numWindows > 1)
+				if (m_numWindows != denseIdx)
 				{
 					FrameBufferHandle handle = m_windows[m_numWindows];
-					m_windows[m_numWindows]  = {kInvalidHandle};
-					if (m_numWindows != denseIdx)
-					{
-						m_windows[denseIdx] = handle;
-						m_frameBuffers[handle.idx].m_denseIdx = denseIdx;
-					}
+					m_windows[denseIdx] = handle;
+					m_frameBuffers[handle.idx].m_denseIdx = denseIdx;
 				}
+
+				m_windows[m_numWindows] = {kInvalidHandle};
 			}
 		}
 
@@ -3258,6 +3290,7 @@ VK_IMPORT_DEVICE
 			||  m_mainSwapChain.height             !=  _swapChain.height
 			||  m_mainSwapChain.nwh                !=  _swapChain.nwh
 			||  m_mainSwapChain.ndt                !=  _swapChain.ndt
+			||  m_mainSwapChain.flags              !=  _swapChain.flags
 			|| (m_reset&maskFlags)   != (_reset&maskFlags)
 			||  m_backBuffer.m_swapChain.m_needToRecreateSurface
 			||  m_backBuffer.m_swapChain.m_needToRecreateSwapchain
@@ -3396,6 +3429,8 @@ VK_IMPORT_DEVICE
 				}
 			}
 
+			m_readOnlyDepthLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+
 			if (!newFrameBuffer.isSwapChain() )
 			{
 				if (0 == newFrameBuffer.m_num
@@ -3417,10 +3452,17 @@ VK_IMPORT_DEVICE
 				if (isValid(newFrameBuffer.m_depth) )
 				{
 					TextureVK& texture = m_textures[newFrameBuffer.m_depth.idx];
-					texture.setState(
-						  m_commandBuffer
-						, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL
+					const VkImageLayout layout = getDepthAttachmentLayout(
+						  texture.m_aspectFlags
+						, newFrameBuffer.m_attachment[newFrameBuffer.m_num].flags
 						);
+
+					texture.setState(m_commandBuffer, layout);
+
+					if (isReadOnlyDepthStencilLayout(layout) )
+					{
+						m_readOnlyDepthLayout = layout;
+					}
 				}
 			}
 			else
@@ -3434,8 +3476,12 @@ VK_IMPORT_DEVICE
 						);
 				}
 
+				const bool block = !isValid(_fbh)
+					|| NULL == m_backBuffer.m_swapChain.m_nwh
+					;
+
 				int64_t start = bx::getHPCounter();
-				newFrameBuffer.acquire(m_commandBuffer, !isValid(_fbh) );
+				newFrameBuffer.acquire(m_commandBuffer, block);
 				m_presentElapsed += bx::getHPCounter() - start;
 			}
 
@@ -3774,24 +3820,7 @@ VK_IMPORT_DEVICE
 				}
 				else if (_aspects[ii] & (VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT) )
 				{
-					const bool hasDepthAspect   = 0 != (_aspects[ii] & VK_IMAGE_ASPECT_DEPTH_BIT);
-					const bool hasStencilAspect = 0 != (_aspects[ii] & VK_IMAGE_ASPECT_STENCIL_BIT);
-
-					const bool readOnlyDepth   = hasDepthAspect   && 0 != (_depthFlags & BGFX_ATTACHMENT_READ_ONLY_DEPTH);
-					const bool readOnlyStencil = hasStencilAspect && 0 != (_depthFlags & BGFX_ATTACHMENT_READ_ONLY_STENCIL);
-
-					const bool allReadOnly = (!hasDepthAspect   || readOnlyDepth)
-						&&                   (!hasStencilAspect || readOnlyStencil)
-						;
-
-					const VkImageLayout layout = allReadOnly
-						? VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL
-						: readOnlyDepth
-						? VK_IMAGE_LAYOUT_DEPTH_READ_ONLY_STENCIL_ATTACHMENT_OPTIMAL
-						: readOnlyStencil
-						? VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_STENCIL_READ_ONLY_OPTIMAL
-						: VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL
-						;
+					const VkImageLayout layout = getDepthAttachmentLayout(_aspects[ii], _depthFlags);
 
 					ad[ii].loadOp         = 0 != (_clearFlags & BGFX_CLEAR_DEPTH)           ? VK_ATTACHMENT_LOAD_OP_CLEAR      : VK_ATTACHMENT_LOAD_OP_LOAD;
 					ad[ii].storeOp        = 0 != (_clearFlags & BGFX_CLEAR_DISCARD_DEPTH)   ? VK_ATTACHMENT_STORE_OP_DONT_CARE : VK_ATTACHMENT_STORE_OP_STORE;
@@ -4042,8 +4071,12 @@ VK_IMPORT_DEVICE
 
 			_stencil = _stencil && !!(texture.m_aspectFlags & VK_IMAGE_ASPECT_STENCIL_BIT);
 
-			const uint32_t firstLayer = bx::min<uint32_t>(_firstLayer, texture.m_numSides);
-			const uint32_t numLayers  = bx::min<uint32_t>(_numLayers,  texture.m_numSides - firstLayer);
+			const uint32_t units = (VK_IMAGE_VIEW_TYPE_CUBE == _type || VK_IMAGE_VIEW_TYPE_CUBE_ARRAY == _type)
+				? bx::max<uint32_t>(1, texture.m_numSides / 6)
+				: texture.m_numSides
+				;
+			const uint32_t firstLayer = bx::min<uint32_t>(_firstLayer, units);
+			const uint32_t numLayers  = bx::min<uint32_t>(_numLayers,  units - firstLayer);
 			const uint32_t firstMip   = bx::min<uint32_t>(_mip,        texture.m_numMips);
 			const uint32_t numMips    = bx::min<uint32_t>(_numMips,    texture.m_numMips - firstMip);
 
@@ -4113,7 +4146,14 @@ VK_IMPORT_DEVICE
 			cpci.basePipelineHandle = VK_NULL_HANDLE;
 			cpci.basePipelineIndex  = 0;
 
-			VK_CHECK(vkCreateComputePipelines(m_device, m_pipelineCache, 1, &cpci, m_allocatorCb, &pipeline) );
+			const VkResult result = vkCreateComputePipelines(m_device, m_pipelineCache, 1, &cpci, m_allocatorCb, &pipeline);
+
+			BGFX_FATAL(VK_SUCCESS == result && VK_NULL_HANDLE != pipeline
+				, Fatal::InvalidShader
+				, "Failed to create compute PSO! vkCreateComputePipelines failed %d: %s."
+				, result
+				, getName(result)
+				);
 
 			m_pipelineStateCache.add(hash, pipeline);
 
@@ -4352,14 +4392,22 @@ VK_IMPORT_DEVICE
 			VkPipelineCache cache;
 			VK_CHECK(vkCreatePipelineCache(m_device, &pcci, m_allocatorCb, &cache) );
 
-			VK_CHECK(vkCreateGraphicsPipelines(
+			const VkResult result = vkCreateGraphicsPipelines(
 				  m_device
 				, cache
 				, 1
 				, &graphicsPipeline
 				, m_allocatorCb
 				, &pipeline
-				) );
+				);
+
+			BGFX_FATAL(VK_SUCCESS == result && VK_NULL_HANDLE != pipeline
+				, Fatal::InvalidShader
+				, "Failed to create graphics PSO! vkCreateGraphicsPipelines failed %d: %s."
+				, result
+				, getName(result)
+				);
+
 			m_pipelineStateCache.add(hash, pipeline);
 
 			size_t dataSize;
@@ -4510,9 +4558,14 @@ VK_IMPORT_DEVICE
 								type = VK_IMAGE_VIEW_TYPE_2D_ARRAY;
 							}
 
-							texture.setState(m_commandBuffer, texture.m_sampledLayout);
+							const VkImageLayout layout = isReadOnlyDepthStencilLayout(texture.m_currentImageLayout)
+								? texture.m_currentImageLayout
+								: texture.m_sampledLayout
+								;
 
-							imageInfo[imageCount].imageLayout = texture.m_sampledLayout;
+							texture.setState(m_commandBuffer, layout);
+
+							imageInfo[imageCount].imageLayout = layout;
 							imageInfo[imageCount].sampler     = VK_NULL_HANDLE;
 							imageInfo[imageCount].imageView   = getCachedImageView(
 								  { bind.m_idx }
@@ -4580,9 +4633,14 @@ VK_IMPORT_DEVICE
 								: _program.m_textures[bindInfo.index].type
 								;
 
-							texture.setState(m_commandBuffer, texture.m_sampledLayout);
+							const VkImageLayout layout = isReadOnlyDepthStencilLayout(texture.m_currentImageLayout)
+								? texture.m_currentImageLayout
+								: texture.m_sampledLayout
+								;
 
-							imageInfo[imageCount].imageLayout = texture.m_sampledLayout;
+							texture.setState(m_commandBuffer, layout);
+
+							imageInfo[imageCount].imageLayout = layout;
 							imageInfo[imageCount].sampler     = sampler;
 							imageInfo[imageCount].imageView   = getCachedImageView(
 								  { bind.m_idx }
@@ -5235,6 +5293,7 @@ VK_IMPORT_DEVICE
 		uint8_t m_vsScratch[64<<10];
 
 		FrameBufferHandle m_fbh;
+		VkImageLayout     m_readOnlyDepthLayout;
 	};
 
 	static RendererContextVK* s_renderVK;
@@ -6861,7 +6920,8 @@ VK_DESTROY
 		ici.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
 		ici.pNext = NULL;
 		ici.flags = 0
-			| (VK_IMAGE_VIEW_TYPE_CUBE == m_type
+			| (VK_IMAGE_VIEW_TYPE_CUBE       == m_type
+			|| VK_IMAGE_VIEW_TYPE_CUBE_ARRAY == m_type
 				? VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT
 				: 0
 				)
@@ -7960,7 +8020,7 @@ VK_DESTROY
 		if (VK_IMAGE_VIEW_TYPE_CUBE       == _type
 		||  VK_IMAGE_VIEW_TYPE_CUBE_ARRAY == _type)
 		{
-			BX_ASSERT(_numLayers % 6 == 0, "");
+			BX_ASSERT(0 < _numLayers, "");
 			BX_ASSERT(false
 				|| VK_IMAGE_VIEW_TYPE_3D != m_type
 				, "3D image can't be aliased as a cube texture"
@@ -7981,10 +8041,13 @@ VK_DESTROY
 			? VkComponentMapping{ VK_COMPONENT_SWIZZLE_IDENTITY, VK_COMPONENT_SWIZZLE_IDENTITY, VK_COMPONENT_SWIZZLE_IDENTITY, VK_COMPONENT_SWIZZLE_IDENTITY }
 			: m_components
 			;
+		const bool cubeView = VK_IMAGE_VIEW_TYPE_CUBE       == _type
+						   || VK_IMAGE_VIEW_TYPE_CUBE_ARRAY == _type
+							;
 		viewInfo.subresourceRange.aspectMask     = m_aspectFlags & _aspectMask;
 		viewInfo.subresourceRange.baseMipLevel   = _mip;
 		viewInfo.subresourceRange.levelCount     = _numMips;
-		viewInfo.subresourceRange.baseArrayLayer = _layer;
+		viewInfo.subresourceRange.baseArrayLayer = cubeView ? _layer * 6 : _layer;
 		viewInfo.subresourceRange.layerCount     = 1;
 
 		if (VK_IMAGE_VIEW_TYPE_2D != _type
@@ -7992,7 +8055,7 @@ VK_DESTROY
 		{
 			viewInfo.subresourceRange.layerCount = VK_IMAGE_VIEW_TYPE_CUBE == _type
 				? 6
-				: _numLayers
+				: cubeView ? _numLayers * 6 : _numLayers
 				;
 		}
 
@@ -10719,6 +10782,12 @@ VK_DESTROY
 						}
 					}
 
+					if (viewChanged)
+					{
+						submitUniformCache(ucs, view);
+						submitBlit(bs, view);
+					}
+
 					// renderpass external subpass dependencies handle graphics -> compute and compute -> graphics
 					// but not compute -> compute (possibly also across views if they contain no draw calls)
 					setMemoryBarrier(
@@ -10790,6 +10859,12 @@ VK_DESTROY
 						hash.add(sbo.buffer);
 						hash.add(vsSize);
 						hash.add(0);
+
+						if (VK_IMAGE_LAYOUT_UNDEFINED != m_readOnlyDepthLayout)
+						{
+							hash.add(m_readOnlyDepthLayout);
+						}
+
 						const uint32_t bindHash = hash.end();
 
 						if (currentBindHash != bindHash)
@@ -11144,6 +11219,12 @@ VK_DESTROY
 						hash.add(sbo.buffer);
 						hash.add(vsSize);
 						hash.add(fsSize);
+
+						if (VK_IMAGE_LAYOUT_UNDEFINED != m_readOnlyDepthLayout)
+						{
+							hash.add(m_readOnlyDepthLayout);
+						}
+
 						const uint32_t bindHash = hash.end();
 
 						if (currentBindHash != bindHash)
