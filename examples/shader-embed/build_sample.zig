@@ -22,6 +22,15 @@ pub fn build(
         },
     );
 
+    // This is need only for crosscompilation from linux => windows
+    const zbgfx_host_shaderc_dep = b.dependency(
+        "zbgfx",
+        .{
+            .target = b.graph.host,
+            .optimize = optimize,
+        },
+    );
+
     const zglfw = b.dependency(
         "zglfw",
         .{
@@ -37,18 +46,20 @@ pub fn build(
             .optimize = optimize,
         },
     );
+    const zbgfx_module = zbgfx_dep.module("zbgfx");
 
     //
     // Compile shaders to zig module
     //
-    const install_shaderc_step = try zbgfx.build_step.installShaderc(b, zbgfx_dep);
-    const shaders_includes = &.{zbgfx_dep.path("shaders")};
+    const install_shaderc_step = try zbgfx.build_step.installShaderc(b, zbgfx_host_shaderc_dep);
+    const shaders_includes = &.{zbgfx_host_shaderc_dep.path("shaders")};
 
     const shaders_module = try zbgfx.build_step.compileShaders(
         b,
         target,
         install_shaderc_step,
-        zbgfx_dep,
+        zbgfx_host_shaderc_dep,
+        zbgfx_module,
         shaders_includes,
         &.{
             .{
@@ -73,7 +84,7 @@ pub fn build(
     });
     b.installArtifact(exe);
     exe.root_module.linkLibrary(zbgfx_dep.artifact("bgfx"));
-    exe.root_module.addImport("zbgfx", zbgfx_dep.module("zbgfx"));
+    exe.root_module.addImport("zbgfx", zbgfx_module);
     exe.root_module.addImport("zmath", zmath.module("root"));
     exe.root_module.addImport("zglfw", zglfw.module("root"));
     exe.root_module.addImport("shaders", shaders_module);

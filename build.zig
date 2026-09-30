@@ -262,7 +262,7 @@ pub fn build(b: *std.Build) !void {
         }
 
         const shaderc_wine_wf = b.addNamedWriteFiles("shaderc_wine");
-        if (target.result.os.tag == .windows) {
+        if (target.result.os.tag == .linux) {
             _ = shaderc_wine_wf.addCopyFile(b.path("libs/bgfx/tools/bin/windows/d3d4linux.exe"), "d3d4linux.exe");
             _ = shaderc_wine_wf.addCopyFile(b.path("libs/bgfx/tools/bin/windows/d3dcompiler_47.dll"), "d3dcompiler_47.dll");
         }

@@ -42,7 +42,7 @@ pub fn callShaderc(
     install_shaderc_step: *std.Build.Step,
     options: BuildShaderOptions,
 ) !BuildShaderC {
-    var shaderc_cmd = b.addSystemCommand(&.{b.getInstallPath(.bin, "shaderc")});
+    var shaderc_cmd = b.addSystemCommand(&.{b.getInstallPath(.bin, if (b.graph.host.result.os.tag == .windows) "shaderc.exe" else "shaderc")});
     shaderc_cmd.expectStdOutEqual("");
 
     shaderc_cmd.step.dependOn(install_shaderc_step);
@@ -117,6 +117,7 @@ pub fn compileShaders(
     target: std.Build.ResolvedTarget,
     install_shaderc_step: *std.Build.Step,
     zbgfx_dep: *std.Build.Dependency,
+    zbgfx_module: *std.Build.Module,
     includes: []const std.Build.LazyPath,
     shaders: []const ShaderInput,
 ) !*std.Build.Module {
@@ -133,6 +134,7 @@ pub fn compileShaders(
             target,
             install_shaderc_step,
             zbgfx_dep,
+            zbgfx_module,
             includes,
             sh,
         );
@@ -214,11 +216,11 @@ pub fn compileShader(
     target: std.Build.ResolvedTarget,
     install_shaderc_step: *std.Build.Step,
     zbgfx_dep: *std.Build.Dependency,
+    zbgfx_module: *std.Build.Module,
     includes: []const std.Build.LazyPath,
     input: ShaderInput,
 ) !*std.Build.Module {
     const combine_shader_parts = zbgfx_dep.artifact("combine_shader_parts");
-    const zbgfx_module = zbgfx_dep.module("zbgfx");
 
     var shaders = std.ArrayList(std.Build.LazyPath).empty;
     defer shaders.deinit(b.allocator);

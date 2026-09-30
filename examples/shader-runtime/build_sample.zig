@@ -48,7 +48,8 @@ pub fn build(
     b.installArtifact(exe);
     exe.root_module.linkLibrary(zbgfx_dep.artifact("bgfx"));
 
-    _ = try zbgfx.build_step.installShaderc(b, zbgfx_dep);
+    const shaderc_install = try zbgfx.build_step.installShaderc(b, zbgfx_dep);
+    b.getInstallStep().dependOn(shaderc_install);
 
     exe.root_module.addImport("zbgfx", zbgfx_dep.module("zbgfx"));
     exe.root_module.addImport("zmath", zmath.module("root"));
