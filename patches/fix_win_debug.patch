@@ -1,0 +1,26 @@
+diff --git a/libs/bx/src/debug.cpp b/libs/bx/src/debug.cpp
+index 0429da3..c179d3d 100644
+--- a/libs/bx/src/debug.cpp
++++ b/libs/bx/src/debug.cpp
+@@ -84,7 +84,8 @@ extern "C" __declspec(dllimport) unsigned int __stdcall SetErrorMode(unsigned in
+ #elif  BX_PLATFORM_WINDOWS \
+ 	|| BX_PLATFORM_WINRT   \
+ 	|| BX_PLATFORM_XBOXONE
+-extern "C" __declspec(dllimport) bool  __stdcall IsDebuggerPresent();
++// FIXME: ZBGFX
++//extern "C" __declspec(dllimport) bool  __stdcall IsDebuggerPresent();
+ extern "C" __declspec(dllimport) void  __stdcall OutputDebugStringA(const char* _str);
+ extern "C" __declspec(dllimport) void* __stdcall GetStdHandle(unsigned long _stdHandle);
+ extern "C" __declspec(dllimport) int   __stdcall WriteFile(void* _file, const void* _buffer, unsigned long _sizeInBytes, unsigned long* _outNumberOfBytesWritten, struct _OVERLAPPED* _overlapped);
+@@ -137,7 +138,10 @@ namespace bx
+ 	bool isDebuggerPresent()
+ 	{
+ #if BX_PLATFORM_WINDOWS
+-		return 0 != ::IsDebuggerPresent();
++
++// FIXME: ZBGFX
++//		return 0 != ::IsDebuggerPresent();
++		return false;
+ #elif BX_PLATFORM_OSX
+ 		struct kinfo_proc info;
+ 		size_t size = sizeof(info);

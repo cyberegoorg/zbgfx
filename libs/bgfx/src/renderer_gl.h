@@ -36,8 +36,8 @@
 
 #define BGFX_GL_PROFILER_BEGIN(_view, _abgr)                                               \
 	BX_MACRO_BLOCK_BEGIN                                                                   \
-		GL_CHECK(glPushDebugGroup(GL_DEBUG_SOURCE_APPLICATION, 0, -1, s_viewName[view]) ); \
-		BGFX_PROFILER_BEGIN(s_viewName[view], _abgr);                                      \
+		GL_CHECK(glPushDebugGroup(GL_DEBUG_SOURCE_APPLICATION, 0, -1, g_viewName[view]) ); \
+		BGFX_PROFILER_BEGIN(g_viewName[view], _abgr);                                      \
 	BX_MACRO_BLOCK_END
 
 #define BGFX_GL_PROFILER_BEGIN_LITERAL(_name, _abgr)                                       \
@@ -878,6 +878,14 @@ typedef double GLdouble;
 #	define GL_TEXTURE_MAX_LEVEL 0x813D
 #endif // GL_TEXTURE_MAX_LEVEL
 
+#ifndef GL_TEXTURE_MIN_LOD
+#	define GL_TEXTURE_MIN_LOD 0x813A
+#endif // GL_TEXTURE_MIN_LOD
+
+#ifndef GL_TEXTURE_MAX_LOD
+#	define GL_TEXTURE_MAX_LOD 0x813B
+#endif // GL_TEXTURE_MAX_LOD
+
 #ifndef GL_COMPUTE_SHADER
 #	define GL_COMPUTE_SHADER 0x91B9
 #endif // GL_COMPUTE_SHADER
@@ -1490,8 +1498,8 @@ namespace bgfx { namespace gl
 		void update(uint8_t _side, uint8_t _mip, const Rect& _rect, uint16_t _z, uint16_t _depth, uint16_t _pitch, const Memory* _mem);
 		void clear(uint8_t _mip, uint8_t _numMips, uint16_t _layer, uint16_t _numLayers);
 		void clearAttached(uint8_t _mipBeg, uint8_t _mipEnd, uint16_t _layer, uint16_t _numLayers);
-		void setSamplerState(uint32_t _flags, const float _rgba[4]);
-		void commit(uint32_t _stage, uint32_t _flags, const float _palette[][4], uint8_t _firstMip, uint8_t _numMips, uint16_t _firstLayer, uint16_t _numLayers);
+		void setSamplerState(uint32_t _flags, const float _rgba[4], uint8_t _lodMin = 0, uint8_t _lodMax = UINT8_MAX);
+		void commit(uint32_t _stage, uint32_t _flags, const float _palette[][4], uint8_t _firstMip, uint8_t _numMips, uint16_t _firstLayer, uint16_t _numLayers, uint8_t _lodMin = 0, uint8_t _lodMax = UINT8_MAX);
 		GLenum getViewTarget(uint16_t _numLayers, bool _layered = false) const;
 		GLuint getViewId(uint8_t _firstMip, uint8_t _numMips, uint16_t _firstLayer, uint16_t _numLayers, GLenum* _target = NULL, bool _layered = false);
 		void resolve(uint8_t _resolve) const;
@@ -1651,20 +1659,13 @@ namespace bgfx { namespace gl
 	struct TimerQueryGL
 	{
 		TimerQueryGL()
-			: m_control(BX_COUNTOF(m_query) )
+			: m_control(kMinTimerQueries)
 		{
 		}
 
 		void create()
 		{
-			for (uint32_t ii = 0; ii < BX_COUNTOF(m_query); ++ii)
-			{
-				Query& query = m_query[ii];
-				query.m_ready = false;
-				query.m_frameNum = 0;
-				GL_CHECK(glGenQueries(1, &query.m_begin) );
-				GL_CHECK(glGenQueries(1, &query.m_end) );
-			}
+			create(0, m_control.getSize() );
 
 			for (uint32_t ii = 0; ii < BX_COUNTOF(m_result); ++ii)
 			{
@@ -1675,11 +1676,58 @@ namespace bgfx { namespace gl
 
 		void destroy()
 		{
-			for (uint32_t ii = 0; ii < BX_COUNTOF(m_query); ++ii)
+			destroy(0, m_control.getSize() );
+		}
+
+		void create(uint32_t _begin, uint32_t _end)
+		{
+			for (uint32_t ii = _begin; ii < _end; ++ii)
+			{
+				Query& query = m_query[ii];
+				query.m_ready = false;
+				query.m_frameNum = 0;
+				GL_CHECK(glGenQueries(1, &query.m_begin) );
+				GL_CHECK(glGenQueries(1, &query.m_end) );
+			}
+		}
+
+		void destroy(uint32_t _begin, uint32_t _end)
+		{
+			for (uint32_t ii = _begin; ii < _end; ++ii)
 			{
 				Query& query = m_query[ii];
 				GL_CHECK(glDeleteQueries(1, &query.m_begin) );
 				GL_CHECK(glDeleteQueries(1, &query.m_end) );
+			}
+		}
+
+		void resize(uint32_t _size)
+		{
+			const uint32_t size  = m_control.getSize();
+			const uint32_t write = m_control.m_write;
+
+			m_control.resize(int32_t(_size) - int32_t(size) );
+
+			const uint32_t newSize = m_control.getSize();
+
+			if (newSize > size)
+			{
+				const uint32_t num = newSize - size;
+
+				bx::memMove(&m_query[write+num], &m_query[write], (size-write)*sizeof(Query) );
+				create(write, write+num);
+			}
+			else if (newSize < size)
+			{
+				const uint32_t num   = size - newSize;
+				const uint32_t back  = bx::min(num, size-write);
+				const uint32_t front = num - back;
+
+				destroy(write, write+back);
+				destroy(0, front);
+
+				bx::memMove(&m_query[write], &m_query[write+back], (size-write-back)*sizeof(Query) );
+				bx::memMove(&m_query[0], &m_query[front], newSize*sizeof(Query) );
 			}
 		}
 
@@ -1799,7 +1847,7 @@ namespace bgfx { namespace gl
 
 		Result m_result[BGFX_CONFIG_MAX_VIEWS+1];
 
-		Query m_query[BGFX_CONFIG_MAX_VIEWS*4];
+		Query m_query[kMaxTimerQueries];
 		bx::RingBufferControl m_control;
 	};
 

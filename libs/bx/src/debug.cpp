@@ -84,7 +84,7 @@ extern "C" __declspec(dllimport) unsigned int __stdcall SetErrorMode(unsigned in
 #elif  BX_PLATFORM_WINDOWS \
 	|| BX_PLATFORM_WINRT   \
 	|| BX_PLATFORM_XBOXONE
-// FIXME: ZBGFX hack
+// FIXME: ZBGFX
 //extern "C" __declspec(dllimport) bool  __stdcall IsDebuggerPresent();
 extern "C" __declspec(dllimport) void  __stdcall OutputDebugStringA(const char* _str);
 extern "C" __declspec(dllimport) void* __stdcall GetStdHandle(unsigned long _stdHandle);
@@ -138,9 +138,10 @@ namespace bx
 	bool isDebuggerPresent()
 	{
 #if BX_PLATFORM_WINDOWS
-		// FIXME: ZBGFX hack
+
+// FIXME: ZBGFX
+//		return 0 != ::IsDebuggerPresent();
 		return false;
-		//return 0 != ::IsDebuggerPresent();
 #elif BX_PLATFORM_OSX
 		struct kinfo_proc info;
 		size_t size = sizeof(info);
@@ -433,11 +434,7 @@ namespace bx
 	{
 		if (BX_ENABLED( (BX_PLATFORM_LINUX || BX_PLATFORM_OSX) && BX_ARCH_64BIT) )
 		{
-#if BX_COMPILER_GCC || BX_COMPILER_CLANG
-			const uintptr_t* stackFrame = (const uintptr_t*)__builtin_frame_address(0);
-#else
-			const uintptr_t* stackFrame = NULL;
-#endif // BX_COMPILER_...
+			const uintptr_t* stackFrame = (const uintptr_t*)BX_STACK_FRAME_ADDRESS();
 
 			uint32_t num = 0;
 
@@ -623,7 +620,7 @@ namespace bx
 
 			return num;
 		}
-		else if (BX_ENABLED(BX_PLATFORM_WINDOWS && BX_CPU_X86 && BX_ARCH_64BIT) )
+		else if (BX_ENABLED(BX_PLATFORM_WINDOWS && BX_ARCH_64BIT) )
 		{
 			return getCallStackWinRtl(_skip + 1 /* skip self */, _max, _outStack);
 		}

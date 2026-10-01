@@ -14,16 +14,6 @@
 
 namespace bgfx { namespace gl
 {
-	static char s_viewName[BGFX_CONFIG_MAX_VIEWS][BGFX_CONFIG_MAX_VIEW_NAME];
-
-	inline void setViewType(ViewId _view, const bx::StringView _str)
-	{
-		if (BX_ENABLED(BGFX_CONFIG_DEBUG_ANNOTATION || BGFX_CONFIG_PROFILER) )
-		{
-			bx::memCopy(&s_viewName[_view][3], _str.getPtr(), _str.getLength() );
-		}
-	}
-
 	struct PrimInfo
 	{
 		GLenum m_type;
@@ -3141,12 +3131,6 @@ namespace bgfx { namespace gl
 					m_occlusionQuery.create();
 				}
 
-				// Init reserved part of view name.
-				for (uint32_t ii = 0; ii < BGFX_CONFIG_MAX_VIEWS; ++ii)
-				{
-					bx::snprintf(s_viewName[ii], BGFX_CONFIG_MAX_VIEW_NAME_RESERVED+1, "%3d   ", ii);
-				}
-
 				m_needPresent = false;
 			}
 
@@ -3826,14 +3810,6 @@ namespace bgfx { namespace gl
 			GL_CHECK(glBindFramebuffer(GL_FRAMEBUFFER, m_backBufferFbo) );
 		}
 
-		void updateViewName(ViewId _id, const char* _name) override
-		{
-			bx::strCopy(&s_viewName[_id][BGFX_CONFIG_MAX_VIEW_NAME_RESERVED]
-				, BX_COUNTOF(s_viewName[0])-BGFX_CONFIG_MAX_VIEW_NAME_RESERVED
-				, _name
-				);
-		}
-
 		void invalidateOcclusionQuery(OcclusionQueryHandle _handle) override
 		{
 			m_occlusionQuery.invalidate(_handle);
@@ -4098,12 +4074,12 @@ namespace bgfx { namespace gl
 			{
 				FrameBufferGL& frameBuffer = m_frameBuffers[m_fbh.idx];
 
-				m_glctx.makeCurrent(UINT16_MAX != frameBuffer.m_denseIdx
-					? frameBuffer.m_swapChain
-					: NULL
-					);
+				if (UINT16_MAX == frameBuffer.m_denseIdx)
+				{
+					m_glctx.makeCurrent(NULL);
+					frameBuffer.resolve();
+				}
 
-				frameBuffer.resolve();
 				m_rtMsaa = false;
 			}
 		}
@@ -4491,7 +4467,7 @@ namespace bgfx { namespace gl
 			m_textureViewStateCache.invalidate();
 		}
 
-		void setSamplerState(uint32_t _stage, uint32_t _numMips, uint32_t _flags, const float _rgba[4])
+		void setSamplerState(uint32_t _stage, uint32_t _numMips, uint32_t _flags, const float _rgba[4], uint8_t _lodMin = 0, uint8_t _lodMax = UINT8_MAX)
 		{
 			BX_ASSERT(m_samplerObjectSupport, "Cannot use Sampler Objects");
 
@@ -4505,6 +4481,8 @@ namespace bgfx { namespace gl
 				_flags |= srgb;
 				_flags |= _numMips<<BGFX_SAMPLER_RESERVED_SHIFT;
 
+				const uint16_t lod = uint16_t( (uint16_t(_lodMin) << 8) | _lodMax);
+
 				GLuint sampler;
 
 				bool hasBorderColor = false;
@@ -4513,6 +4491,7 @@ namespace bgfx { namespace gl
 
 				murmur.begin();
 				murmur.add(_flags);
+				murmur.add(lod);
 				if (!needBorderColor(_flags) )
 				{
 					murmur.add(-1);
@@ -4563,6 +4542,9 @@ namespace bgfx { namespace gl
 					{
 						GL_CHECK(glSamplerParameterf(sampler, GL_TEXTURE_LOD_BIAS, float(BGFX_CONFIG_MIP_LOD_BIAS) ) );
 					}
+
+					GL_CHECK(glSamplerParameterf(sampler, GL_TEXTURE_MIN_LOD, float(_lodMin) * 0.25f) );
+					GL_CHECK(glSamplerParameterf(sampler, GL_TEXTURE_MAX_LOD, UINT8_MAX == _lodMax ? 1000.0f : float(_lodMax) * 0.25f) );
 
 					if (m_borderColorSupport
 					&&  hasBorderColor)
@@ -4870,8 +4852,13 @@ namespace bgfx { namespace gl
 
 				GLint intClear[4] = {};
 
+				const bool clearColor = true
+					&& 0 != (BGFX_CLEAR_COLOR & _clear.m_flags)
+					&& 0 == _clear.getColorSkipMask(1)
+					;
+
 				GLuint flags = 0;
-				if (BGFX_CLEAR_COLOR & _clear.m_flags)
+				if (clearColor)
 				{
 					if (BGFX_CLEAR_COLOR_USE_PALETTE & _clear.m_flags)
 					{
@@ -4935,7 +4922,7 @@ namespace bgfx { namespace gl
 					GL_CHECK(glStencilMask(0xff) );
 				}
 
-				const bool clearColorInt = intColor && 0 != (BGFX_CLEAR_COLOR & _clear.m_flags);
+				const bool clearColorInt = intColor && clearColor;
 
 				if (0 != flags
 				||  clearColorInt)
@@ -5075,10 +5062,36 @@ namespace bgfx { namespace gl
 
 				commit(*program.m_constantBuffer);
 
+				const uint8_t skipMask = _clear.getColorSkipMask(numMrt);
+				GLenum buffers[BGFX_CONFIG_MAX_FRAME_BUFFER_ATTACHMENTS];
+
+				if (0 != skipMask)
+				{
+					for (uint32_t ii = 0; ii < numMrt; ++ii)
+					{
+						buffers[ii] = 0 != (skipMask & (1<<ii) )
+							? GL_NONE
+							: GL_COLOR_ATTACHMENT0 + ii
+							;
+					}
+
+					GL_CHECK(glDrawBuffers(numMrt, buffers) );
+				}
+
 				GL_CHECK(glDrawArrays(GL_TRIANGLE_STRIP
 					, 0
 					, 4
 					) );
+
+				if (0 != skipMask)
+				{
+					for (uint32_t ii = 0; ii < numMrt; ++ii)
+					{
+						buffers[ii] = GL_COLOR_ATTACHMENT0 + ii;
+					}
+
+					GL_CHECK(glDrawBuffers(numMrt, buffers) );
+				}
 			}
 		}
 
@@ -6762,7 +6775,7 @@ namespace bgfx { namespace gl
 		}
 	}
 
-	void TextureGL::setSamplerState(uint32_t _flags, const float _rgba[4])
+	void TextureGL::setSamplerState(uint32_t _flags, const float _rgba[4], uint8_t _lodMin, uint8_t _lodMax)
 	{
 		if (BX_ENABLED(BGFX_CONFIG_RENDERER_OPENGL)
 		&&  !s_textureFilter[m_textureFormat])
@@ -6781,11 +6794,13 @@ namespace bgfx { namespace gl
 		}
 
 		const uint32_t flags = (0 != (BGFX_SAMPLER_INTERNAL_DEFAULT & _flags) ? m_flags : _flags) & (BGFX_SAMPLER_BITS_MASK|BGFX_SAMPLER_SRGB);
+		const uint16_t lod   = uint16_t( (uint16_t(_lodMin) << 8) | _lodMax);
 
 		bool hasBorderColor = false;
 		bx::HashMurmur2A murmur;
 		murmur.begin();
 		murmur.add(flags);
+		murmur.add(lod);
 		if (NULL != _rgba)
 		{
 			if (BGFX_SAMPLER_U_BORDER == (flags & BGFX_SAMPLER_U_BORDER)
@@ -6827,6 +6842,13 @@ namespace bgfx { namespace gl
 			if (BX_ENABLED(BGFX_CONFIG_RENDERER_OPENGL) )
 			{
 				GL_CHECK(glTexParameterf(target, GL_TEXTURE_LOD_BIAS, float(BGFX_CONFIG_MIP_LOD_BIAS) ) );
+			}
+
+			if (BX_ENABLED(BGFX_CONFIG_RENDERER_OPENGL)
+			||  BX_ENABLED(BGFX_CONFIG_RENDERER_OPENGLES >= 30) )
+			{
+				GL_CHECK(glTexParameterf(target, GL_TEXTURE_MIN_LOD, float(_lodMin) * 0.25f) );
+				GL_CHECK(glTexParameterf(target, GL_TEXTURE_MAX_LOD, UINT8_MAX == _lodMax ? 1000.0f : float(_lodMax) * 0.25f) );
 			}
 
 			if (s_renderGL->m_borderColorSupport
@@ -6978,7 +7000,7 @@ namespace bgfx { namespace gl
 		return viewId;
 	}
 
-	void TextureGL::commit(uint32_t _stage, uint32_t _flags, const float _palette[][4], uint8_t _firstMip, uint8_t _numMips, uint16_t _firstLayer, uint16_t _numLayers)
+	void TextureGL::commit(uint32_t _stage, uint32_t _flags, const float _palette[][4], uint8_t _firstMip, uint8_t _numMips, uint16_t _firstLayer, uint16_t _numLayers, uint8_t _lodMin, uint8_t _lodMax)
 	{
 		const uint32_t flags = 0 == (BGFX_SAMPLER_INTERNAL_DEFAULT & _flags)
 			? _flags
@@ -7016,11 +7038,11 @@ namespace bgfx { namespace gl
 
 		if (s_renderGL->m_samplerObjectSupport)
 		{
-			s_renderGL->setSamplerState(_stage, m_numMips, samplerFlags, _palette[index]);
+			s_renderGL->setSamplerState(_stage, m_numMips, samplerFlags, _palette[index], _lodMin, _lodMax);
 		}
 		else
 		{
-			setSamplerState(samplerFlags, _palette[index]);
+			setSamplerState(samplerFlags, _palette[index], _lodMin, _lodMax);
 		}
 
 		if (id == m_id
@@ -8710,6 +8732,7 @@ namespace bgfx { namespace gl
 
 		if (m_timerQuerySupport)
 		{
+			m_gpuTimer.resize(getNumTimerQueries(_render, m_gpuTimer.m_control.getSize() ) );
 			frameQueryIdx = m_gpuTimer.begin(BGFX_CONFIG_MAX_VIEWS, _render->m_frameNum);
 		}
 
@@ -8802,7 +8825,6 @@ namespace bgfx { namespace gl
 		Profiler<TimerQueryGL> profiler(
 			  _render
 			, m_gpuTimer
-			, s_viewName
 			, m_timerQuerySupport
 			);
 
@@ -8945,7 +8967,7 @@ namespace bgfx { namespace gl
 								case Binding::Texture:
 									{
 										TextureGL& texture = m_textures[bind.m_idx];
-										texture.commit(ii, bind.m_samplerFlags, _render->m_colorPalette, bind.m_firstMip, bind.m_numMips, bind.m_firstLayer, bind.m_numLayers);
+										texture.commit(ii, bind.m_samplerFlags, _render->m_colorPalette, bind.m_firstMip, bind.m_numMips, bind.m_firstLayer, bind.m_numLayers, bind.m_lod.min, bind.m_lod.max);
 									}
 									break;
 
@@ -9622,7 +9644,7 @@ namespace bgfx { namespace gl
 									case Binding::Texture:
 										{
 											TextureGL& texture = m_textures[bind.m_idx];
-											texture.commit(stage, bind.m_samplerFlags, _render->m_colorPalette, bind.m_firstMip, bind.m_numMips, bind.m_firstLayer, bind.m_numLayers);
+											texture.commit(stage, bind.m_samplerFlags, _render->m_colorPalette, bind.m_firstMip, bind.m_numMips, bind.m_firstLayer, bind.m_numLayers, bind.m_lod.min, bind.m_lod.max);
 										}
 										break;
 

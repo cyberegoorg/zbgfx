@@ -1842,6 +1842,8 @@ BGFX_C_API bgfx_index_buffer_handle_t bgfx_create_index_buffer(const bgfx_memory
  * @param[in] _data Destination buffer.
  *
  * @returns Frame number when the result will be available. See: `bgfx::frame`.
+ *  If the device is lost before then, `bgfx::CallbackI::fatal` reports
+ *  `Fatal::DeviceLost` in that frame, and `_data` is left untouched.
  *
  */
 BGFX_C_API uint32_t bgfx_read_buffer(const bgfx_buffer_region_t * _src, void* _data);
@@ -2318,6 +2320,7 @@ BGFX_C_API bgfx_texture_handle_t bgfx_create_texture(const bgfx_memory_t* _mem, 
  * @param[in] _width Width.
  * @param[in] _height Height.
  * @param[in] _hasMips Indicates that texture contains full mip-map chain.
+ *  Ignored when `BGFX_TEXTURE_MIP_COUNT` is set in _flags.
  * @param[in] _numLayers Number of layers in texture array.
  * @param[in] _format Texture format. See: `TextureFormat::Enum`.
  * @param[in] _flags Texture creation (see `BGFX_TEXTURE_*`.), and sampler (see `BGFX_SAMPLER_*`)
@@ -2342,6 +2345,7 @@ BGFX_C_API bgfx_texture_handle_t bgfx_create_texture_2d(uint16_t _width, uint16_
  *
  * @param[in] _ratio Texture size in respect to back-buffer size. See: `BackbufferRatio::Enum`.
  * @param[in] _hasMips Indicates that texture contains full mip-map chain.
+ *  Ignored when `BGFX_TEXTURE_MIP_COUNT` is set in _flags.
  * @param[in] _numLayers Number of layers in texture array.
  * @param[in] _format Texture format. See: `TextureFormat::Enum`.
  * @param[in] _flags Texture creation (see `BGFX_TEXTURE_*`.), and sampler (see `BGFX_SAMPLER_*`)
@@ -2363,6 +2367,7 @@ BGFX_C_API bgfx_texture_handle_t bgfx_create_texture_2d_scaled(bgfx_backbuffer_r
  * @param[in] _height Height.
  * @param[in] _depth Depth.
  * @param[in] _hasMips Indicates that texture contains full mip-map chain.
+ *  Ignored when `BGFX_TEXTURE_MIP_COUNT` is set in _flags.
  * @param[in] _format Texture format. See: `TextureFormat::Enum`.
  * @param[in] _flags Texture creation (see `BGFX_TEXTURE_*`.), and sampler (see `BGFX_SAMPLER_*`)
  *  flags. Default texture sampling mode is linear, and wrap mode is repeat.
@@ -2385,6 +2390,7 @@ BGFX_C_API bgfx_texture_handle_t bgfx_create_texture_3d(uint16_t _width, uint16_
  *
  * @param[in] _size Cube side size.
  * @param[in] _hasMips Indicates that texture contains full mip-map chain.
+ *  Ignored when `BGFX_TEXTURE_MIP_COUNT` is set in _flags.
  * @param[in] _numLayers Number of layers in texture array.
  * @param[in] _format Texture format. See: `TextureFormat::Enum`.
  * @param[in] _flags Texture creation (see `BGFX_TEXTURE_*`.), and sampler (see `BGFX_SAMPLER_*`)
@@ -2507,6 +2513,8 @@ BGFX_C_API void bgfx_clear_texture(bgfx_texture_handle_t _handle, uint8_t _mip, 
  * @param[in] _data Destination buffer.
  *
  * @returns Frame number when the result will be available. See: `bgfx::frame`.
+ *  If the device is lost before then, `bgfx::CallbackI::fatal` reports
+ *  `Fatal::DeviceLost` in that frame, and `_data` is left untouched.
  *
  */
 BGFX_C_API uint32_t bgfx_read_texture(const bgfx_texture_region_t * _src, void* _data);
@@ -2920,7 +2928,8 @@ BGFX_C_API void bgfx_set_view_clear(bgfx_view_id_t _id, uint16_t _flags, uint32_
 /**
  * Set view clear flags with different clear color for each
  * frame buffer texture. `bgfx::setPaletteColor` must be used to set up a
- * clear color palette.
+ * clear color palette. Frame buffer attachment with palette index set to
+ * `UINT8_MAX` is not cleared.
  *
  * @param[in] _id View id.
  * @param[in] _flags Clear flags. Use `BGFX_CLEAR_NONE` to remove any clear
@@ -3451,9 +3460,14 @@ BGFX_C_API void bgfx_encoder_set_texture(bgfx_encoder_t* _this, uint8_t _stage, 
  *      mode.
  *    - `BGFX_SAMPLER_[MIN/MAG/MIP]_[POINT/ANISOTROPIC]` - Point or anisotropic
  *      sampling.
+ * @param[in] _lodMin Lowest (most detailed) level of detail the sampler may use, in
+ *  quarter-mip steps, relative to `_firstMip`.
+ * @param[in] _lodMax Highest (least detailed) level of detail the sampler may use, in
+ *  quarter-mip steps, relative to `_firstMip`. `UINT8_MAX` leaves it
+ *  unclamped.
  *
  */
-BGFX_C_API void bgfx_encoder_set_texture_view(bgfx_encoder_t* _this, uint8_t _stage, bgfx_uniform_handle_t _sampler, bgfx_texture_handle_t _handle, uint16_t _firstLayer, uint16_t _numLayers, uint8_t _firstMip, uint8_t _numMips, uint32_t _flags);
+BGFX_C_API void bgfx_encoder_set_texture_view(bgfx_encoder_t* _this, uint8_t _stage, bgfx_uniform_handle_t _sampler, bgfx_texture_handle_t _handle, uint16_t _firstLayer, uint16_t _numLayers, uint8_t _firstMip, uint8_t _numMips, uint32_t _flags, uint8_t _lodMin, uint8_t _lodMax);
 
 /**
  * Submit an empty primitive for rendering. Uniforms and draw state
@@ -3752,6 +3766,9 @@ BGFX_C_API void bgfx_encoder_blit_from_buffer(bgfx_encoder_t* _this, bgfx_view_i
  * @param[in] _handle Frame buffer handle. If handle is `BGFX_INVALID_HANDLE` request will be
  *  made for main window back buffer.
  * @param[in] _filePath Will be passed to `bgfx::CallbackI::screenShot` callback.
+ *  If the device is lost before the screenshot is taken,
+ *  `bgfx::CallbackI::fatal` reports `Fatal::DeviceLost` in that frame
+ *  and `screenShot` is not called for this request.
  *
  */
 BGFX_C_API void bgfx_request_screen_shot(bgfx_frame_buffer_handle_t _handle, const char* _filePath);
@@ -4177,9 +4194,14 @@ BGFX_C_API void bgfx_set_texture(uint8_t _stage, bgfx_uniform_handle_t _sampler,
  *      mode.
  *    - `BGFX_SAMPLER_[MIN/MAG/MIP]_[POINT/ANISOTROPIC]` - Point or anisotropic
  *      sampling.
+ * @param[in] _lodMin Lowest (most detailed) level of detail the sampler may use, in
+ *  quarter-mip steps, relative to `_firstMip`.
+ * @param[in] _lodMax Highest (least detailed) level of detail the sampler may use, in
+ *  quarter-mip steps, relative to `_firstMip`. `UINT8_MAX` leaves it
+ *  unclamped.
  *
  */
-BGFX_C_API void bgfx_set_texture_view(uint8_t _stage, bgfx_uniform_handle_t _sampler, bgfx_texture_handle_t _handle, uint16_t _firstLayer, uint16_t _numLayers, uint8_t _firstMip, uint8_t _numMips, uint32_t _flags);
+BGFX_C_API void bgfx_set_texture_view(uint8_t _stage, bgfx_uniform_handle_t _sampler, bgfx_texture_handle_t _handle, uint16_t _firstLayer, uint16_t _numLayers, uint8_t _firstMip, uint8_t _numMips, uint32_t _flags, uint8_t _lodMin, uint8_t _lodMax);
 
 /**
  * Submit an empty primitive for rendering. Uniforms and draw state
@@ -4855,7 +4877,7 @@ struct bgfx_interface_vtbl
     void (*encoder_set_instance_data_from_dynamic_vertex_buffer)(bgfx_encoder_t* _this, bgfx_dynamic_vertex_buffer_handle_t _handle, uint32_t _startVertex, uint32_t _num);
     void (*encoder_set_instance_count)(bgfx_encoder_t* _this, uint32_t _numInstances);
     void (*encoder_set_texture)(bgfx_encoder_t* _this, uint8_t _stage, bgfx_uniform_handle_t _sampler, bgfx_texture_handle_t _handle, uint32_t _flags);
-    void (*encoder_set_texture_view)(bgfx_encoder_t* _this, uint8_t _stage, bgfx_uniform_handle_t _sampler, bgfx_texture_handle_t _handle, uint16_t _firstLayer, uint16_t _numLayers, uint8_t _firstMip, uint8_t _numMips, uint32_t _flags);
+    void (*encoder_set_texture_view)(bgfx_encoder_t* _this, uint8_t _stage, bgfx_uniform_handle_t _sampler, bgfx_texture_handle_t _handle, uint16_t _firstLayer, uint16_t _numLayers, uint8_t _firstMip, uint8_t _numMips, uint32_t _flags, uint8_t _lodMin, uint8_t _lodMax);
     void (*encoder_touch)(bgfx_encoder_t* _this, bgfx_view_id_t _id);
     void (*encoder_submit)(bgfx_encoder_t* _this, bgfx_view_id_t _id, bgfx_program_handle_t _program, uint32_t _depth, uint8_t _flags);
     void (*encoder_submit_occlusion_query)(bgfx_encoder_t* _this, bgfx_view_id_t _id, bgfx_program_handle_t _program, bgfx_occlusion_query_handle_t _occlusionQuery, uint32_t _depth, uint8_t _flags);
@@ -4907,7 +4929,7 @@ struct bgfx_interface_vtbl
     void (*set_instance_data_from_dynamic_vertex_buffer)(bgfx_dynamic_vertex_buffer_handle_t _handle, uint32_t _startVertex, uint32_t _num);
     void (*set_instance_count)(uint32_t _numInstances);
     void (*set_texture)(uint8_t _stage, bgfx_uniform_handle_t _sampler, bgfx_texture_handle_t _handle, uint32_t _flags);
-    void (*set_texture_view)(uint8_t _stage, bgfx_uniform_handle_t _sampler, bgfx_texture_handle_t _handle, uint16_t _firstLayer, uint16_t _numLayers, uint8_t _firstMip, uint8_t _numMips, uint32_t _flags);
+    void (*set_texture_view)(uint8_t _stage, bgfx_uniform_handle_t _sampler, bgfx_texture_handle_t _handle, uint16_t _firstLayer, uint16_t _numLayers, uint8_t _firstMip, uint8_t _numMips, uint32_t _flags, uint8_t _lodMin, uint8_t _lodMax);
     void (*touch)(bgfx_view_id_t _id);
     void (*submit)(bgfx_view_id_t _id, bgfx_program_handle_t _program, uint32_t _depth, uint8_t _flags);
     void (*submit_occlusion_query)(bgfx_view_id_t _id, bgfx_program_handle_t _program, bgfx_occlusion_query_handle_t _occlusionQuery, uint32_t _depth, uint8_t _flags);

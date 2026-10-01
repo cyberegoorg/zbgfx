@@ -387,6 +387,7 @@ namespace bgfx
 	bx::AllocatorI* g_allocator = NULL;
 
 	Caps g_caps;
+	char g_viewName[BGFX_CONFIG_MAX_VIEWS][BGFX_CONFIG_MAX_VIEW_NAME];
 
 #if BGFX_CONFIG_MULTITHREADED
 	static BX_THREAD_LOCAL uint32_t s_threadIndex(0);
@@ -2880,6 +2881,7 @@ namespace bgfx
 		m_submit->m_debugFrameBuffer = m_debugFrameBuffer;
 		m_submit->m_debugTextScale   = m_debugTextScale;
 		m_submit->m_perfStats.numViews = 0;
+		m_submit->reserveViewStats(0 != (m_debug & BGFX_DEBUG_PROFILER) );
 
 		bx::memCopy(m_submit->m_viewRemap, m_viewRemap, sizeof(m_viewRemap) );
 
@@ -3463,6 +3465,12 @@ namespace bgfx
 					Init init;
 					_cmdbuf.read(init);
 
+					// Init reserved part of view name.
+					for (uint32_t ii = 0; ii < BGFX_CONFIG_MAX_VIEWS; ++ii)
+					{
+						bx::snprintf(g_viewName[ii], BGFX_CONFIG_MAX_VIEW_NAME_RESERVED+1, "%3d   ", ii);
+					}
+
 					m_renderCtx = rendererCreate(init);
 
 					m_rendererInitialized = NULL != m_renderCtx;
@@ -4027,7 +4035,10 @@ namespace bgfx
 
 					const char* name = (const char*)_cmdbuf.skip(len);
 
-					m_renderCtx->updateViewName(id, name);
+					bx::strCopy(&g_viewName[id][BGFX_CONFIG_MAX_VIEW_NAME_RESERVED]
+						, BX_COUNTOF(g_viewName[0])-BGFX_CONFIG_MAX_VIEW_NAME_RESERVED
+						, name
+						);
 				}
 				break;
 
@@ -4604,7 +4615,7 @@ namespace bgfx
 		BGFX_ENCODER(setTexture(_stage, _sampler, _handle, _flags) );
 	}
 
-	void Encoder::setTexture(uint8_t _stage, UniformHandle _sampler, TextureHandle _handle, uint16_t _firstLayer, uint16_t _numLayers, uint8_t _firstMip, uint8_t _numMips, uint32_t _flags)
+	void Encoder::setTexture(uint8_t _stage, UniformHandle _sampler, TextureHandle _handle, uint16_t _firstLayer, uint16_t _numLayers, uint8_t _firstMip, uint8_t _numMips, uint32_t _flags, uint8_t _lodMin, uint8_t _lodMax)
 	{
 		BGFX_CHECK_HANDLE("setTexture/UniformHandle", s_ctx->m_uniformHandle, _sampler);
 		BGFX_CHECK_HANDLE_INVALID_OK("setTexture/TextureHandle", s_ctx->m_textureHandle, _handle);
@@ -4619,7 +4630,7 @@ namespace bgfx
 			BX_UNUSED(ref);
 		}
 
-		BGFX_ENCODER(setTexture(_stage, _sampler, _handle, _firstLayer, _numLayers, _firstMip, _numMips, _flags) );
+		BGFX_ENCODER(setTexture(_stage, _sampler, _handle, _firstLayer, _numLayers, _firstMip, _numMips, _flags, _lodMin, _lodMax) );
 	}
 
 	void Encoder::touch(ViewId _id)
@@ -6109,6 +6120,27 @@ namespace bgfx
 		bimg::imageGetSize( (bimg::TextureInfo*)&_info, _width, _height, _depth, _cubeMap, _hasMips, _numLayers, bimg::TextureFormat::Enum(_format) );
 	}
 
+	static uint32_t calcTextureStorageSize(uint16_t _width, uint16_t _height, uint16_t _depth, bool _cubeMap, uint8_t _numMips, uint16_t _numLayers, TextureFormat::Enum _format)
+	{
+		uint64_t size = 0;
+
+		for (uint8_t mip = 0; mip < _numMips; ++mip)
+		{
+			size += bimg::imageGetSize(
+				  NULL
+				, bx::max<uint32_t>(1, _width  >> mip)
+				, bx::max<uint32_t>(1, _height >> mip)
+				, bx::max<uint32_t>(1, _depth  >> mip)
+				, _cubeMap
+				, false
+				, 1
+				, bimg::TextureFormat::Enum(_format)
+				);
+		}
+
+		return uint32_t(size*_numLayers);
+	}
+
 	TextureHandle createTexture(const Memory* _mem, uint64_t _flags, uint8_t _skip, TextureInfo* _info)
 	{
 		BX_ASSERT(NULL != _mem, "_mem can't be NULL");
@@ -6175,20 +6207,20 @@ namespace bgfx
 			return BGFX_INVALID_HANDLE;
 		}
 
-		const uint8_t numMips = calcNumMips(_hasMips, _width, _height);
+		const uint8_t numMips = calcNumMips(flags, _hasMips, _width, _height);
 		_numLayers = bx::max<uint16_t>(_numLayers, 1);
 
 		if (BX_ENABLED(BGFX_CONFIG_DEBUG)
 		&&  NULL != _mem
 		&&  0 == (flags & BGFX_TEXTURE_INTERNAL_VIDEO_DECODE_DST) )
 		{
-			TextureInfo ti;
-			calcTextureSize(ti, _width, _height, 1, false, _hasMips, _numLayers, _format);
-			BX_ASSERT(ti.storageSize == _mem->size
+			const uint32_t storageSize = calcTextureStorageSize(_width, _height, 1, false, numMips, _numLayers, _format);
+			BX_ASSERT(storageSize == _mem->size
 				, "createTexture2D: Texture storage size doesn't match passed memory size (storage size: %d, memory size: %d)"
-				, ti.storageSize
+				, storageSize
 				, _mem->size
 				);
+			BX_UNUSED(storageSize);
 		}
 
 		uint32_t size = sizeof(uint32_t)+sizeof(TextureCreate);
@@ -6250,18 +6282,18 @@ namespace bgfx
 			return BGFX_INVALID_HANDLE;
 		}
 
-		const uint8_t numMips = calcNumMips(_hasMips, _width, _height, _depth);
+		const uint8_t numMips = calcNumMips(_flags, _hasMips, _width, _height, _depth);
 
 		if (BX_ENABLED(BGFX_CONFIG_DEBUG)
 		&&  NULL != _mem)
 		{
-			TextureInfo ti;
-			calcTextureSize(ti, _width, _height, _depth, false, _hasMips, 1, _format);
-			BX_ASSERT(ti.storageSize == _mem->size
+			const uint32_t storageSize = calcTextureStorageSize(_width, _height, _depth, false, numMips, 1, _format);
+			BX_ASSERT(storageSize == _mem->size
 				, "createTexture3D: Texture storage size doesn't match passed memory size (storage size: %d, memory size: %d)"
-				, ti.storageSize
+				, storageSize
 				, _mem->size
 				);
+			BX_UNUSED(storageSize);
 		}
 
 		uint32_t size = sizeof(uint32_t)+sizeof(TextureCreate);
@@ -6301,19 +6333,19 @@ namespace bgfx
 			return BGFX_INVALID_HANDLE;
 		}
 
-		const uint8_t numMips = calcNumMips(_hasMips, _size, _size);
+		const uint8_t numMips = calcNumMips(_flags, _hasMips, _size, _size);
 		_numLayers = bx::max<uint16_t>(_numLayers, 1);
 
 		if (BX_ENABLED(BGFX_CONFIG_DEBUG)
 		&&  NULL != _mem)
 		{
-			TextureInfo ti;
-			calcTextureSize(ti, _size, _size, 1, true, _hasMips, _numLayers, _format);
-			BX_ASSERT(ti.storageSize == _mem->size
+			const uint32_t storageSize = calcTextureStorageSize(_size, _size, 1, true, numMips, _numLayers, _format);
+			BX_ASSERT(storageSize == _mem->size
 				, "createTextureCube: Texture storage size doesn't match passed memory size (storage size: %d, memory size: %d)"
-				, ti.storageSize
+				, storageSize
 				, _mem->size
 				);
+			BX_UNUSED(storageSize);
 		}
 
 		uint32_t size = sizeof(uint32_t)+sizeof(TextureCreate);
@@ -6683,6 +6715,24 @@ namespace bgfx
 	void setViewClear(ViewId _id, uint16_t _flags, float _depth, uint8_t _stencil, uint8_t _0, uint8_t _1, uint8_t _2, uint8_t _3, uint8_t _4, uint8_t _5, uint8_t _6, uint8_t _7)
 	{
 		BX_ASSERT(checkView(_id), "Invalid view id: %d", _id);
+
+		if (BX_ENABLED(BGFX_CONFIG_DEBUG) )
+		{
+			const uint8_t index[] = { _0, _1, _2, _3, _4, _5, _6, _7 };
+
+			for (uint32_t ii = 0; ii < BX_COUNTOF(index); ++ii)
+			{
+				BX_ASSERT(UINT8_MAX == index[ii] || index[ii] < BGFX_CONFIG_MAX_COLOR_PALETTE
+					, "setViewClear: Invalid palette index %d for frame buffer attachment %d (must be less than BGFX_CONFIG_MAX_COLOR_PALETTE (%d), or UINT8_MAX to leave the attachment unchanged)."
+					, index[ii]
+					, ii
+					, BGFX_CONFIG_MAX_COLOR_PALETTE
+					);
+			}
+
+			BX_UNUSED(index);
+		}
+
 		s_ctx->setViewClear(_id, _flags, _depth, _stencil, _0, _1, _2, _3, _4, _5, _6, _7);
 	}
 
@@ -6956,10 +7006,10 @@ namespace bgfx
 		s_ctx->m_encoder0->setTexture(_stage, _sampler, _handle, _flags);
 	}
 
-	void setTexture(uint8_t _stage, UniformHandle _sampler, TextureHandle _handle, uint16_t _firstLayer, uint16_t _numLayers, uint8_t _firstMip, uint8_t _numMips, uint32_t _flags)
+	void setTexture(uint8_t _stage, UniformHandle _sampler, TextureHandle _handle, uint16_t _firstLayer, uint16_t _numLayers, uint8_t _firstMip, uint8_t _numMips, uint32_t _flags, uint8_t _lodMin, uint8_t _lodMax)
 	{
 		BGFX_CHECK_ENCODER0();
-		s_ctx->m_encoder0->setTexture(_stage, _sampler, _handle, _firstLayer, _numLayers, _firstMip, _numMips, _flags);
+		s_ctx->m_encoder0->setTexture(_stage, _sampler, _handle, _firstLayer, _numLayers, _firstMip, _numMips, _flags, _lodMin, _lodMax);
 	}
 
 	void touch(ViewId _id)

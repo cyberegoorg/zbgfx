@@ -17,7 +17,7 @@
 
 #define BGFX_MTL_PROFILER_BEGIN(_view, _abgr)         \
 	BX_MACRO_BLOCK_BEGIN                              \
-		BGFX_PROFILER_BEGIN(s_viewName[view], _abgr); \
+		BGFX_PROFILER_BEGIN(g_viewName[view], _abgr); \
 	BX_MACRO_BLOCK_END
 
 #define BGFX_MTL_PROFILER_BEGIN_LITERAL(_name, _abgr) \
@@ -487,6 +487,8 @@ namespace bgfx { namespace mtl
 			, uint16_t _numLayers = UINT16_MAX
 			, uint8_t _firstMip = 0
 			, uint8_t _numMips = UINT8_MAX
+			, uint8_t _lodMin = 0
+			, uint8_t _lodMax = UINT8_MAX
 			);
 
 		MTL::Texture* getTextureImage(uint8_t _mip, uint16_t _firstLayer = 0, uint16_t _numLayers = UINT16_MAX);

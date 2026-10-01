@@ -12,22 +12,18 @@
 
 namespace bgfx { namespace d3d11
 {
-	static wchar_t s_viewNameW[BGFX_CONFIG_MAX_VIEWS][BGFX_CONFIG_MAX_VIEW_NAME];
-	static char    s_viewName [BGFX_CONFIG_MAX_VIEWS][BGFX_CONFIG_MAX_VIEW_NAME];
-
-	inline void setViewType(ViewId _view, const bx::StringView _str)
+	inline const wchar_t* toViewNameW(wchar_t* _out, ViewId _view)
 	{
-		if (BX_ENABLED(BGFX_CONFIG_DEBUG_ANNOTATION | BGFX_CONFIG_PROFILER) )
+		size_t len = mbstowcs(_out, g_viewName[_view], BGFX_CONFIG_MAX_VIEW_NAME-1);
+
+		if (size_t(-1) == len)
 		{
-			const uint32_t len = _str.getLength();
-
-			bx::memCopy(&s_viewName[_view][3], _str.getPtr(), len);
-
-			wchar_t tmpW[16];
-			mbstowcs(tmpW, _str.getPtr(), len);
-
-			bx::memCopy(&s_viewNameW[_view][3], tmpW, len*2);
+			len = mbstowcs(_out, g_viewName[_view], BGFX_CONFIG_MAX_VIEW_NAME_RESERVED);
 		}
+
+		_out[size_t(-1) == len ? 0 : len] = L'\0';
+
+		return _out;
 	}
 
 	struct PrimInfo
@@ -1605,13 +1601,6 @@ namespace bgfx { namespace d3d11
 						});
 				}
 
-				// Init reserved part of view name.
-				for (uint32_t ii = 0; ii < BGFX_CONFIG_MAX_VIEWS; ++ii)
-				{
-					bx::snprintf(s_viewName[ii], BGFX_CONFIG_MAX_VIEW_NAME_RESERVED + 1, "%3d   ", ii);
-					mbstowcs(s_viewNameW[ii], s_viewName[ii], BGFX_CONFIG_MAX_VIEW_NAME_RESERVED);
-				}
-
 				if (_init.debug
 				&&  NULL != m_infoQueue)
 				{
@@ -1909,8 +1898,18 @@ namespace bgfx { namespace d3d11
 
 			m_deviceCtx->CopySubresourceRegion(texture.m_staging, subresource, 0, 0, 0, texture.m_ptr, subresource, NULL);
 
-			D3D11_MAPPED_SUBRESOURCE mapped;
-			DX_CHECK(m_deviceCtx->Map(texture.m_staging, subresource, D3D11_MAP_READ, 0, &mapped) );
+			D3D11_MAPPED_SUBRESOURCE mapped = {};
+			const HRESULT hr = m_deviceCtx->Map(texture.m_staging, subresource, D3D11_MAP_READ, 0, &mapped);
+
+			if (FAILED(hr) )
+			{
+				BX_TRACE("readTexture: Map failed 0x%08x, device removed reason 0x%08x."
+					, uint32_t(hr)
+					, uint32_t(m_device->GetDeviceRemovedReason() )
+					);
+					handleDeviceLost(hr);
+				return;
+			}
 
 			uint32_t srcWidth  = bx::max(1, texture.m_width >>_mip);
 			uint32_t srcHeight = bx::max(1, texture.m_height>>_mip);
@@ -1979,10 +1978,22 @@ namespace bgfx { namespace d3d11
 			box.back   = 1;
 			m_deviceCtx->CopySubresourceRegion(staging, 0, _offset, 0, 0, buffer.m_ptr, 0, &box);
 
-			D3D11_MAPPED_SUBRESOURCE mapped;
-			DX_CHECK(m_deviceCtx->Map(staging, 0, D3D11_MAP_READ, 0, &mapped) );
-			bx::memCopy(_data, (const uint8_t*)mapped.pData + _offset, _size);
-			m_deviceCtx->Unmap(staging, 0);
+			D3D11_MAPPED_SUBRESOURCE mapped = {};
+			const HRESULT hr = m_deviceCtx->Map(staging, 0, D3D11_MAP_READ, 0, &mapped);
+
+			if (FAILED(hr) )
+			{
+				BX_TRACE("readBuffer: Map failed 0x%08x, device removed reason 0x%08x."
+					, uint32_t(hr)
+					, uint32_t(m_device->GetDeviceRemovedReason() )
+					);
+					handleDeviceLost(hr);
+			}
+			else
+			{
+				bx::memCopy(_data, (const uint8_t*)mapped.pData + _offset, _size);
+				m_deviceCtx->Unmap(staging, 0);
+			}
 
 			DX_RELEASE(staging, 0);
 		}
@@ -2159,42 +2170,37 @@ namespace bgfx { namespace d3d11
 					}
 				}
 
-				D3D11_MAPPED_SUBRESOURCE mapped;
-				DX_CHECK(m_deviceCtx->Map(texture, 0, D3D11_MAP_READ, 0, &mapped) );
+				D3D11_MAPPED_SUBRESOURCE mapped = {};
+				hr = m_deviceCtx->Map(texture, 0, D3D11_MAP_READ, 0, &mapped);
 
-				g_callback->screenShot(
-					  _filePath
-					, backBufferDesc.Width
-					, backBufferDesc.Height
-					, mapped.RowPitch
-					, colorFormat
-					, mapped.pData
-					, backBufferDesc.Height*mapped.RowPitch
-					, false
-					);
+				if (FAILED(hr) )
+				{
+					BX_TRACE("requestScreenShot: Map failed 0x%08x, device removed reason 0x%08x."
+						, uint32_t(hr)
+						, uint32_t(m_device->GetDeviceRemovedReason() )
+						);
+						handleDeviceLost(hr);
+				}
+				else
+				{
+					g_callback->screenShot(
+						  _filePath
+						, backBufferDesc.Width
+						, backBufferDesc.Height
+						, mapped.RowPitch
+						, colorFormat
+						, mapped.pData
+						, backBufferDesc.Height*mapped.RowPitch
+						, false
+						);
 
-				m_deviceCtx->Unmap(texture, 0);
+					m_deviceCtx->Unmap(texture, 0);
+				}
 
 				DX_RELEASE(texture, 0);
 			}
 
 			DX_RELEASE(backBuffer, 0);
-		}
-
-		void updateViewName(ViewId _id, const char* _name) override
-		{
-			if (BX_ENABLED(BGFX_CONFIG_DEBUG_ANNOTATION) )
-			{
-				mbstowcs(&s_viewNameW[_id][BGFX_CONFIG_MAX_VIEW_NAME_RESERVED]
-					, _name
-					, BX_COUNTOF(s_viewNameW[0])-BGFX_CONFIG_MAX_VIEW_NAME_RESERVED
-					);
-			}
-
-			bx::strCopy(&s_viewName[_id][BGFX_CONFIG_MAX_VIEW_NAME_RESERVED]
-				, BX_COUNTOF(s_viewName[0]) - BGFX_CONFIG_MAX_VIEW_NAME_RESERVED
-				, _name
-				);
 		}
 
 		void invalidateOcclusionQuery(OcclusionQueryHandle _handle) override
@@ -2868,7 +2874,7 @@ namespace bgfx { namespace d3d11
 			setInputLayout(BX_COUNTOF(layouts), layouts, _program, _numInstanceData);
 		}
 
-		void setBlendState(uint64_t _state, uint32_t _rgba = 0, uint32_t _sampleMask = UINT32_MAX)
+		void setBlendState(uint64_t _state, uint32_t _rgba = 0, uint32_t _sampleMask = UINT32_MAX, uint8_t _mrtMask = UINT8_MAX)
 		{
 			_state &= BGFX_D3D11_BLEND_STATE_MASK;
 
@@ -2879,6 +2885,7 @@ namespace bgfx { namespace d3d11
 				? _rgba
 				: -1
 				);
+			murmur.add(_mrtMask);
 			const uint32_t hash = murmur.end();
 
 			ID3D11BlendState* bs = m_blendStateCache.find(hash);
@@ -2945,6 +2952,19 @@ namespace bgfx { namespace d3d11
 					for (uint32_t ii = 1; ii < BX_COUNTOF(desc.RenderTarget); ++ii)
 					{
 						bx::memCopy(&desc.RenderTarget[ii], drt, sizeof(D3D11_RENDER_TARGET_BLEND_DESC) );
+					}
+				}
+
+				if (UINT8_MAX != _mrtMask)
+				{
+					desc.IndependentBlendEnable = true;
+
+					for (uint32_t ii = 0; ii < BX_COUNTOF(desc.RenderTarget); ++ii)
+					{
+						if (0 == (_mrtMask & (1<<ii) ) )
+						{
+							desc.RenderTarget[ii].RenderTargetWriteMask = 0;
+						}
 					}
 				}
 
@@ -3125,7 +3145,7 @@ namespace bgfx { namespace d3d11
 			m_deviceCtx->RSSetState(rs);
 		}
 
-		ID3D11SamplerState* getSamplerState(uint32_t _flags, const float _rgba[4])
+		ID3D11SamplerState* getSamplerState(uint32_t _flags, const float _rgba[4], uint8_t _lodMin = 0, uint8_t _lodMax = UINT8_MAX)
 		{
 			const uint32_t index = (_flags & BGFX_SAMPLER_BORDER_COLOR_MASK) >> BGFX_SAMPLER_BORDER_COLOR_SHIFT;
 			_flags &= BGFX_SAMPLER_BITS_MASK;
@@ -3139,12 +3159,14 @@ namespace bgfx { namespace d3d11
 
 			uint32_t hash;
 			ID3D11SamplerState* sampler;
+			const uint32_t lod = (uint32_t(_lodMin) << 8) | _lodMax;
 			if (!needBorderColor(_flags) )
 			{
 				bx::HashMurmur2A murmur;
 				murmur.begin();
 				murmur.add(_flags);
 				murmur.add(-1);
+				murmur.add(lod);
 				hash = murmur.end();
 				_rgba = s_zero.m_zerof;
 
@@ -3156,6 +3178,7 @@ namespace bgfx { namespace d3d11
 				murmur.begin();
 				murmur.add(_flags);
 				murmur.add(index);
+				murmur.add(lod);
 				hash = murmur.end();
 				_rgba = NULL == _rgba ? s_zero.m_zerof : _rgba;
 
@@ -3193,8 +3216,8 @@ namespace bgfx { namespace d3d11
 				sd.BorderColor[1] = _rgba[1];
 				sd.BorderColor[2] = _rgba[2];
 				sd.BorderColor[3] = _rgba[3];
-				sd.MinLOD = 0;
-				sd.MaxLOD = D3D11_FLOAT32_MAX;
+				sd.MinLOD = float(_lodMin) * 0.25f;
+				sd.MaxLOD = UINT8_MAX == _lodMax ? D3D11_FLOAT32_MAX : float(_lodMax) * 0.25f;
 
 				DX_CHECK(m_device->CreateSamplerState(&sd, &sampler));
 				DX_CHECK_REFCOUNT(sampler, 1);
@@ -3622,21 +3645,32 @@ namespace bgfx { namespace d3d11
 					m_deviceCtx->CopyResource(m_captureTexture, m_captureResolve);
 				}
 
-				D3D11_MAPPED_SUBRESOURCE mapped;
-				DX_CHECK(m_deviceCtx->Map(m_captureTexture, 0, D3D11_MAP_READ, 0, &mapped) );
+				D3D11_MAPPED_SUBRESOURCE mapped = {};
+				const HRESULT hr = m_deviceCtx->Map(m_captureTexture, 0, D3D11_MAP_READ, 0, &mapped);
 
-				bimg::imageSwizzleBgra8(
-					  mapped.pData
-					, mapped.RowPitch
-					, m_scd.width
-					, m_scd.height
-					, mapped.pData
-					, mapped.RowPitch
-					);
+				if (FAILED(hr) )
+				{
+					BX_TRACE("capture: Map failed 0x%08x, device removed reason 0x%08x."
+						, uint32_t(hr)
+						, uint32_t(m_device->GetDeviceRemovedReason() )
+						);
+						handleDeviceLost(hr);
+				}
+				else
+				{
+					bimg::imageSwizzleBgra8(
+						  mapped.pData
+						, mapped.RowPitch
+						, m_scd.width
+						, m_scd.height
+						, mapped.pData
+						, mapped.RowPitch
+						);
 
-				g_callback->captureFrame(mapped.pData, m_scd.height*mapped.RowPitch);
+					g_callback->captureFrame(mapped.pData, m_scd.height*mapped.RowPitch);
 
-				m_deviceCtx->Unmap(m_captureTexture, 0);
+					m_deviceCtx->Unmap(m_captureTexture, 0);
+				}
 
 				DX_RELEASE(backBuffer, 0);
 			}
@@ -3807,10 +3841,6 @@ namespace bgfx { namespace d3d11
 					: 0
 					;
 
-				setBlendState(state);
-				setDepthStencilState(state, stencil);
-				setRasterizerState(state);
-
 				uint32_t numMrt = 1;
 				FrameBufferHandle fbh = m_fbh;
 				if (isValid(fbh) )
@@ -3818,6 +3848,10 @@ namespace bgfx { namespace d3d11
 					const FrameBufferD3D11& fb = m_frameBuffers[fbh.idx];
 					numMrt = bx::max(1, fb.m_num);
 				}
+
+				setBlendState(state, 0, UINT32_MAX, uint8_t(~_clear.getColorSkipMask(numMrt) ) );
+				setDepthStencilState(state, stencil);
+				setRasterizerState(state);
 
 				ProgramD3D11& program = m_program[_clearQuad.m_program[numMrt-1].idx];
 				m_currentProgram = &program;
@@ -5477,7 +5511,7 @@ namespace bgfx { namespace d3d11
 		}
 	}
 
-	void TextureD3D11::commit(uint8_t _stage, uint32_t _flags, const float _palette[][4], uint16_t _firstLayer, uint16_t _numLayers, uint8_t _firstMip, uint8_t _numMips, TextureDimension::Enum _dimension)
+	void TextureD3D11::commit(uint8_t _stage, uint32_t _flags, const float _palette[][4], uint16_t _firstLayer, uint16_t _numLayers, uint8_t _firstMip, uint8_t _numMips, uint8_t _lodMin, uint8_t _lodMax, TextureDimension::Enum _dimension)
 	{
 		TextureStage& ts = s_renderD3D11->m_textureStage;
 
@@ -5550,7 +5584,7 @@ namespace bgfx { namespace d3d11
 		}
 
 		uint32_t index = (flags & BGFX_SAMPLER_BORDER_COLOR_MASK) >> BGFX_SAMPLER_BORDER_COLOR_SHIFT;
-		ts.m_sampler[_stage] = s_renderD3D11->getSamplerState(flags, _palette[index]);
+		ts.m_sampler[_stage] = s_renderD3D11->getSamplerState(flags, _palette[index], _lodMin, _lodMax);
 	}
 
 	void TextureD3D11::resolve(uint8_t _resolve, uint32_t _layer, uint32_t _numLayers, uint32_t _mip) const
@@ -6242,22 +6276,7 @@ namespace bgfx { namespace d3d11
 
 	void TimerQueryD3D11::postReset()
 	{
-		ID3D11Device* device = s_renderD3D11->m_device;
-
-		D3D11_QUERY_DESC qd;
-		qd.MiscFlags = 0;
-		for (uint32_t ii = 0; ii < BX_COUNTOF(m_query); ++ii)
-		{
-			Query& query = m_query[ii];
-			query.m_ready = false;
-
-			qd.Query = D3D11_QUERY_TIMESTAMP_DISJOINT;
-			DX_CHECK(device->CreateQuery(&qd, &query.m_disjoint) );
-
-			qd.Query = D3D11_QUERY_TIMESTAMP;
-			DX_CHECK(device->CreateQuery(&qd, &query.m_begin) );
-			DX_CHECK(device->CreateQuery(&qd, &query.m_end) );
-		}
+		create(0, m_control.getSize() );
 
 		for (uint32_t ii = 0; ii < BX_COUNTOF(m_result); ++ii)
 		{
@@ -6270,12 +6289,67 @@ namespace bgfx { namespace d3d11
 
 	void TimerQueryD3D11::preReset()
 	{
-		for (uint32_t ii = 0; ii < BX_COUNTOF(m_query); ++ii)
+		destroy(0, m_control.getSize() );
+	}
+
+	void TimerQueryD3D11::create(uint32_t _begin, uint32_t _end)
+	{
+		ID3D11Device* device = s_renderD3D11->m_device;
+
+		D3D11_QUERY_DESC qd;
+		qd.MiscFlags = 0;
+		for (uint32_t ii = _begin; ii < _end; ++ii)
+		{
+			Query& query = m_query[ii];
+			query.m_ready = false;
+
+			qd.Query = D3D11_QUERY_TIMESTAMP_DISJOINT;
+			DX_CHECK(device->CreateQuery(&qd, &query.m_disjoint) );
+
+			qd.Query = D3D11_QUERY_TIMESTAMP;
+			DX_CHECK(device->CreateQuery(&qd, &query.m_begin) );
+			DX_CHECK(device->CreateQuery(&qd, &query.m_end) );
+		}
+	}
+
+	void TimerQueryD3D11::destroy(uint32_t _begin, uint32_t _end)
+	{
+		for (uint32_t ii = _begin; ii < _end; ++ii)
 		{
 			Query& query = m_query[ii];
 			DX_RELEASE(query.m_disjoint, 0);
 			DX_RELEASE(query.m_begin, 0);
 			DX_RELEASE(query.m_end, 0);
+		}
+	}
+
+	void TimerQueryD3D11::resize(uint32_t _size)
+	{
+		const uint32_t size  = m_control.getSize();
+		const uint32_t write = m_control.m_write;
+
+		m_control.resize(int32_t(_size) - int32_t(size) );
+
+		const uint32_t newSize = m_control.getSize();
+
+		if (newSize > size)
+		{
+			const uint32_t num = newSize - size;
+
+			bx::memMove(&m_query[write+num], &m_query[write], (size-write)*sizeof(Query) );
+			create(write, write+num);
+		}
+		else if (newSize < size)
+		{
+			const uint32_t num   = size - newSize;
+			const uint32_t back  = bx::min(num, size-write);
+			const uint32_t front = num - back;
+
+			destroy(write, write+back);
+			destroy(0, front);
+
+			bx::memMove(&m_query[write], &m_query[write+back], (size-write-back)*sizeof(Query) );
+			bx::memMove(&m_query[0], &m_query[front], newSize*sizeof(Query) );
 		}
 	}
 
@@ -6812,6 +6886,7 @@ namespace bgfx { namespace d3d11
 
 		if (m_timerQuerySupport)
 		{
+			m_gpuTimer.resize(getNumTimerQueries(_render, m_gpuTimer.m_control.getSize() ) );
 			frameQueryIdx = m_gpuTimer.begin(BGFX_CONFIG_MAX_VIEWS, _render->m_frameNum);
 		}
 
@@ -6880,7 +6955,6 @@ namespace bgfx { namespace d3d11
 		Profiler<TimerQueryD3D11> profiler(
 			  _render
 			, m_gpuTimer
-			, s_viewName
 			, m_timerQuerySupport
 			);
 
@@ -7062,7 +7136,7 @@ namespace bgfx { namespace d3d11
 								{
 									TextureD3D11& texture = m_textures[bind.m_idx];
 									const ProgramD3D11* program = m_currentProgram;
-									texture.commit(stage, bind.m_samplerFlags, _render->m_colorPalette, bind.m_firstLayer, bind.m_numLayers, bind.m_firstMip, bind.m_numMips
+									texture.commit(stage, bind.m_samplerFlags, _render->m_colorPalette, bind.m_firstLayer, bind.m_numLayers, bind.m_firstMip, bind.m_numMips, bind.m_lod.min, bind.m_lod.max
 										, NULL != program ? program->getTextureDimension(stage) : TextureDimension::Count
 										);
 								}
@@ -7422,7 +7496,7 @@ namespace bgfx { namespace d3d11
 									{
 										TextureD3D11& texture = m_textures[bind.m_idx];
 										const ProgramD3D11* program = m_currentProgram;
-										texture.commit(stage, bind.m_samplerFlags, _render->m_colorPalette, bind.m_firstLayer, bind.m_numLayers, bind.m_firstMip, bind.m_numMips
+										texture.commit(stage, bind.m_samplerFlags, _render->m_colorPalette, bind.m_firstLayer, bind.m_numLayers, bind.m_firstMip, bind.m_numMips, bind.m_lod.min, bind.m_lod.max
 											, NULL != program ? program->getTextureDimension(stage) : TextureDimension::Count
 											);
 									}

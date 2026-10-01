@@ -19,16 +19,6 @@
 
 namespace bgfx { namespace vk
 {
-	static char s_viewName[BGFX_CONFIG_MAX_VIEWS][BGFX_CONFIG_MAX_VIEW_NAME];
-
-	inline void setViewType(ViewId _view, const bx::StringView _str)
-	{
-		if (BX_ENABLED(BGFX_CONFIG_DEBUG_ANNOTATION || BGFX_CONFIG_PROFILER) )
-		{
-			bx::memCopy(&s_viewName[_view][3], _str.getPtr(), _str.getLength() );
-		}
-	}
-
 	struct PrimInfo
 	{
 		VkPrimitiveTopology m_topology;
@@ -2429,12 +2419,6 @@ VK_IMPORT_DEVICE
 				vkCmdInsertDebugUtilsLabelEXT = stubCmdInsertDebugUtilsLabelEXT;
 			}
 
-			// Init reserved part of view name.
-			for (uint32_t ii = 0; ii < BGFX_CONFIG_MAX_VIEWS; ++ii)
-			{
-				bx::snprintf(s_viewName[ii], BGFX_CONFIG_MAX_VIEW_NAME_RESERVED+1, "%3d   ", ii);
-			}
-
 			if (m_timerQuerySupport)
 			{
 				result = m_gpuTimer.init();
@@ -2961,14 +2945,6 @@ VK_IMPORT_DEVICE
 
 			vkDestroy(stagingBuffer);
 			recycleMemory(stagingMemory);
-		}
-
-		void updateViewName(ViewId _id, const char* _name) override
-		{
-			bx::strCopy(&s_viewName[_id][BGFX_CONFIG_MAX_VIEW_NAME_RESERVED]
-				, BX_COUNTOF(s_viewName[0]) - BGFX_CONFIG_MAX_VIEW_NAME_RESERVED
-				, _name
-				);
 		}
 
 		void invalidateOcclusionQuery(OcclusionQueryHandle _handle) override
@@ -3958,10 +3934,12 @@ VK_IMPORT_DEVICE
 			return getRenderPass(num, formats, aspects, resolve, samples, _clearFlags, 0, _outRenderPass, _outHashKey);
 		}
 
-		VkSampler getSampler(uint32_t _flags, VkFormat _format, const float _palette[][4])
+		VkSampler getSampler(uint32_t _flags, VkFormat _format, const float _palette[][4], uint8_t _lodMin = 0, uint8_t _lodMax = UINT8_MAX)
 		{
 			uint32_t index = ( (_flags & BGFX_SAMPLER_BORDER_COLOR_MASK) >> BGFX_SAMPLER_BORDER_COLOR_SHIFT);
 			index = bx::min<uint32_t>(BGFX_CONFIG_MAX_COLOR_PALETTE - 1, index);
+
+			const uint32_t lod = (uint32_t(_lodMin) << 8) | _lodMax;
 
 			_flags &= BGFX_SAMPLER_BITS_MASK;
 			_flags &= ~(m_deviceFeatures.samplerAnisotropy ? 0 : (BGFX_SAMPLER_MIN_ANISOTROPIC | BGFX_SAMPLER_MAG_ANISOTROPIC) );
@@ -3992,6 +3970,7 @@ VK_IMPORT_DEVICE
 				hash.add(_flags);
 				hash.add(-1);
 				hash.add(VK_FORMAT_UNDEFINED);
+				hash.add(lod);
 				hashKey = hash.end();
 
 				sampler = m_samplerCache.find(hashKey);
@@ -4003,6 +3982,7 @@ VK_IMPORT_DEVICE
 				hash.add(_flags);
 				hash.add(index);
 				hash.add(_format);
+				hash.add(lod);
 				hashKey = hash.end();
 
 				const uint32_t colorHashKey = m_samplerBorderColorCache.find(hashKey);
@@ -4042,8 +4022,8 @@ VK_IMPORT_DEVICE
 			sci.maxAnisotropy    = m_maxAnisotropy;
 			sci.compareEnable    = 0 != cmpFunc;
 			sci.compareOp        = s_cmpFunc[cmpFunc];
-			sci.minLod           = 0.0f;
-			sci.maxLod           = VK_LOD_CLAMP_NONE;
+			sci.minLod           = float(_lodMin) * 0.25f;
+			sci.maxLod           = UINT8_MAX == _lodMax ? VK_LOD_CLAMP_NONE : float(_lodMax) * 0.25f;
 			sci.borderColor      = VK_BORDER_COLOR_FLOAT_OPAQUE_BLACK;
 			sci.unnormalizedCoordinates = VK_FALSE;
 
@@ -4626,7 +4606,7 @@ VK_IMPORT_DEVICE
 								: (uint32_t)texture.m_flags
 								;
 							const bool sampleStencil = !!(samplerFlags & BGFX_SAMPLER_SAMPLE_STENCIL);
-							VkSampler sampler = getSampler(samplerFlags, texture.m_format, _palette);
+							VkSampler sampler = getSampler(samplerFlags, texture.m_format, _palette, bind.m_lod.min, bind.m_lod.max);
 
 							const VkImageViewType type = UINT32_MAX == bindInfo.index
 								? texture.m_type
@@ -4923,9 +4903,13 @@ VK_IMPORT_DEVICE
 
 			if (BGFX_CLEAR_COLOR & _clear.m_flags)
 			{
-				for (uint32_t ii = 0; ii < numMrt; ++ii)
+				const uint8_t colorMask = uint8_t(~_clear.getColorSkipMask(numMrt) & ( (1<<numMrt)-1) );
+
+				for (BitMaskToIndexIteratorT it(colorMask); !it.isDone(); it.next() )
 				{
-					attachments[mrt].colorAttachment = mrt;
+					const uint32_t ii = it.idx;
+
+					attachments[mrt].colorAttachment = ii;
 					attachments[mrt].aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
 
 					VkClearColorValue& clearValue = attachments[mrt].clearValue.color;
@@ -6370,6 +6354,17 @@ VK_DESTROY
 	VkResult TimerQueryVK::init()
 	{
 		BGFX_PROFILER_SCOPE("TimerQueryVK::init", kColorFrame);
+
+		for (uint32_t ii = 0; ii < BX_COUNTOF(m_result); ++ii)
+		{
+			m_result[ii].reset();
+		}
+
+		return create();
+	}
+
+	VkResult TimerQueryVK::create()
+	{
 		VkResult result = VK_SUCCESS;
 
 		const VkDevice device = s_renderVK->m_device;
@@ -6413,11 +6408,6 @@ VK_DESTROY
 
 		m_frequency = uint64_t(1000000000.0 / double(s_renderVK->m_deviceProperties.limits.timestampPeriod) );
 
-		for (uint32_t ii = 0; ii < BX_COUNTOF(m_result); ++ii)
-		{
-			m_result[ii].reset();
-		}
-
 		m_control.reset();
 
 		return result;
@@ -6429,6 +6419,27 @@ VK_DESTROY
 		vkDestroy(m_readback);
 		vkUnmapMemory(s_renderVK->m_device, m_readbackMemory.mem);
 		s_renderVK->recycleMemory(m_readbackMemory);
+	}
+
+	void TimerQueryVK::resize(uint32_t _size)
+	{
+		if (_size == m_control.getSize() )
+		{
+			return;
+		}
+
+		s_renderVK->release(m_queryPool);
+		s_renderVK->release(m_readback);
+		vkUnmapMemory(s_renderVK->m_device, m_readbackMemory.mem);
+		s_renderVK->recycleMemory(m_readbackMemory);
+
+		bgfx::resize(m_control, _size);
+		VK_CHECK(create() );
+
+		for (uint32_t ii = 0; ii < BX_COUNTOF(m_result); ++ii)
+		{
+			m_result[ii].m_pending = 0;
+		}
 	}
 
 	uint32_t TimerQueryVK::begin(uint32_t _resultIdx, uint32_t _frameNum)
@@ -9864,6 +9875,7 @@ VK_DESTROY
 			case VK_OBJECT_TYPE_FRAMEBUFFER:           destroy<VkFramebuffer        >(resource.m_handle); break;
 			case VK_OBJECT_TYPE_PIPELINE_LAYOUT:       destroy<VkPipelineLayout     >(resource.m_handle); break;
 			case VK_OBJECT_TYPE_PIPELINE:              destroy<VkPipeline           >(resource.m_handle); break;
+			case VK_OBJECT_TYPE_QUERY_POOL:            destroy<VkQueryPool          >(resource.m_handle); break;
 			case VK_OBJECT_TYPE_DESCRIPTOR_SET:        destroy<VkDescriptorSet      >(resource.m_handle); break;
 			case VK_OBJECT_TYPE_DESCRIPTOR_SET_LAYOUT: destroy<VkDescriptorSetLayout>(resource.m_handle); break;
 			case VK_OBJECT_TYPE_RENDER_PASS:           destroy<VkRenderPass         >(resource.m_handle); break;
@@ -10373,6 +10385,7 @@ VK_DESTROY
 
 		if (m_timerQuerySupport)
 		{
+			m_gpuTimer.resize(getNumTimerQueries(_render, m_gpuTimer.m_control.getSize() ) );
 			frameQueryIdx = m_gpuTimer.begin(BGFX_CONFIG_MAX_VIEWS, _render->m_frameNum);
 		}
 
@@ -10496,7 +10509,6 @@ VK_DESTROY
 		Profiler<TimerQueryVK> profiler(
 			  _render
 			, m_gpuTimer
-			, s_viewName
 			, m_timerQuerySupport
 			);
 
@@ -10598,7 +10610,17 @@ VK_DESTROY
 
 					if (isFrameBufferValid)
 					{
-						VkRenderPass renderPass = fb.getRenderPass(_render->m_view[view].m_clear.m_flags);
+						const Clear& clr = _render->m_view[view].m_clear;
+
+						const bool partialColorClear = true
+							&& 0 != (clr.m_flags & BGFX_CLEAR_COLOR)
+							&& 0 != clr.getColorSkipMask(NULL == fb.m_nwh ? fb.m_num : 1)
+							;
+
+						VkRenderPass renderPass = fb.getRenderPass(partialColorClear
+							? clr.m_flags & ~BGFX_CLEAR_COLOR
+							: clr.m_flags
+							);
 
 						viewState.m_rect = _render->m_view[view].m_rect;
 						const Rect& rect = _render->m_view[view].m_rect;
@@ -10667,8 +10689,6 @@ VK_DESTROY
 							VkClearValue clearValues[BGFX_CONFIG_MAX_FRAME_BUFFER_ATTACHMENTS + 1];
 							uint32_t mrt = 0;
 
-							const Clear& clr = _render->m_view[view].m_clear;
-
 							for (uint32_t ii = 0; ii < numMrt; ++ii)
 							{
 								if (BGFX_CLEAR_COLOR & clr.m_flags)
@@ -10734,10 +10754,16 @@ VK_DESTROY
 
 							vkCmdBeginRenderPass(m_commandBuffer, &rpbi, VK_SUBPASS_CONTENTS_INLINE);
 							beginRenderPass = true;
+
+							if (partialColorClear)
+							{
+								Clear colorClr = clr;
+								colorClr.m_flags &= ~(BGFX_CLEAR_DEPTH|BGFX_CLEAR_STENCIL);
+								clearQuad(renderArea, colorClr, _render->m_colorPalette);
+							}
 						}
 						else
 						{
-							const Clear& clr = _render->m_view[view].m_clear;
 							if (BGFX_CLEAR_NONE != clr.m_flags)
 							{
 								Rect clearRect;

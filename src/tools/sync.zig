@@ -14,6 +14,7 @@ const LibSyncConfig = struct {
 const SyncConfig = struct {
     libs: []const LibSyncConfig,
     shaders: []const []const u8,
+    patches: []const []const u8,
 };
 
 const LIB_DIR = "libs";
@@ -87,6 +88,9 @@ const sync_list = SyncConfig{
         "src/bgfx_compute.sh",
         "src/bgfx_shader.sh",
         "examples/common/shaderlib.sh",
+    },
+    .patches = &.{
+        "patches/fix_win_debug.patch",
     },
 };
 
@@ -174,6 +178,20 @@ pub fn main(init: std.process.Init) !void {
         std.log.info("Copy file {s}", .{shader});
 
         try src_dir.copyFile(shader, lib_dir, std.fs.path.basename(shader), init.io, .{});
+    }
+
+    //
+    // Patches =(
+    //
+    for (sync_list.patches) |patch| {
+        std.log.info("Apply patch {s}", .{patch});
+        _ = try std.process.run(arena, init.io, .{
+            .argv = &.{
+                "git",
+                "apply",
+                patch,
+            },
+        });
     }
 
     return std.process.cleanExit(init.io);

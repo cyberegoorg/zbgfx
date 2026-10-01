@@ -24,16 +24,6 @@ PFN_PIX_EVENTS_REPLACE_BLOCK bgfx_PIXEventsReplaceBlock;
 
 namespace bgfx { namespace d3d12
 {
-	static char s_viewName[BGFX_CONFIG_MAX_VIEWS][BGFX_CONFIG_MAX_VIEW_NAME];
-
-	inline void setViewType(ViewId _view, const bx::StringView _str)
-	{
-		if (BX_ENABLED(BGFX_CONFIG_DEBUG_ANNOTATION || BGFX_CONFIG_PROFILER) )
-		{
-			bx::memCopy(&s_viewName[_view][3], _str.getPtr(), _str.getLength() );
-		}
-	}
-
 	struct PrimInfo
 	{
 		D3D_PRIMITIVE_TOPOLOGY m_topology;
@@ -693,11 +683,13 @@ namespace bgfx { namespace d3d12
 #endif // BX_PLATFORM_WINDOWS
 	}
 
+	static bool reportDeviceLost(HRESULT _hr);
+
 	ID3D12Resource* createCommittedResource(ID3D12Device* _device, HeapProperty::Enum _heapProperty, const D3D12_RESOURCE_DESC* _resourceDesc, const D3D12_CLEAR_VALUE* _clearValue, bool _memSet = false, D3D12_HEAP_FLAGS _heapFlags = D3D12_HEAP_FLAG_NONE)
 	{
 		const HeapProperty& heapProperty = s_heapProperties[_heapProperty];
 		ID3D12Resource* resource = NULL;
-		DX_CHECK(_device->CreateCommittedResource(
+		const HRESULT hr = _device->CreateCommittedResource(
 			  &heapProperty.m_properties
 			, _heapFlags
 			, _resourceDesc
@@ -705,7 +697,14 @@ namespace bgfx { namespace d3d12
 			, _clearValue
 			, IID_ID3D12Resource
 			, (void**)&resource
-			) );
+			);
+
+		if (reportDeviceLost(hr) )
+		{
+			return NULL;
+		}
+
+		BX_ASSERT(SUCCEEDED(hr), "CreateCommittedResource FAILED 0x%08x.", uint32_t(hr) );
 		BX_WARN(NULL != resource, "CreateCommittedResource failed (size: %d). Out of memory?"
 			, _resourceDesc->Width
 			);
@@ -2027,12 +2026,6 @@ namespace bgfx { namespace d3d12
 						});
 				}
 
-				// Init reserved part of view name.
-				for (uint32_t ii = 0; ii < BGFX_CONFIG_MAX_VIEWS; ++ii)
-				{
-					bx::snprintf(s_viewName[ii], BGFX_CONFIG_MAX_VIEW_NAME_RESERVED + 1, "%3d   ", ii);
-				}
-
 				postReset();
 
 				m_batch.create(4<<10);
@@ -2119,7 +2112,7 @@ namespace bgfx { namespace d3d12
 
 		void shutdown()
 		{
-			m_cmd.finish();
+			finishAll(true);
 			m_batch.destroy();
 
 			DX_RELEASE(m_zeroInitBuffer, 0);
@@ -2322,7 +2315,7 @@ namespace bgfx { namespace d3d12
 				}
 			}
 
-			DX_RELEASE(dred, 0);
+			DX_RELEASE_I(dred);
 		}
 
 		bool handleDeviceLost(HRESULT _hr)
@@ -2532,6 +2525,14 @@ namespace bgfx { namespace d3d12
 
 			ID3D12Resource* readback = createCommittedResource(m_device, HeapProperty::ReadBack, total);
 
+			if (NULL == readback)
+			{
+				BX_TRACE("readTexture: failed to create readback buffer, device removed reason 0x%08x."
+					, uint32_t(m_device->GetDeviceRemovedReason() )
+					);
+				return;
+			}
+
 			const uint32_t srcWidth  = bx::max(1u, texture.m_width >>_mip);
 			const uint32_t srcHeight = bx::max(1u, texture.m_height>>_mip);
 
@@ -2570,13 +2571,24 @@ namespace bgfx { namespace d3d12
 
 			uint32_t pitch = bx::min(srcPitch, dstPitch);
 
-			uint8_t* src;
-			readback->Map(0, NULL, (void**)&src);
+			uint8_t* src = NULL;
+			const HRESULT hr = readback->Map(0, NULL, (void**)&src);
 
-			bx::memCopy(dst, dstPitch, src, srcPitch, pitch, numBlockRows);
+			if (FAILED(hr) )
+			{
+				BX_TRACE("readTexture: Map failed 0x%08x, device removed reason 0x%08x."
+					, uint32_t(hr)
+					, uint32_t(m_device->GetDeviceRemovedReason() )
+					);
+					handleDeviceLost(hr);
+			}
+			else
+			{
+				bx::memCopy(dst, dstPitch, src, srcPitch, pitch, numBlockRows);
 
-			D3D12_RANGE writeRange = { 0, 0 };
-			readback->Unmap(0, &writeRange);
+				D3D12_RANGE writeRange = { 0, 0 };
+				readback->Unmap(0, &writeRange);
+			}
 
 			DX_RELEASE(readback, 0);
 		}
@@ -2613,6 +2625,14 @@ namespace bgfx { namespace d3d12
 
 			ID3D12Resource* readback = createCommittedResource(m_device, HeapProperty::ReadBack, stencilOffset + total[1]);
 
+			if (NULL == readback)
+			{
+				BX_TRACE("readTexturePlanar: failed to create readback buffer, device removed reason 0x%08x."
+					, uint32_t(m_device->GetDeviceRemovedReason() )
+					);
+				return;
+			}
+
 			const uint32_t srcWidth  = bx::max(1u, _texture.m_width >>_mip);
 			const uint32_t srcHeight = bx::max(1u, _texture.m_height>>_mip);
 
@@ -2639,47 +2659,58 @@ namespace bgfx { namespace d3d12
 			finish();
 			m_commandList = m_cmd.alloc();
 
-			uint8_t* src;
-			readback->Map(0, NULL, (void**)&src);
+			uint8_t* src = NULL;
+			const HRESULT hr = readback->Map(0, NULL, (void**)&src);
 
-			const uint32_t texelSize = bimg::getBlockInfo(bimg::TextureFormat::Enum(_texture.m_textureFormat) ).blockSize;
-			const uint32_t dstPitch  = srcWidth * texelSize;
-
-			for (uint32_t yy = 0; yy < srcHeight; ++yy)
+			if (FAILED(hr) )
 			{
-				const uint8_t* depthRow   = src + layout[0].Offset + yy*layout[0].Footprint.RowPitch;
-				const uint8_t* stencilRow = src + layout[1].Offset + yy*layout[1].Footprint.RowPitch;
-				uint8_t*       dstRow     = (uint8_t*)_data + yy*dstPitch;
+				BX_TRACE("readTexturePlanar: Map failed 0x%08x, device removed reason 0x%08x."
+					, uint32_t(hr)
+					, uint32_t(m_device->GetDeviceRemovedReason() )
+					);
+					handleDeviceLost(hr);
+			}
+			else
+			{
+				const uint32_t texelSize = bimg::getBlockInfo(bimg::TextureFormat::Enum(_texture.m_textureFormat) ).blockSize;
+				const uint32_t dstPitch  = srcWidth * texelSize;
 
-				for (uint32_t xx = 0; xx < srcWidth; ++xx)
+				for (uint32_t yy = 0; yy < srcHeight; ++yy)
 				{
-					uint8_t* texel = dstRow + xx*texelSize;
+					const uint8_t* depthRow   = src + layout[0].Offset + yy*layout[0].Footprint.RowPitch;
+					const uint8_t* stencilRow = src + layout[1].Offset + yy*layout[1].Footprint.RowPitch;
+					uint8_t*       dstRow     = (uint8_t*)_data + yy*dstPitch;
 
-					if (1 == texelSize)
+					for (uint32_t xx = 0; xx < srcWidth; ++xx)
 					{
-						texel[0] = stencilRow[xx];
-					}
-					else
-					{
-						bx::memCopy(texel, depthRow + xx*4, 4);
+						uint8_t* texel = dstRow + xx*texelSize;
 
-						if (4 == texelSize)
+						if (1 == texelSize)
 						{
-							texel[3] = stencilRow[xx];
+							texel[0] = stencilRow[xx];
 						}
 						else
 						{
-							texel[4] = stencilRow[xx];
-							texel[5] = 0;
-							texel[6] = 0;
-							texel[7] = 0;
+							bx::memCopy(texel, depthRow + xx*4, 4);
+
+							if (4 == texelSize)
+							{
+								texel[3] = stencilRow[xx];
+							}
+							else
+							{
+								texel[4] = stencilRow[xx];
+								texel[5] = 0;
+								texel[6] = 0;
+								texel[7] = 0;
+							}
 						}
 					}
 				}
-			}
 
-			D3D12_RANGE writeRange = { 0, 0 };
-			readback->Unmap(0, &writeRange);
+				D3D12_RANGE writeRange = { 0, 0 };
+				readback->Unmap(0, &writeRange);
+			}
 
 			DX_RELEASE(readback, 0);
 		}
@@ -2700,6 +2731,14 @@ namespace bgfx { namespace d3d12
 
 			ID3D12Resource* readback = createCommittedResource(m_device, HeapProperty::ReadBack, _size);
 
+			if (NULL == readback)
+			{
+				BX_TRACE("readBuffer: failed to create readback buffer, device removed reason 0x%08x."
+					, uint32_t(m_device->GetDeviceRemovedReason() )
+					);
+				return;
+			}
+
 			const D3D12_RESOURCE_STATES state = buffer.setState(m_commandList, D3D12_RESOURCE_STATE_COPY_SOURCE);
 			m_commandList->CopyBufferRegion(readback, 0, buffer.m_ptr, _offset, _size);
 			buffer.setState(m_commandList, state);
@@ -2708,10 +2747,23 @@ namespace bgfx { namespace d3d12
 			m_commandList = m_cmd.alloc();
 
 			void* src = NULL;
-			readback->Map(0, NULL, (void**)&src);
-			bx::memCopy(_data, src, _size);
-			D3D12_RANGE readbackWriteRange = { 0, 0 };
-			readback->Unmap(0, &readbackWriteRange);
+			const HRESULT hr = readback->Map(0, NULL, (void**)&src);
+
+			if (FAILED(hr) )
+			{
+				BX_TRACE("readBuffer: Map failed 0x%08x, device removed reason 0x%08x."
+					, uint32_t(hr)
+					, uint32_t(m_device->GetDeviceRemovedReason() )
+					);
+					handleDeviceLost(hr);
+			}
+			else
+			{
+				bx::memCopy(_data, src, _size);
+
+				D3D12_RANGE writeRange = { 0, 0 };
+				readback->Unmap(0, &writeRange);
+			}
 
 			DX_RELEASE(readback, 0);
 		}
@@ -2897,6 +2949,20 @@ namespace bgfx { namespace d3d12
 
 			ID3D12Resource* readback = createCommittedResource(m_device, HeapProperty::ReadBack, total);
 
+			if (NULL == readback)
+			{
+				BX_TRACE("requestScreenShot: failed to create readback buffer, device removed reason 0x%08x."
+					, uint32_t(m_device->GetDeviceRemovedReason() )
+					);
+
+				if (NULL != swapFb)
+				{
+					DX_RELEASE(backBuffer, swapFb->getSwapChainDesc().bufferCount);
+				}
+
+				return;
+			}
+
 			D3D12_BOX box;
 			box.left   = 0;
 			box.top    = 0;
@@ -2917,21 +2983,32 @@ namespace bgfx { namespace d3d12
 			finish();
 			m_commandList = m_cmd.alloc();
 
-			void* data;
-			readback->Map(0, NULL, (void**)&data);
+			void* data = NULL;
+			const HRESULT hr = readback->Map(0, NULL, (void**)&data);
 
-			g_callback->screenShot(_filePath
-				, width
-				, height
-				, layout.Footprint.RowPitch
-				, colorFormat
-				, data
-				, (uint32_t)total
-				, false
-				);
+			if (FAILED(hr) )
+			{
+				BX_TRACE("requestScreenShot: Map failed 0x%08x, device removed reason 0x%08x."
+					, uint32_t(hr)
+					, uint32_t(m_device->GetDeviceRemovedReason() )
+					);
+					handleDeviceLost(hr);
+			}
+			else
+			{
+				g_callback->screenShot(_filePath
+					, width
+					, height
+					, layout.Footprint.RowPitch
+					, colorFormat
+					, data
+					, (uint32_t)total
+					, false
+					);
 
-			D3D12_RANGE writeRange = { 0, 0 };
-			readback->Unmap(0, &writeRange);
+				D3D12_RANGE writeRange = { 0, 0 };
+				readback->Unmap(0, &writeRange);
+			}
 
 			DX_RELEASE(readback, 0);
 
@@ -2939,14 +3016,6 @@ namespace bgfx { namespace d3d12
 			{
 				DX_RELEASE(backBuffer, swapFb->getSwapChainDesc().bufferCount);
 			}
-		}
-
-		void updateViewName(ViewId _id, const char* _name) override
-		{
-			bx::strCopy(&s_viewName[_id][BGFX_CONFIG_MAX_VIEW_NAME_RESERVED]
-				, BX_COUNTOF(s_viewName[0]) - BGFX_CONFIG_MAX_VIEW_NAME_RESERVED
-				, _name
-				);
 		}
 
 		void invalidateOcclusionQuery(OcclusionQueryHandle _handle) override
@@ -4182,14 +4251,20 @@ namespace bgfx { namespace d3d12
 			return pso;
 		}
 
-		uint16_t getSamplerState(const uint32_t* _flags, uint32_t _num, const float _palette[][4])
+		uint16_t getSamplerState(const uint32_t* _flags, uint32_t _num, const float _palette[][4], const uint16_t* _lod = NULL)
 		{
 			bx::HashMurmur3 murmur;
 			murmur.begin();
 			murmur.add(_flags, _num * sizeof(uint32_t) );
+
+			if (NULL != _lod)
+			{
+				murmur.add(_lod, _num * sizeof(uint16_t) );
+			}
+
 			uint32_t hash = murmur.end();
 
-			return m_samplerAllocator.alloc(hash, _flags, _num, _palette);
+			return m_samplerAllocator.alloc(hash, _flags, _num, _palette, _lod);
 		}
 
 		bool isVisible(Frame* _render, OcclusionQueryHandle _handle, bool _visible)
@@ -4548,6 +4623,13 @@ namespace bgfx { namespace d3d12
 	};
 
 	static RendererContextD3D12* s_renderD3D12;
+
+	static bool reportDeviceLost(HRESULT _hr)
+	{
+		return NULL != s_renderD3D12
+			&& s_renderD3D12->handleDeviceLost(_hr)
+			;
+	}
 
 	ID3D12PipelineState* videoGetPipelineState(RendererContextD3D12* _renderer, ProgramHandle _handle)
 	{
@@ -5135,7 +5217,7 @@ namespace bgfx { namespace d3d12
 		return idx;
 	}
 
-	uint16_t DescriptorAllocatorD3D12::alloc(uint32_t _hash, const uint32_t* _flags, uint32_t _num, const float _palette[][4])
+	uint16_t DescriptorAllocatorD3D12::alloc(uint32_t _hash, const uint32_t* _flags, uint32_t _num, const float _palette[][4], const uint16_t* _lod)
 	{
 		uint16_t idx = m_stateCache.find(_hash);
 		if (UINT16_MAX != idx)
@@ -5194,8 +5276,11 @@ namespace bgfx { namespace d3d12
 				sd.BorderColor[2] = 0.0f;
 				sd.BorderColor[3] = 0.0f;
 			}
-			sd.MinLOD   = 0;
-			sd.MaxLOD   = D3D12_FLOAT32_MAX;
+			const uint8_t lodMin = NULL != _lod ? uint8_t(_lod[ii] >> 8)   : 0;
+			const uint8_t lodMax = NULL != _lod ? uint8_t(_lod[ii] & 0xff) : UINT8_MAX;
+
+			sd.MinLOD   = float(lodMin) * 0.25f;
+			sd.MaxLOD   = UINT8_MAX == lodMax ? D3D12_FLOAT32_MAX : float(lodMax) * 0.25f;
 
 			D3D12_CPU_DESCRIPTOR_HANDLE cpuHandle =
 			{
@@ -8420,6 +8505,17 @@ namespace bgfx { namespace d3d12
 
 	void TimerQueryD3D12::init()
 	{
+		create();
+
+		for (uint32_t ii = 0; ii < BX_COUNTOF(m_result); ++ii)
+		{
+			Result& result = m_result[ii];
+			result.reset();
+		}
+	}
+
+	void TimerQueryD3D12::create()
+	{
 		ID3D12Device* device = s_renderD3D12->m_device;
 
 		D3D12_QUERY_HEAP_DESC queryHeapDesc =
@@ -8448,12 +8544,6 @@ namespace bgfx { namespace d3d12
 		D3D12_RANGE range = { .Begin = 0, .End = size };
 		m_readback->Map(0, &range, (void**)&m_queryResult);
 
-		for (uint32_t ii = 0; ii < BX_COUNTOF(m_result); ++ii)
-		{
-			Result& result = m_result[ii];
-			result.reset();
-		}
-
 		m_control.reset();
 	}
 
@@ -8464,6 +8554,29 @@ namespace bgfx { namespace d3d12
 
 		DX_RELEASE(m_queryHeap, 0);
 		DX_RELEASE(m_readback, 0);
+	}
+
+	void TimerQueryD3D12::resize(uint32_t _size)
+	{
+		if (_size == m_control.getSize() )
+		{
+			return;
+		}
+
+		s_renderD3D12->finishAll(true);
+
+		while (update() )
+		{
+		}
+
+		shutdown();
+		bgfx::resize(m_control, _size);
+		create();
+
+		for (uint32_t ii = 0; ii < BX_COUNTOF(m_result); ++ii)
+		{
+			m_result[ii].m_pending = 0;
+		}
 	}
 
 	uint32_t TimerQueryD3D12::begin(uint32_t _resultIdx, uint32_t _frameNum)
@@ -9350,6 +9463,8 @@ namespace bgfx { namespace d3d12
 		}
 #endif // BX_PLATFORM_WINDOWS
 
+		m_gpuTimer.resize(getNumTimerQueries(_render, m_gpuTimer.m_control.getSize() ) );
+
 		BGFX_D3D12_PROFILER_BEGIN_LITERAL("rendererSubmit", kColorFrame);
 
 		int64_t timeBegin = bx::getHPCounter();
@@ -9425,7 +9540,6 @@ namespace bgfx { namespace d3d12
 		Profiler<TimerQueryD3D12> profiler(
 			  _render
 			, m_gpuTimer
-			, s_viewName
 			);
 
 #if BX_PLATFORM_WINDOWS
@@ -9707,6 +9821,8 @@ namespace bgfx { namespace d3d12
 							uint32_t numSet = 0;
 							D3D12_GPU_DESCRIPTOR_HANDLE srvHandle[BGFX_MAX_COMPUTE_BINDINGS] = {};
 							uint32_t samplerFlags[BGFX_MAX_COMPUTE_BINDINGS] = {};
+							uint16_t samplerLod[BGFX_MAX_COMPUTE_BINDINGS];
+							bx::memSet(samplerLod, 0xff, sizeof(samplerLod) );
 							{
 								const ProgramD3D12& program = m_program[key.m_program.idx];
 
@@ -9755,6 +9871,7 @@ namespace bgfx { namespace d3d12
 													, srgbSelect(resolvedFlags, BGFX_SAMPLER_SRGB)
 													);
 												samplerFlags[stage] = resolvedFlags & (BGFX_SAMPLER_BITS_MASK | BGFX_SAMPLER_BORDER_COLOR_MASK | BGFX_SAMPLER_COMPARE_MASK);
+												samplerLod[stage]   = uint16_t(uint16_t(bind.m_lod.min)<<8) | bind.m_lod.max;
 
 												++numSet;
 											}
@@ -9795,7 +9912,7 @@ namespace bgfx { namespace d3d12
 								{
 									Bind& bind = bindCache[bindIdx];
 									bind.m_srvHandle = srvHandle[0];
-									bind.m_samplerStateIdx = getSamplerState(samplerFlags, maxComputeBindings, _render->m_colorPalette);
+									bind.m_samplerStateIdx = getSamplerState(samplerFlags, maxComputeBindings, _render->m_colorPalette, samplerLod);
 									bind.m_rawSrvMask = currentRawSrvMask;
 									bind.m_rawUavMask = currentRawUavMask;
 									bind.m_texDimHash = currentTexDimHash;
@@ -10033,7 +10150,7 @@ namespace bgfx { namespace d3d12
 						;
 					const bool depthClamp = depthControl.m_depthClamp;
 
-					
+
 
 					ID3D12PipelineState* pso = getPipelineState(
 						  state
@@ -10089,6 +10206,8 @@ namespace bgfx { namespace d3d12
 							uint32_t numSet = 0;
 							D3D12_GPU_DESCRIPTOR_HANDLE srvHandle[BGFX_CONFIG_MAX_TEXTURE_SAMPLERS] = {};
 							uint32_t samplerFlags[BGFX_CONFIG_MAX_TEXTURE_SAMPLERS] = {};
+							uint16_t samplerLod[BGFX_CONFIG_MAX_TEXTURE_SAMPLERS];
+							bx::memSet(samplerLod, 0xff, sizeof(samplerLod) );
 							{
 								const ProgramD3D12& program = m_program[key.m_program.idx];
 
@@ -10137,6 +10256,7 @@ namespace bgfx { namespace d3d12
 													, srgbSelect(resolvedFlags, BGFX_SAMPLER_SRGB)
 													);
 												samplerFlags[stage] = resolvedFlags & (BGFX_SAMPLER_BITS_MASK | BGFX_SAMPLER_BORDER_COLOR_MASK | BGFX_SAMPLER_COMPARE_MASK);
+												samplerLod[stage]   = uint16_t(uint16_t(bind.m_lod.min)<<8) | bind.m_lod.max;
 
 												++numSet;
 											}
@@ -10180,7 +10300,7 @@ namespace bgfx { namespace d3d12
 							{
 								Bind& bind = bindCache[bindIdx];
 								bind.m_srvHandle       = srvHandle[0];
-								bind.m_samplerStateIdx = getSamplerState(samplerFlags, BGFX_CONFIG_MAX_TEXTURE_SAMPLERS, _render->m_colorPalette);
+								bind.m_samplerStateIdx = getSamplerState(samplerFlags, BGFX_CONFIG_MAX_TEXTURE_SAMPLERS, _render->m_colorPalette, samplerLod);
 								bind.m_rawSrvMask      = currentRawSrvMask;
 								bind.m_rawUavMask      = currentRawUavMask;
 								bind.m_texDimHash      = currentTexDimHash;
