@@ -259,6 +259,8 @@ pub fn build(b: *std.Build) !void {
         } else if (!target.result.os.tag.isDarwin()) {
             _ = shaderc_wf.addCopyFile(b.path("libs/bgfx/tools/bin/linux/libdxcompiler.so"), "libdxcompiler.so");
             _ = shaderc_wf.addCopyFile(b.path("libs/bgfx/tools/bin/linux/libdxil.so"), "libdxil.so");
+            // Need for wine+shaderc
+            _ = shaderc_wf.addCopyFile(b.path("libs/bgfx/tools/bin/windows/d3dcompiler_47.dll"), "d3dcompiler_47.dll");
         }
 
         const shaderc_wine_wf = b.addNamedWriteFiles("shaderc_wine");

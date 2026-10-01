@@ -44,7 +44,7 @@ See `build.zig.zon` for pinned commits.
 - [BImg](https://github.com/bkaradzic/bimg/compare/87aaad3ac882e741889fdd4263224e5d12c26f99...master)
 - [BGFX](https://github.com/bkaradzic/bgfx/compare/7e3060ccb97959dcda3f091b96d82515197028e0...master)
 
-### Upgrade BGFX by your self.
+### Upgrade BGFX by yourself.
 - Uncomment deps in `build.zig.zon`.
 - Change commit ref and hash for deps you need.
 - `zig build -Dwith_sync sync`.
