@@ -89,9 +89,9 @@ const sync_list = SyncConfig{
         "src/bgfx_shader.sh",
         "examples/common/shaderlib.sh",
     },
-    .patches = &.{
-        "patches/fix_win_debug.patch",
-    },
+
+    // Use this if you need some changes to upstream bgfx.
+    .patches = &.{},
 };
 
 pub fn main(init: std.process.Init) !void {

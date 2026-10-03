@@ -29,7 +29,7 @@ BX_PRAGMA_DIAGNOSTIC_IGNORED_MSVC(4702) // warning C4702: unreachable code
 BX_PRAGMA_DIAGNOSTIC_POP()
 #endif // BIMG_CONFIG_PARSE_EXR
 
-#if BIMG_CONFIG_PARSE_PNG
+#if BIMG_CONFIG_PARSE_PNG && !BIMG_CONFIG_USE_WIC
 BX_PRAGMA_DIAGNOSTIC_PUSH();
 BX_PRAGMA_DIAGNOSTIC_IGNORED_MSVC(4127) // warning C4127: conditional expression is constant
 BX_PRAGMA_DIAGNOSTIC_IGNORED_MSVC(4267) // warning C4267: '=' : conversion from 'size_t' to 'unsigned short', possible loss of data
@@ -41,6 +41,7 @@ BX_PRAGMA_DIAGNOSTIC_IGNORED_MSVC(4334) // warning C4334: '<<' : result of 32 - 
 #define LODEPNG_NO_COMPILE_CPP
 #include <lodepng/lodepng.cpp>
 BX_PRAGMA_DIAGNOSTIC_POP();
+#endif // BIMG_CONFIG_PARSE_PNG && !BIMG_CONFIG_USE_WIC
 
 void* lodepng_malloc(size_t _size)
 {
@@ -56,7 +57,6 @@ void lodepng_free(void* _ptr)
 {
 	::free(_ptr);
 }
-#endif // BIMG_CONFIG_PARSE_PNG
 
 #if BIMG_CONFIG_PARSE_HEIF
 #	include <libheif/heif.h>
@@ -90,22 +90,36 @@ BX_PRAGMA_DIAGNOSTIC_IGNORED_MSVC(4701) // warning C4701: potentially uninitiali
 BX_PRAGMA_DIAGNOSTIC_POP();
 #endif // BIMG_CONFIG_PARSE_WEBP
 
-#define BIMG_USE_STB_IMAGE 0   \
-	||  BIMG_CONFIG_PARSE_JPEG \
-	||  BIMG_CONFIG_PARSE_BMP  \
-	||  BIMG_CONFIG_PARSE_PSD  \
-	||  BIMG_CONFIG_PARSE_TGA  \
-	||  BIMG_CONFIG_PARSE_GIF  \
-	||  BIMG_CONFIG_PARSE_HDR  \
-	||  BIMG_CONFIG_PARSE_PIC  \
-	||  0
+#if BIMG_CONFIG_PARSE_SVG
+#include <math.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+BX_PRAGMA_DIAGNOSTIC_PUSH();
+BX_PRAGMA_DIAGNOSTIC_IGNORED_CLANG_GCC("-Wshadow")
+BX_PRAGMA_DIAGNOSTIC_IGNORED_CLANG_GCC("-Wsign-compare")
+BX_PRAGMA_DIAGNOSTIC_IGNORED_MSVC(4244) // warning C4244: conversion from 'X' to 'Y', possible loss of data
+BX_PRAGMA_DIAGNOSTIC_IGNORED_MSVC(4456) // warning C4456: declaration of 'X' hides previous local declaration
+BX_PRAGMA_DIAGNOSTIC_IGNORED_MSVC(4702) // warning C4702: unreachable code
+#define NANOSVG_CPLUSPLUS
+#define NANOSVG_IMPLEMENTATION
+#define NANOSVGRAST_CPLUSPLUS
+#define NANOSVGRAST_IMPLEMENTATION
+namespace
+{
+#include <nanosvg/nanosvg.h>
+#include <nanosvg/nanosvgrast.h>
+} // namespace
+BX_PRAGMA_DIAGNOSTIC_POP();
+#endif // BIMG_CONFIG_PARSE_SVG
 
-#if BIMG_USE_STB_IMAGE
+#if BIMG_CONFIG_USE_STB_IMAGE
 BX_PRAGMA_DIAGNOSTIC_PUSH();
 BX_PRAGMA_DIAGNOSTIC_IGNORED_CLANG_GCC("-Wint-to-pointer-cast")
 BX_PRAGMA_DIAGNOSTIC_IGNORED_CLANG_GCC("-Wmissing-field-initializers");
 BX_PRAGMA_DIAGNOSTIC_IGNORED_CLANG_GCC("-Wshadow");
 BX_PRAGMA_DIAGNOSTIC_IGNORED_CLANG_GCC("-Wsign-compare");
+BX_PRAGMA_DIAGNOSTIC_IGNORED_CLANG_GCC("-Wunused-parameter");
 BX_PRAGMA_DIAGNOSTIC_IGNORED_GCC("-Wunused-but-set-variable");
 BX_PRAGMA_DIAGNOSTIC_IGNORED_GCC("-Warray-bounds");
 BX_PRAGMA_DIAGNOSTIC_IGNORED_GCC("-Wmisleading-indentation");
@@ -119,17 +133,13 @@ BX_PRAGMA_DIAGNOSTIC_IGNORED_MSVC(4505); // unreferenced function with internal 
 #define STB_IMAGE_STATIC
 #define STBI_NO_PNG // supported via LODEPNG
 
-#if !BIMG_CONFIG_PARSE_JPEG
+#if !BIMG_CONFIG_PARSE_JPEG || BIMG_CONFIG_USE_WIC
 #	define STBI_NO_JPEG
-#endif // !BIMG_CONFIG_PARSE_JPEG
+#endif // !BIMG_CONFIG_PARSE_JPEG || BIMG_CONFIG_USE_WIC
 
-#if !BIMG_CONFIG_PARSE_BMP
+#if !BIMG_CONFIG_PARSE_BMP || BIMG_CONFIG_USE_WIC
 #	define STBI_NO_BMP
-#endif // !BIMG_CONFIG_PARSE_BMP
-
-#if !BIMG_CONFIG_PARSE_PSD
-#	define STBI_NO_PSD
-#endif // !BIMG_CONFIG_PARSE_PSD
+#endif // !BIMG_CONFIG_PARSE_BMP || BIMG_CONFIG_USE_WIC
 
 #if !BIMG_CONFIG_PARSE_PSD
 #	define STBI_NO_PSD
@@ -139,9 +149,9 @@ BX_PRAGMA_DIAGNOSTIC_IGNORED_MSVC(4505); // unreferenced function with internal 
 #	define STBI_NO_TGA
 #endif // !BIMG_CONFIG_PARSE_TGA
 
-#if !BIMG_CONFIG_PARSE_GIF
+#if !BIMG_CONFIG_PARSE_GIF || BIMG_CONFIG_USE_WIC
 #	define STBI_NO_GIF
-#endif // !BIMG_CONFIG_PARSE_GIF
+#endif // !BIMG_CONFIG_PARSE_GIF || BIMG_CONFIG_USE_WIC
 
 #if !BIMG_CONFIG_PARSE_HDR
 #	define STBI_NO_HDR
@@ -157,11 +167,11 @@ BX_PRAGMA_DIAGNOSTIC_IGNORED_MSVC(4505); // unreferenced function with internal 
 
 #include <stb/stb_image.h>
 BX_PRAGMA_DIAGNOSTIC_POP();
-#endif // BIMG_USE_STB_IMAGE
+#endif // BIMG_CONFIG_USE_STB_IMAGE
 
 namespace bimg
 {
-#if BIMG_CONFIG_PARSE_PNG
+#if BIMG_CONFIG_PARSE_PNG && !BIMG_CONFIG_USE_WIC
 	static uint32_t pngReadPackedSample(const uint8_t* _data, uint32_t _index, uint32_t _bitDepth)
 	{
 		const uint64_t bitOffset = uint64_t(_index)*_bitDepth;
@@ -173,7 +183,7 @@ namespace bimg
 	{
 		return uint8_t(_sample*255 / ( (1u<<_bitDepth)-1) );
 	}
-#endif // BIMG_CONFIG_PARSE_PNG
+#endif // BIMG_CONFIG_PARSE_PNG && !BIMG_CONFIG_USE_WIC
 
 	static ImageContainer* imageParseLodePng(bx::AllocatorI* _allocator, const void* _data, uint32_t _size, bx::Error* _err)
 	{
@@ -186,7 +196,7 @@ namespace bimg
 			return NULL;
 		}
 
-#if BIMG_CONFIG_PARSE_PNG
+#if BIMG_CONFIG_PARSE_PNG && !BIMG_CONFIG_USE_WIC
 		ImageContainer* output = NULL;
 		bimg::TextureFormat::Enum format = bimg::TextureFormat::RGBA8;
 		uint32_t width  = 0;
@@ -664,7 +674,7 @@ namespace bimg
 		BX_UNUSED(_allocator, _data, _size);
 		BX_ERROR_SET(_err, BIMG_ERROR, "PNG parsing is disabled (BIMG_CONFIG_PARSE_PNG).");
 		return NULL;
-#endif // BIMG_CONFIG_PARSE_PNG
+#endif // BIMG_CONFIG_PARSE_PNG && !BIMG_CONFIG_USE_WIC
 	}
 
 #if BIMG_CONFIG_PARSE_EXR
@@ -924,7 +934,7 @@ namespace bimg
 #endif // BIMG_CONFIG_PARSE_PNG
 	}
 
-#if BIMG_USE_STB_IMAGE
+#if BIMG_CONFIG_USE_STB_IMAGE
 	static ImageParser::Enum imageStbImageFormat(const void* _data, uint32_t _size)
 	{
 		const uint8_t* data = (const uint8_t*)_data;
@@ -973,13 +983,13 @@ namespace bimg
 		// TGA has no signature; stb_image probes it last.
 		return ImageParser::Tga;
 	}
-#endif // BIMG_USE_STB_IMAGE
+#endif // BIMG_CONFIG_USE_STB_IMAGE
 
 	static ImageContainer* imageParseStbImage(bx::AllocatorI* _allocator, const void* _data, uint32_t _size, bx::Error* _err)
 	{
 		BX_ERROR_SCOPE(_err);
 
-#if BIMG_USE_STB_IMAGE
+#if BIMG_CONFIG_USE_STB_IMAGE
 		const int isHdr = stbi_is_hdr_from_memory( (const uint8_t*)_data, (int)_size);
 
 		void* data;
@@ -1067,7 +1077,7 @@ namespace bimg
 			return NULL;
 		}
 
-#if BIMG_CONFIG_PARSE_JPEG
+#if BIMG_CONFIG_PARSE_JPEG && !BIMG_CONFIG_USE_WIC
 		Orientation::Enum orientation = Orientation::R0;
 
 		bx::Error exifErr;
@@ -1193,7 +1203,7 @@ namespace bimg
 		BX_UNUSED(_allocator, _data, _size);
 		BX_ERROR_SET(_err, BIMG_ERROR, "JPEG parsing is disabled (BIMG_CONFIG_PARSE_JPEG).");
 		return NULL;
-#endif // BIMG_CONFIG_PARSE_JPEG
+#endif // BIMG_CONFIG_PARSE_JPEG && !BIMG_CONFIG_USE_WIC
 	}
 
 	static bool imageIsAvifBrand(const void* _data, uint32_t _size)
@@ -1510,7 +1520,214 @@ namespace bimg
 #endif // BIMG_CONFIG_PARSE_WEBP
 	}
 
-	static bool imageInfoFinalize(ImageContainer& _imageContainer, ImageParser::Enum _parser, TextureFormat::Enum _format, uint32_t _width, uint32_t _height, bx::Error* _err)
+	static bool imageIsSvg(const void* _data, uint32_t _size)
+	{
+		const char* data = (const char*)_data;
+		uint32_t pos = 0;
+
+		static const uint8_t utf8Bom[] = { 0xef, 0xbb, 0xbf };
+
+		if (_size >= sizeof(utf8Bom)
+		&&  0 == bx::memCmp(data, utf8Bom, sizeof(utf8Bom) ) )
+		{
+			pos = sizeof(utf8Bom);
+		}
+
+		for (; pos < _size && bx::isSpace(data[pos]); ++pos)
+		{
+		}
+
+		if (pos >= _size
+		||  '<' != data[pos])
+		{
+			return false;
+		}
+
+		for (; pos + 4 < _size; ++pos)
+		{
+			if (0 == bx::memCmp(&data[pos], "<svg", 4)
+			&&  (bx::isSpace(data[pos+4]) || '>' == data[pos+4]) )
+			{
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+#if BIMG_CONFIG_PARSE_SVG
+	// Longer side of an image rasterized at the size stated in the document.
+	static constexpr uint32_t kSvgMaxSize = 4096;
+
+	static NSVGimage* svgParse(bx::AllocatorI* _allocator, const void* _data, uint32_t _size, uint32_t _width, uint32_t _height, uint32_t& _outWidth, uint32_t& _outHeight, float& _outScale, bx::Error* _err)
+	{
+		if (_width  > UINT16_MAX
+		||  _height > UINT16_MAX)
+		{
+			BX_ERROR_SET(_err, BIMG_ERROR, "SVG: Unsupported dimensions.");
+			return NULL;
+		}
+
+		// nsvgParse modifies its input, and expects it to be null terminated.
+		char* text = (char*)bx::alloc(_allocator, _size+1);
+		bx::memCopy(text, _data, _size);
+		text[_size] = '\0';
+
+		NSVGimage* image = nsvgParse(text, "px", 96.0f);
+
+		bx::free(_allocator, text);
+
+		if (NULL == image)
+		{
+			BX_ERROR_SET(_err, BIMG_ERROR, "SVG: Failed to parse.");
+			return NULL;
+		}
+
+		const float width  = image->width;
+		const float height = image->height;
+
+		if (!bx::isFinite(width)
+		||  !bx::isFinite(height)
+		||  !(0.0f < width)
+		||  !(0.0f < height) )
+		{
+			nsvgDelete(image);
+			BX_ERROR_SET(_err, BIMG_ERROR, "SVG: Unsupported dimensions.");
+			return NULL;
+		}
+
+		if (0 == _width
+		&&  0 == _height)
+		{
+			if (width  <= float(kSvgMaxSize)
+			&&  height <= float(kSvgMaxSize) )
+			{
+				_outWidth  = uint32_t(bx::floor(width  + 0.5f) );
+				_outHeight = uint32_t(bx::floor(height + 0.5f) );
+				if (0 == _outWidth
+				||  0 == _outHeight)
+				{
+					nsvgDelete(image);
+					BX_ERROR_SET(_err, BIMG_ERROR, "SVG: Unsupported dimensions.");
+					return NULL;
+				}
+
+				_outScale  = 1.0f;
+
+				return image;
+			}
+
+			_width  = kSvgMaxSize;
+			_height = kSvgMaxSize;
+		}
+
+		const float scaleX = 0 != _width  ? float(_width )/width  : bx::kFloatInfinity;
+		const float scaleY = 0 != _height ? float(_height)/height : bx::kFloatInfinity;
+
+		if (scaleX <= scaleY)
+		{
+			_outWidth  = _width;
+			_outHeight = uint32_t(bx::ceil(height*scaleX) );
+			_outScale  = scaleX;
+		}
+		else
+		{
+			_outWidth  = uint32_t(bx::ceil(width*scaleY) );
+			_outHeight = _height;
+			_outScale  = scaleY;
+		}
+
+		_outWidth  = bx::clamp<uint32_t>(_outWidth,  1, 0 != _width  ? _width  : UINT16_MAX);
+		_outHeight = bx::clamp<uint32_t>(_outHeight, 1, 0 != _height ? _height : UINT16_MAX);
+
+		return image;
+	}
+#endif // BIMG_CONFIG_PARSE_SVG
+
+	ImageContainer* imageParseSvg(bx::AllocatorI* _allocator, const void* _data, uint32_t _size, uint32_t _width, uint32_t _height, bx::Error* _err)
+	{
+		BX_ERROR_SCOPE(_err);
+
+		if (!imageIsSvg(_data, _size) )
+		{
+			return NULL;
+		}
+
+#if BIMG_CONFIG_PARSE_SVG
+		uint32_t width  = 0;
+		uint32_t height = 0;
+		float    scale  = 1.0f;
+
+		NSVGimage* image = svgParse(_allocator, _data, _size, _width, _height, width, height, scale, _err);
+
+		if (NULL == image)
+		{
+			return NULL;
+		}
+
+		ImageContainer* output = imageAlloc(_allocator
+			, bimg::TextureFormat::RGBA8
+			, width
+			, height
+			, 0
+			, 1
+			, false
+			, false
+			);
+
+		NSVGrasterizer* rasterizer = NULL != output
+			? nsvgCreateRasterizer()
+			: NULL
+			;
+
+		if (NULL == rasterizer)
+		{
+			if (NULL != output)
+			{
+				imageFree(output);
+			}
+
+			nsvgDelete(image);
+			BX_ERROR_SET(_err, BIMG_ERROR, "SVG: Unsupported dimensions.");
+			return NULL;
+		}
+
+		uint8_t* data = (uint8_t*)output->m_data;
+		bx::memSet(data, 0, output->m_size);
+
+		nsvgRasterize(rasterizer, image, 0.0f, 0.0f, scale, data, int(width), int(height), int(width*4) );
+
+		nsvgDeleteRasterizer(rasterizer);
+		nsvgDelete(image);
+
+		bool hasAlpha = false;
+
+		for (uint32_t ii = 0, num = width*height; ii < num; ++ii)
+		{
+			if (data[ii*4 + 3] < UINT8_MAX)
+			{
+				hasAlpha = true;
+				break;
+			}
+		}
+
+		output->m_hasAlpha = hasAlpha;
+		output->m_parser   = ImageParser::Svg;
+
+		return output;
+#else
+		BX_UNUSED(_allocator, _width, _height);
+		BX_ERROR_SET(_err, BIMG_ERROR, "SVG parsing is disabled (BIMG_CONFIG_PARSE_SVG).");
+		return NULL;
+#endif // BIMG_CONFIG_PARSE_SVG
+	}
+
+	static ImageContainer* imageParseNanoSvg(bx::AllocatorI* _allocator, const void* _data, uint32_t _size, bx::Error* _err)
+	{
+		return imageParseSvg(_allocator, _data, _size, 0, 0, _err);
+	}
+
+	bool imageInfoFinalize(ImageContainer& _imageContainer, ImageParser::Enum _parser, TextureFormat::Enum _format, uint32_t _width, uint32_t _height, bx::Error* _err)
 	{
 		if (0 == _width
 		||  0 == _height
@@ -1562,7 +1779,7 @@ namespace bimg
 			return false;
 		}
 
-#if BIMG_CONFIG_PARSE_PNG
+#if BIMG_CONFIG_PARSE_PNG && !BIMG_CONFIG_USE_WIC
 		LodePNGState state;
 		lodepng_state_init(&state);
 
@@ -1647,10 +1864,10 @@ namespace bimg
 
 		return imageInfoFinalize(_imageContainer, ImageParser::Png, format, width, height, _err);
 #else
-		BX_UNUSED(_data, _size);
+		BX_UNUSED(_imageContainer, _data, _size);
 		BX_ERROR_SET(_err, BIMG_ERROR, "PNG parsing is disabled (BIMG_CONFIG_PARSE_PNG).");
 		return false;
-#endif // BIMG_CONFIG_PARSE_PNG
+#endif // BIMG_CONFIG_PARSE_PNG && !BIMG_CONFIG_USE_WIC
 	}
 
 	static bool imageParseInfoTinyExr(bx::AllocatorI* _allocator, ImageContainer& _imageContainer, const void* _data, uint32_t _size, bx::Error* _err)
@@ -1733,13 +1950,13 @@ namespace bimg
 		_imageContainer.m_hasAlpha = hasAlpha;
 		return true;
 #else
-		BX_UNUSED(_data, _size);
+		BX_UNUSED(_imageContainer, _data, _size);
 		BX_ERROR_SET(_err, BIMG_ERROR, "EXR parsing is disabled (BIMG_CONFIG_PARSE_EXR).");
 		return false;
 #endif // BIMG_CONFIG_PARSE_EXR
 	}
 
-#if BIMG_CONFIG_PARSE_JPEG
+#if BIMG_CONFIG_PARSE_JPEG && !BIMG_CONFIG_USE_WIC
 	static Orientation::Enum imageParseJpegOrientation(const void* _data, uint32_t _size)
 	{
 		Orientation::Enum orientation = Orientation::R0;
@@ -1860,13 +2077,13 @@ namespace bimg
 
 		return orientation;
 	}
-#endif // BIMG_CONFIG_PARSE_JPEG
+#endif // BIMG_CONFIG_PARSE_JPEG && !BIMG_CONFIG_USE_WIC
 
 	static bool imageParseInfoStbImage(bx::AllocatorI* _allocator, ImageContainer& _imageContainer, const void* _data, uint32_t _size, bx::Error* _err)
 	{
 		BX_UNUSED(_allocator);
 
-#if BIMG_USE_STB_IMAGE
+#if BIMG_CONFIG_USE_STB_IMAGE
 		int width  = 0;
 		int height = 0;
 		int comp   = 0;
@@ -1895,7 +2112,7 @@ namespace bimg
 #else
 		BX_UNUSED(_imageContainer, _data, _size, _err);
 		return false;
-#endif // BIMG_USE_STB_IMAGE
+#endif // BIMG_CONFIG_USE_STB_IMAGE
 	}
 
 	static bool imageParseInfoJpeg(bx::AllocatorI* _allocator, ImageContainer& _imageContainer, const void* _data, uint32_t _size, bx::Error* _err)
@@ -1909,7 +2126,7 @@ namespace bimg
 			return false;
 		}
 
-#if BIMG_CONFIG_PARSE_JPEG && BIMG_USE_STB_IMAGE
+#if BIMG_CONFIG_PARSE_JPEG && !BIMG_CONFIG_USE_WIC && BIMG_CONFIG_USE_STB_IMAGE
 		const Orientation::Enum orientation = imageParseJpegOrientation(_data, _size);
 
 		int width  = 0;
@@ -1938,10 +2155,10 @@ namespace bimg
 		_imageContainer.m_orientation = orientation;
 		return true;
 #else
-		BX_UNUSED(_data, _size);
+		BX_UNUSED(_imageContainer, _data, _size);
 		BX_ERROR_SET(_err, BIMG_ERROR, "JPEG parsing is disabled (BIMG_CONFIG_PARSE_JPEG).");
 		return false;
-#endif // BIMG_CONFIG_PARSE_JPEG && BIMG_USE_STB_IMAGE
+#endif // BIMG_CONFIG_PARSE_JPEG && !BIMG_CONFIG_USE_WIC && BIMG_CONFIG_USE_STB_IMAGE
 	}
 
 	static bool imageParseInfoSimpleWebp(bx::AllocatorI* _allocator, ImageContainer& _imageContainer, const void* _data, uint32_t _size, bx::Error* _err)
@@ -1978,10 +2195,39 @@ namespace bimg
 
 		return imageInfoFinalize(_imageContainer, ImageParser::Webp, bimg::TextureFormat::RGBA8, uint32_t(width), uint32_t(height), _err);
 #else
-		BX_UNUSED(_allocator, _data, _size);
+		BX_UNUSED(_allocator, _imageContainer, _data, _size);
 		BX_ERROR_SET(_err, BIMG_ERROR, "WebP parsing is disabled (BIMG_CONFIG_PARSE_WEBP).");
 		return false;
 #endif // BIMG_CONFIG_PARSE_WEBP
+	}
+
+	static bool imageParseInfoNanoSvg(bx::AllocatorI* _allocator, ImageContainer& _imageContainer, const void* _data, uint32_t _size, bx::Error* _err)
+	{
+		if (!imageIsSvg(_data, _size) )
+		{
+			return false;
+		}
+
+#if BIMG_CONFIG_PARSE_SVG
+		uint32_t width  = 0;
+		uint32_t height = 0;
+		float    scale  = 1.0f;
+
+		NSVGimage* image = svgParse(_allocator, _data, _size, 0, 0, width, height, scale, _err);
+
+		if (NULL == image)
+		{
+			return false;
+		}
+
+		nsvgDelete(image);
+
+		return imageInfoFinalize(_imageContainer, ImageParser::Svg, bimg::TextureFormat::RGBA8, width, height, _err);
+#else
+		BX_UNUSED(_allocator, _imageContainer);
+		BX_ERROR_SET(_err, BIMG_ERROR, "SVG parsing is disabled (BIMG_CONFIG_PARSE_SVG).");
+		return false;
+#endif // BIMG_CONFIG_PARSE_SVG
 	}
 
 	static bool imageParseInfoLibHeif(bx::AllocatorI* _allocator, ImageContainer& _imageContainer, const void* _data, uint32_t _size, bx::Error* _err)
@@ -2136,10 +2382,12 @@ namespace bimg
 		typedef bool (*ImageParseInfoFn)(bx::AllocatorI*, ImageContainer&, const void*, uint32_t, bx::Error*);
 		static const ImageParseInfoFn parsers[] =
 		{
+			imageParseInfoWic,
 			imageParseInfoLodePng,
 			imageParseInfoTinyExr,
 			imageParseInfoJpeg,
 			imageParseInfoSimpleWebp,
+			imageParseInfoNanoSvg,
 			imageParseInfoStbImage,
 			imageParseInfoLibAvif,
 			imageParseInfoLibHeif,
@@ -2179,6 +2427,7 @@ namespace bimg
 			imageParseTinyExr,
 			imageParseJpeg,
 			imageParseSimpleWebp,
+			imageParseNanoSvg,
 			imageParseStbImage,
 			imageParseLibAvif,
 			imageParseLibHeif,
@@ -2277,6 +2526,10 @@ namespace bimg
 #endif // BIMG_CONFIG_PARSE_PSD
 
 		"pvr",
+
+#if BIMG_CONFIG_PARSE_SVG
+		"svg",
+#endif // BIMG_CONFIG_PARSE_SVG
 
 #if BIMG_CONFIG_PARSE_TGA
 		"tga",

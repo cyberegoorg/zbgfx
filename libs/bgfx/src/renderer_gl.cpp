@@ -1636,6 +1636,13 @@ namespace bgfx { namespace gl
 		return err;
 	}
 
+	static bool isHalfFloatType(GLenum _type)
+	{
+		return 0x140B == _type  // GL_HALF_FLOAT
+			|| 0x8D61 == _type  // GL_HALF_FLOAT_OES
+			;
+	}
+
 #if BX_PLATFORM_EMSCRIPTEN
 	static bool isTextureFormatValidPerSpec(
 		  TextureFormat::Enum _format
@@ -2303,10 +2310,14 @@ namespace bgfx { namespace gl
 				enum Enum
 				{
 					Default,
+					CreatedContext,
 				};
 			};
 
 			ErrorState::Enum errorState = ErrorState::Default;
+
+			GLint  numCmpFormats = 0;
+			GLint* cmpFormat     = NULL;
 
 			initLazyEnabledVertexAttributes();
 
@@ -2321,7 +2332,13 @@ namespace bgfx { namespace gl
 
 			m_reset = _init.reset & ~BGFX_RESET_INTERNAL_FORCE;
 
-			setRenderContextSize(_init.swapChain);
+			if (!m_glctx.create(_init.swapChain, m_reset) )
+			{
+				goto error;
+			}
+
+			errorState = ErrorState::CreatedContext;
+			m_flip = true;
 
 			m_vendor      = getGLString(GL_VENDOR);
 			m_renderer    = getGLString(GL_RENDERER);
@@ -2340,11 +2357,8 @@ namespace bgfx { namespace gl
 
 			m_workaround.reset();
 
-			GLint numCmpFormats = 0;
 			GL_CHECK(glGetIntegerv(GL_NUM_COMPRESSED_TEXTURE_FORMATS, &numCmpFormats) );
 			BX_TRACE("GL_NUM_COMPRESSED_TEXTURE_FORMATS %d", numCmpFormats);
-
-			GLint* cmpFormat = NULL;
 
 			if (0 < numCmpFormats)
 			{
@@ -3139,13 +3153,16 @@ namespace bgfx { namespace gl
 		error:
 			switch (errorState)
 			{
+			case ErrorState::CreatedContext:
+				m_glctx.destroy();
+				[[fallthrough]];
+
 			case ErrorState::Default:
+			default:
+				unloadRenderDoc(m_renderdocdll);
 				break;
 			}
 
-			m_glctx.destroy();
-
-			unloadRenderDoc(m_renderdocdll);
 			return false;
 		}
 
@@ -3582,15 +3599,38 @@ namespace bgfx { namespace gl
 							|| TextureFormat::BGRA8 == texture.m_textureFormat
 							;
 
+						GL_CHECK(glPixelStorei(GL_PACK_ALIGNMENT, 1) );
+
+						GLenum readFmt  = rgba8 ? m_readPixelsFmt  : texture.m_fmt;
+						GLenum readType = rgba8 ? GL_UNSIGNED_BYTE : texture.m_type;
+
+						if (!rgba8)
+						{
+							GLint implFmt  = 0;
+							GLint implType = 0;
+							glGetIntegerv(GL_IMPLEMENTATION_COLOR_READ_FORMAT, &implFmt);
+							glGetIntegerv(GL_IMPLEMENTATION_COLOR_READ_TYPE, &implType);
+
+							if (GLenum(implFmt) == readFmt
+							&&  GLenum(implType) != readType
+							&&  isHalfFloatType(readType)
+							&&  isHalfFloatType(GLenum(implType) ) )
+							{
+								readType = GLenum(implType);
+							}
+						}
+
 						GL_CHECK(glReadPixels(
 							  0
 							, 0
 							, mipWidth
 							, mipHeight
-							, rgba8 ? m_readPixelsFmt  : texture.m_fmt
-							, rgba8 ? GL_UNSIGNED_BYTE : texture.m_type
+							, readFmt
+							, readType
 							, _data
 							) );
+
+						GL_CHECK(glPixelStorei(GL_PACK_ALIGNMENT, 4) );
 
 						if (GL_RGBA == m_readPixelsFmt
 						&&  TextureFormat::BGRA8 == texture.m_textureFormat)
@@ -4438,21 +4478,14 @@ namespace bgfx { namespace gl
 
 		void setRenderContextSize(const SwapChain& _swapChain)
 		{
-			if (!m_glctx.isValid() )
-			{
-				m_glctx.create(_swapChain, m_reset);
-			}
-			else
-			{
-				destroyMsaaFbo();
+			destroyMsaaFbo();
 
-				m_glctx.resize(_swapChain, m_reset);
+			m_glctx.resize(_swapChain, m_reset);
 
-				uint32_t msaa = (_swapChain.flags & BGFX_SWAP_CHAIN_MSAA_MASK)>>BGFX_SWAP_CHAIN_MSAA_SHIFT;
-				msaa = bx::min(m_maxMsaa, msaa == 0 ? 0 : 1<<msaa);
+			uint32_t msaa = (_swapChain.flags & BGFX_SWAP_CHAIN_MSAA_MASK)>>BGFX_SWAP_CHAIN_MSAA_SHIFT;
+			msaa = bx::min(m_maxMsaa, msaa == 0 ? 0 : 1<<msaa);
 
-				createMsaaFbo(_swapChain.width, _swapChain.height, msaa);
-			}
+			createMsaaFbo(_swapChain.width, _swapChain.height, msaa);
 
 			m_flip = true;
 		}
@@ -5058,9 +5091,15 @@ namespace bgfx { namespace gl
 					}
 				}
 
-				updateUniform(m_clearQuadColor.idx, mrtClearColor[0], numMrt * sizeof(float) * 4);
+				if (isValid(m_clearQuadColor) )
+				{
+					updateUniform(m_clearQuadColor.idx, mrtClearColor[0], numMrt * sizeof(float) * 4);
+				}
 
-				commit(*program.m_constantBuffer);
+				if (NULL != program.m_constantBuffer)
+				{
+					commit(*program.m_constantBuffer);
+				}
 
 				const uint8_t skipMask = _clear.getColorSkipMask(numMrt);
 				GLenum buffers[BGFX_CONFIG_MAX_FRAME_BUFFER_ATTACHMENTS];
@@ -7177,7 +7216,14 @@ namespace bgfx { namespace gl
 
 		if (bx::findIdentifierMatch(_code, "bgfx_indirectArgBase").isEmpty() )
 		{
-			bx::write(&writer, "uniform vec4 bgfx_indirectArgBase;\n", &err);
+			bx::write(&writer
+				, "#ifdef GL_ES\n"
+				  "uniform highp vec4 bgfx_indirectArgBase;\n"
+				  "#else\n"
+				  "uniform vec4 bgfx_indirectArgBase;\n"
+				  "#endif // GL_ES\n"
+				, &err
+				);
 		}
 
 		if (GL_VERTEX_SHADER == _type)
@@ -8767,6 +8813,8 @@ namespace bgfx { namespace gl
 		ProgramHandle boundProgram   = BGFX_INVALID_HANDLE;
 		SortKey key;
 		uint16_t view = UINT16_MAX;
+		const View* renderView = &_render->view(0);
+		char viewName[BGFX_CONFIG_MAX_VIEW_NAME] = "";
 		FrameBufferHandle fbh = { BGFX_CONFIG_MAX_FRAME_BUFFERS };
 		bool currentDepthClamp = false; // GL default: depth clipping on (WebGPU unclippedDepth = false).
 		int32_t currentPolygonOffsetConstant = 0;
@@ -8837,7 +8885,7 @@ namespace bgfx { namespace gl
 		{
 			GL_CHECK(glBindFramebuffer(GL_FRAMEBUFFER, m_msaaBackBufferFbo) );
 
-			viewState.m_rect = _render->m_view[0].m_rect;
+			viewState.m_rect = _render->view(0).m_rect;
 			int32_t numItems = _render->m_numRenderItems;
 
 			for (int32_t item = 0; item < numItems;)
@@ -8859,6 +8907,8 @@ namespace bgfx { namespace gl
 				if (viewChanged)
 				{
 					view = key.m_view;
+					renderView = &_render->view(view);
+					viewState.setView(*renderView);
 					currentProgram = BGFX_INVALID_HANDLE;
 
 					if (item > 1)
@@ -8868,13 +8918,13 @@ namespace bgfx { namespace gl
 
 					BGFX_GL_PROFILER_END();
 
-					resolveFrameBuffer(_render->m_view[view].m_fbh);
+					resolveFrameBuffer(renderView->m_fbh);
 					submitUniformCache(ucs, view);
 					submitBlit(bs, view);
 
-					if (_render->m_view[view].m_fbh.idx != fbh.idx)
+					if (renderView->m_fbh.idx != fbh.idx)
 					{
-						fbh = _render->m_view[view].m_fbh;
+						fbh = renderView->m_fbh;
 						resolutionHeight = _render->m_mainSwapChain.height;
 						resolutionHeight = setFrameBuffer(fbh, resolutionHeight, discardFlags);
 
@@ -8889,12 +8939,12 @@ namespace bgfx { namespace gl
 							;
 					}
 
-					setViewType(view, "  ");
+					formatViewName(viewName, _render, view, "  ");
 					BGFX_GL_PROFILER_BEGIN(view, kColorView);
 
 					profiler.begin(view);
 
-					viewState.m_rect = _render->m_view[view].m_rect;
+					viewState.m_rect = renderView->m_rect;
 
 					const bool offscreenFb = isValid(fbh)
 						&& NULL == m_frameBuffers[fbh.idx].m_swapChain
@@ -8909,9 +8959,9 @@ namespace bgfx { namespace gl
 						;
 					ndcFlipRectY = !(offscreenFb && BX_ENABLED(BGFX_CONFIG_GL_NORMALIZE_NDC_CONVENTIONS) );
 
-					const Rect& clippedRect = _render->m_view[view].m_clippedRect;
+					const Rect& clippedRect = renderView->m_clippedRect;
 
-					const Rect& scissorRect = _render->m_view[view].m_scissor;
+					const Rect& scissorRect = renderView->m_scissor;
 					viewHasScissor  = !scissorRect.isZero();
 					viewScissorRect = viewHasScissor ? scissorRect : clippedRect;
 
@@ -8923,7 +8973,7 @@ namespace bgfx { namespace gl
 						, viewState.m_rect.m_height
 						) );
 
-					Clear& clear = _render->m_view[view].m_clear;
+					const Clear& clear = renderView->m_clear;
 					discardFlags = clear.m_flags & BGFX_CLEAR_DISCARD_MASK;
 
 					if (BGFX_CLEAR_NONE != (clear.m_flags & BGFX_CLEAR_MASK) )
@@ -8944,7 +8994,7 @@ namespace bgfx { namespace gl
 					{
 						wasCompute = true;
 
-						setViewType(view, "C");
+						setViewType(viewName, "C");
 						BGFX_GL_PROFILER_END();
 						BGFX_GL_PROFILER_BEGIN(view, kColorCompute);
 					}
@@ -9053,7 +9103,7 @@ namespace bgfx { namespace gl
 								commit(*program.m_constantBuffer);
 							}
 
-							viewState.setPredefined<1>(this, view, program, _render, compute);
+							viewState.setPredefined<1>(this, view, *renderView, program, _render, compute);
 
 							if (isValid(compute.m_indirectBuffer) )
 							{
@@ -9101,7 +9151,7 @@ namespace bgfx { namespace gl
 				{
 					wasCompute = false;
 
-					setViewType(view, " ");
+					setViewType(viewName, " ");
 					BGFX_GL_PROFILER_END();
 					BGFX_GL_PROFILER_BEGIN(view, kColorDraw);
 				}
@@ -9131,7 +9181,7 @@ namespace bgfx { namespace gl
 				}
 
 				const uint64_t newFlags   = (draw.m_stateFlags & stateMask) ^ ndcFrontCcw;
-				const uint32_t sampleMask = _render->m_view[view].m_sampleMask & draw.m_sampleMask;
+				const uint32_t sampleMask = renderView->m_sampleMask & draw.m_sampleMask;
 				uint64_t changedFlags     = currentState.m_stateFlags ^ newFlags;
 				currentState.m_stateFlags = newFlags;
 
@@ -9238,7 +9288,7 @@ namespace bgfx { namespace gl
 				{
 					const bool depthClamp = (UINT16_MAX != draw.m_depthBias)
 						? _render->m_frameCache.m_depthBiasCache.m_cache[draw.m_depthBias].m_depthClamp
-						: _render->m_view[view].m_depthBias.m_depthClamp
+						: renderView->m_depthBias.m_depthClamp
 						;
 					if (currentDepthClamp != depthClamp)
 					{
@@ -9257,7 +9307,7 @@ namespace bgfx { namespace gl
 				{
 					const DepthControl& depthControl = (UINT16_MAX != draw.m_depthBias)
 						? _render->m_frameCache.m_depthBiasCache.m_cache[draw.m_depthBias]
-						: _render->m_view[view].m_depthBias
+						: renderView->m_depthBias
 						;
 
 					if (currentPolygonOffsetConstant != depthControl.m_constant
@@ -9586,7 +9636,7 @@ namespace bgfx { namespace gl
 						commit(*program.m_constantBuffer);
 					}
 
-					viewState.setPredefined<1>(this, view, program, _render, draw);
+					viewState.setPredefined<1>(this, view, *renderView, program, _render, draw);
 
 					{
 						GLbitfield barrier = 0;
@@ -9978,7 +10028,7 @@ namespace bgfx { namespace gl
 
 			if (wasCompute)
 			{
-				setViewType(view, "C");
+				setViewType(viewName, "C");
 				BGFX_GL_PROFILER_END();
 				BGFX_GL_PROFILER_BEGIN(view, kColorCompute);
 			}

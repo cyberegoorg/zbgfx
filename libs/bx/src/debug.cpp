@@ -84,8 +84,7 @@ extern "C" __declspec(dllimport) unsigned int __stdcall SetErrorMode(unsigned in
 #elif  BX_PLATFORM_WINDOWS \
 	|| BX_PLATFORM_WINRT   \
 	|| BX_PLATFORM_XBOXONE
-// FIXME: ZBGFX
-//extern "C" __declspec(dllimport) bool  __stdcall IsDebuggerPresent();
+extern "C" __declspec(dllimport) int   __stdcall IsDebuggerPresent();
 extern "C" __declspec(dllimport) void  __stdcall OutputDebugStringA(const char* _str);
 extern "C" __declspec(dllimport) void* __stdcall GetStdHandle(unsigned long _stdHandle);
 extern "C" __declspec(dllimport) int   __stdcall WriteFile(void* _file, const void* _buffer, unsigned long _sizeInBytes, unsigned long* _outNumberOfBytesWritten, struct _OVERLAPPED* _overlapped);
@@ -138,10 +137,7 @@ namespace bx
 	bool isDebuggerPresent()
 	{
 #if BX_PLATFORM_WINDOWS
-
-// FIXME: ZBGFX
-//		return 0 != ::IsDebuggerPresent();
-		return false;
+		return 0 != ::IsDebuggerPresent();
 #elif BX_PLATFORM_OSX
 		struct kinfo_proc info;
 		size_t size = sizeof(info);
