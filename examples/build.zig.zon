@@ -12,8 +12,8 @@
         .zbgfx = .{ .path = "../" },
 
         .zglfw = .{
-            .url = "https://github.com/cyberegoorg/zglfw/archive/refs/heads/upgrade_to_zig_16.tar.gz",
-            .hash = "zglfw-0.10.0-dev-zgVDNHi4IQAEEARFQfqY4N3fPYOEtWC2Kcut3iNHETbs",
+            .url = "https://github.com/zig-gamedev/zglfw/archive/f04fdbfc5b6d8c9a12025013992ac1d48653931e.tar.gz",
+            .hash = "zglfw-0.10.0-dev-zgVDNNu5IQAk-UK7gIg0LWMmMzxj4sK9xCSTisLhjgI1",
         },
 
         .zgui = .{
@@ -22,8 +22,8 @@
         },
 
         .zmath = .{
-            .url = "https://github.com/cyberegoorg/zmath/archive/refs/heads/upgrade_to_zig_16.tar.gz",
-            .hash = "zmath-0.11.0-dev-wjwivdIpAwA-VEYhjjdf2WjyjWolLDaHGgahznV361dV",
+            .url = "https://github.com/zig-gamedev/zmath/archive/9e42b04a24c970a297b365f3d3022f92dbf3219d.tar.gz",
+            .hash = "zmath-0.11.0-dev-wjwivTwtAwDOjG2_KGP-HLtHrONfsFfHttalmxFAGVAK",
         },
     },
 }
