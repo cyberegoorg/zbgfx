@@ -17,8 +17,8 @@
         },
 
         .zgui = .{
-            .url = "https://github.com/cyberegoorg/zgui/archive/refs/heads/upgrade_to_zig_16.tar.gz",
-            .hash = "zgui-0.6.0-dev--L6sZNOAcQCp-w8ziywdKP-diUpcfFoXJrk5OLyzCOee",
+            .url = "https://github.com/zig-gamedev/zgui/archive/a25eb0434a3e032e44e2e40238cd9a390aeec028.tar.gz",
+            .hash = "zgui-0.6.0-dev--L6sZMdHbgDGyf0mWBzn0LjGig6LuanLqohxml6sZiPG",
         },
 
         .zmath = .{

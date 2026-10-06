@@ -119,7 +119,7 @@ pub fn main(init: std.process.Init) anyerror!u8 {
         break :scale_factor @max(scale[0], scale[1]);
     };
 
-    zgui.init(init.io, gpa_allocator);
+    zgui.init(gpa_allocator);
     defer zgui.deinit();
 
     // Load main font

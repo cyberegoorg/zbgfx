@@ -44,7 +44,7 @@ jobs:
 
       - name: Install Zig
         uses: mlugg/setup-zig@v2
-      
+
       - name: Lint
         run: zig fmt --check . --exclude libs/
 
@@ -68,7 +68,9 @@ jobs:
           submodules: false
 
       - if: matrix.os == 'linux-large'
-        run: sudo ln -s /usr/lib/x86_64-linux-gnu/libX11.so.6 /usr/lib/x86_64-linux-gnu/libX11.so
+        run: |
+          sudo ln -s /usr/lib/x86_64-linux-gnu/libX11.so.6 /usr/lib/x86_64-linux-gnu/libX11.so
+          sudo apt install libgl-dev
 
       - name: Install Zig
         uses: mlugg/setup-zig@v2
@@ -78,4 +80,3 @@ jobs:
       - name: Build examples
         shell: bash
         run: cd examples/ && zig build
-
