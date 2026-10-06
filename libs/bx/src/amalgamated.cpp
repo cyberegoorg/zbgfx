@@ -4,6 +4,7 @@
  */
 
 #include "allocator.cpp"
+#include "bitarray.cpp"
 #include "bounds.cpp"
 #include "bx.cpp"
 #include "commandline.cpp"
@@ -24,6 +25,7 @@
 #include "settings.cpp"
 #include "sort.cpp"
 #include "string.cpp"
+#include "superluminal.cpp"
 #include "thread.cpp"
 #include "timer.cpp"
 #include "url.cpp"

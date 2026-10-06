@@ -1,0 +1,12 @@
+diff --git a/libs/bx/src/amalgamated.cpp b/libs/bx/src/amalgamated.cpp
+index 4532b54..c804a9f 100644
+--- a/libs/bx/src/amalgamated.cpp
++++ b/libs/bx/src/amalgamated.cpp
+@@ -4,6 +4,7 @@
+  */
+ 
+ #include "allocator.cpp"
++#include "bitarray.cpp"
+ #include "bounds.cpp"
+ #include "bx.cpp"
+ #include "commandline.cpp"

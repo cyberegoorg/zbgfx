@@ -40,9 +40,9 @@ Minimal is `0.16.0`. But you know try your version and believe.
 
 See `build.zig.zon` for pinned commits.
 
-- [BX](https://github.com/bkaradzic/bx/compare/1c986bd1e9a176a08ae885a6cdcefe76c3f700fc...master)
-- [BImg](https://github.com/bkaradzic/bimg/compare/6b08e87de28e7aa54782d5ce1b279dca373a10c6...master)
-- [BGFX](https://github.com/bkaradzic/bgfx/compare/7346c3e731bd65f35c7e6a99819840e554f5b748...master)
+- [BX](https://github.com/bkaradzic/bx/compare/09cf98d55c555ddd672e08d847e2f9ded0673424...master)
+- [BImg](https://github.com/bkaradzic/bimg/compare/101b5b5fd4670f82cfdec8e98aa1ab9ee93bb2a1...master)
+- [BGFX](https://github.com/bkaradzic/bgfx/compare/cca91681c953d2de9531197b0f580c866ffaa775...master)
 
 ### Upgrade BGFX by yourself.
 - Uncomment deps in `build.zig.zon`.
