@@ -1553,8 +1553,7 @@ namespace bgfx
 
 		uint64_t key = m_key.encodeDraw(type);
 
-		m_frame->m_sortKeys  [renderItemIdx] = key;
-		m_frame->m_sortValues[renderItemIdx] = RenderItemCount(renderItemIdx);
+		m_frame->m_submitKeys[renderItemIdx] = key;
 
 		m_draw.m_uniformIdx   = m_uniformIdx;
 		m_draw.m_uniformBegin = m_uniformBegin;
@@ -1632,8 +1631,7 @@ namespace bgfx
 		m_key.m_seq     = renderItemIdx;
 
 		uint64_t key = m_key.encodeCompute();
-		m_frame->m_sortKeys[renderItemIdx]   = key;
-		m_frame->m_sortValues[renderItemIdx] = RenderItemCount(renderItemIdx);
+		m_frame->m_submitKeys[renderItemIdx] = key;
 
 		m_compute.m_uniformIdx   = m_uniformIdx;
 		m_compute.m_uniformBegin = m_uniformBegin;
@@ -1706,9 +1704,14 @@ namespace bgfx
 
 		m_viewOrder[BGFX_CONFIG_MAX_VIEWS] = UINT16_MAX;
 
+		reserveSortKeys(m_numRenderItems);
+
+		const FrameArenaT<uint64_t, kDrawCallBlock>& submitKeys = m_submitKeys;
+
 		for (uint32_t ii = 0, num = m_numRenderItems; ii < num; ++ii)
 		{
-			m_sortKeys[ii] = SortKey::remapView(m_sortKeys[ii], m_viewOrder);
+			m_sortKeys[ii]   = SortKey::remapView(submitKeys[ii], m_viewOrder);
+			m_sortValues[ii] = RenderItemCount(ii);
 		}
 
 		s_ctx->reserveTemp(bx::max(
@@ -1891,6 +1894,7 @@ namespace bgfx
 		CAPS_FLAGS(BGFX_CAPS_HDR10),
 		CAPS_FLAGS(BGFX_CAPS_IMAGE_RW),
 		CAPS_FLAGS(BGFX_CAPS_INDEX32),
+		CAPS_FLAGS(BGFX_CAPS_LOW_LATENCY),
 		CAPS_FLAGS(BGFX_CAPS_PRIMITIVE_ID),
 		CAPS_FLAGS(BGFX_CAPS_RENDERER_MULTITHREADED),
 		CAPS_FLAGS(BGFX_CAPS_SHADER_F16),
@@ -2028,6 +2032,7 @@ namespace bgfx
 		LIMITS(maxTransientVbSize);
 		LIMITS(maxTransientIbSize);
 		LIMITS(minUniformBufferSize);
+		LIMITS(minUniformCacheSize);
 		LIMITS(blitRowPitchAlign);
 		LIMITS(blitOffsetAlign);
 #undef LIMITS
@@ -2154,6 +2159,8 @@ namespace bgfx
 		BX_TRACE("\t[%c] Flush After Render",      0 != (reset & BGFX_RESET_FLUSH_AFTER_RENDER)          ? 'x' : ' ');
 		BX_TRACE("\t[%c] Flip After Render",       0 != (reset & BGFX_RESET_FLIP_AFTER_RENDER)           ? 'x' : ' ');
 		BX_TRACE("\t[%c] Suspend",                 0 != (reset & BGFX_RESET_SUSPEND)                     ? 'x' : ' ');
+		BX_TRACE("\t[%c] Low Latency",             0 != (reset & BGFX_RESET_LOW_LATENCY_MASK)            ? 'x' : ' ');
+		BX_TRACE("\t[%c] Low Latency Boost",       0 != (reset & BGFX_RESET_LOW_LATENCY_BOOST)           ? 'x' : ' ');
 	}
 
 	TextureFormat::Enum getViableTextureFormat(const bimg::ImageContainer& _imageContainer)
@@ -2300,6 +2307,37 @@ namespace bgfx
 		TextureFormat::RGBA8, // D3D9 doesn't support RGBA8
 	};
 
+	static TextureFormat::Enum findBackBufferFormat(TextureFormat::Enum _format)
+	{
+		const TextureFormat::Enum preferred[] =
+		{
+			_format,
+			TextureFormat::BGRA8,
+			TextureFormat::RGBA8,
+		};
+
+		for (uint32_t ii = 0; ii < BX_COUNTOF(preferred); ++ii)
+		{
+			const TextureFormat::Enum format = preferred[ii];
+
+			if (TextureFormat::Count != format
+			&&  0 != (g_caps.formats[format] & BGFX_CAPS_FORMAT_TEXTURE_BACKBUFFER) )
+			{
+				return format;
+			}
+		}
+
+		for (uint32_t ii = 0; ii < TextureFormat::Count; ++ii)
+		{
+			if (0 != (g_caps.formats[ii] & BGFX_CAPS_FORMAT_TEXTURE_BACKBUFFER) )
+			{
+				return TextureFormat::Enum(ii);
+			}
+		}
+
+		return _format;
+	}
+
 	bool Context::init(const Init& _init)
 	{
 		if (m_rendererInitialized)
@@ -2324,7 +2362,11 @@ namespace bgfx
 			return false;
 		}
 
+		BX_ASSERT(BGFX_RESET_LOW_LATENCY_MASK != (_init.reset&BGFX_RESET_LOW_LATENCY_MASK), "Set either `BGFX_RESET_LOW_LATENCY_ON` or `BGFX_RESET_LOW_LATENCY_BOOST`, not both!");
+
 		m_init = _init;
+
+		m_uniformCache.reserve(m_init.limits.minUniformCacheSize);
 
 		m_init.swapChain.flags |= _init.reset & kSwapChainFlagMask;
 		m_init.reset           &= ~kSwapChainFlagMask;
@@ -2480,6 +2522,18 @@ namespace bgfx
 			| (isGraphicsDebuggerPresent() ? BGFX_CAPS_GRAPHICS_DEBUGGER : 0)
 			;
 
+		m_init.reset = checkResetFlags(m_init.reset);
+
+		const TextureFormat::Enum formatColor = findBackBufferFormat(m_init.swapChain.formatColor);
+
+		BX_WARN(formatColor == m_init.swapChain.formatColor
+			, "Back buffer format %s is not supported, using %s instead."
+			, TextureFormat::Count == m_init.swapChain.formatColor ? "Count" : getName(m_init.swapChain.formatColor)
+			, getName(formatColor)
+			);
+
+		m_init.swapChain.formatColor = formatColor;
+
 		dumpCaps();
 
 		m_textVideoMemBlitter.init();
@@ -2501,11 +2555,21 @@ namespace bgfx
 
 		g_internalData.caps = getCaps();
 
+		{
+			BGFX_MUTEX_SCOPE(m_latencyLock);
+			m_lowLatency = 0 != (g_caps.supported & BGFX_CAPS_LOW_LATENCY);
+		}
+
 		return true;
 	}
 
 	void Context::shutdown()
 	{
+		{
+			BGFX_MUTEX_SCOPE(m_latencyLock);
+			m_lowLatency = false;
+		}
+
 		getCommandBuffer(CommandBuffer::RendererShutdownBegin);
 		frame();
 
@@ -2816,6 +2880,13 @@ namespace bgfx
 		m_submit->m_capture = 0 != (_flags & BGFX_FRAME_DEBUG_CAPTURE);
 		m_submit->m_flush   = 0 != (_flags & BGFX_FRAME_FLUSH);
 
+		const bool present = !m_submit->m_flush;
+
+		if (present)
+		{
+			latencySimulationEnd();
+		}
+
 		uint32_t frameNum = m_submit->m_frameNum;
 
 		BGFX_PROFILER_SCOPE("bgfx/API thread frame", kColorSubmit);
@@ -2823,9 +2894,43 @@ namespace bgfx
 		renderSemWait();
 		frameNoRenderWait();
 
+		if (present)
+		{
+			latencySimulationStart();
+		}
+
 		m_encoder[0].begin(m_submit, 0);
 
 		return frameNum;
+	}
+
+	void Context::latencySimulationEnd()
+	{
+		BGFX_MUTEX_SCOPE(m_latencyLock);
+
+		if (m_lowLatency
+		&&  0 != m_latencyFrameId)
+		{
+			m_renderCtx->setLatencyMarker(LatencyMarker::SimulationEnd, m_latencyFrameId);
+			m_submit->m_latencyFrameId = m_latencyFrameId;
+		}
+	}
+
+	void Context::latencySimulationStart()
+	{
+		BGFX_MUTEX_SCOPE(m_latencyLock);
+
+		if (m_lowLatency)
+		{
+			BGFX_PROFILER_SCOPE("bgfx/Low latency sleep", kColorWait);
+
+			const int64_t sleepBegin = bx::getHPCounter();
+			m_renderCtx->latencySleep();
+			m_latencySleep = bx::getHPCounter() - sleepBegin;
+
+			++m_latencyFrameId;
+			m_renderCtx->setLatencyMarker(LatencyMarker::SimulationStart, m_latencyFrameId);
+		}
 	}
 
 	void Context::frameNoRenderWait()
@@ -2873,6 +2978,19 @@ namespace bgfx
 		m_submit->m_debugTextScale   = m_debugTextScale;
 		m_submit->m_perfStats.numViews = 0;
 		m_submit->reserveViewStats(0 != (m_debug & BGFX_DEBUG_PROFILER), m_submit->m_numUsedViews);
+
+		{
+			// Renderer writes latency stats only when driver returns a report.
+			Stats& perfStats = m_submit->m_perfStats;
+			perfStats.latencySleep        = m_latencySleep;
+			perfStats.latencyTotal        = 0;
+			perfStats.latencySimulation   = 0;
+			perfStats.latencyRenderSubmit = 0;
+			perfStats.latencyPresent      = 0;
+			perfStats.latencyQueue        = 0;
+			perfStats.latencyGpu          = 0;
+			m_latencySleep = 0;
+		}
 
 		m_uniformCache.frame(m_submit->m_uniformCacheFrame);
 
@@ -2987,11 +3105,30 @@ namespace bgfx
 		if (m_rendererInitialized
 		&& !m_flipped)
 		{
+			const uint64_t latencyFrameId = m_latencyPresentFrameId;
+			m_latencyPresentFrameId = 0;
+
+			if (0 != latencyFrameId)
+			{
+				m_renderCtx->setLatencyMarker(LatencyMarker::PresentStart, latencyFrameId);
+			}
+
 			m_renderCtx->flip();
 			m_flipped = true;
 
+			if (0 != latencyFrameId)
+			{
+				m_renderCtx->setLatencyMarker(LatencyMarker::PresentEnd, latencyFrameId);
+			}
+
 			if (m_renderCtx->isDeviceRemoved() )
 			{
+				{
+					BGFX_MUTEX_SCOPE(m_latencyLock);
+					m_lowLatency = false;
+					g_caps.supported &= ~BGFX_CAPS_LOW_LATENCY;
+				}
+
 				// Something horribly went wrong, fallback to noop renderer.
 				rendererDestroy(m_renderCtx);
 
@@ -3049,10 +3186,23 @@ namespace bgfx
 
 			if (m_rendererInitialized)
 			{
+				const uint64_t latencyFrameId = m_render->m_latencyFrameId;
+
+				if (0 != latencyFrameId)
+				{
+					m_renderCtx->setLatencyMarker(LatencyMarker::RenderSubmitStart, latencyFrameId);
+				}
+
 				{
 					BGFX_PROFILER_SCOPE("bgfx/Render submit", kColorSubmit);
 					m_renderCtx->submit(m_render, m_clearQuad, m_mipGen, m_textVideoMemBlitter);
 					m_flipped = false;
+				}
+
+				if (0 != latencyFrameId)
+				{
+					m_renderCtx->setLatencyMarker(LatencyMarker::RenderSubmitEnd, latencyFrameId);
+					m_latencyPresentFrameId = latencyFrameId;
 				}
 
 				{
@@ -4188,6 +4338,7 @@ namespace bgfx
 		, maxTransientVbSize(BGFX_CONFIG_MAX_TRANSIENT_VERTEX_BUFFER_SIZE)
 		, maxTransientIbSize(BGFX_CONFIG_MAX_TRANSIENT_INDEX_BUFFER_SIZE)
 		, minUniformBufferSize(BGFX_CONFIG_MIN_UNIFORM_BUFFER_SIZE)
+		, minUniformCacheSize(BGFX_CONFIG_MIN_UNIFORM_CACHE_SIZE)
 	{
 	}
 
@@ -4299,6 +4450,7 @@ namespace bgfx
 		g_caps.limits.maxTransientVbSize      = init.limits.maxTransientVbSize;
 		g_caps.limits.maxTransientIbSize      = init.limits.maxTransientIbSize;
 		g_caps.limits.minUniformBufferSize    = init.limits.minUniformBufferSize;
+		g_caps.limits.minUniformCacheSize     = init.limits.minUniformCacheSize;
 		g_caps.limits.blitRowPitchAlign       = 1;
 		g_caps.limits.blitOffsetAlign         = 1;
 
@@ -4396,6 +4548,7 @@ namespace bgfx
 	{
 		BGFX_CHECK_API_THREAD();
 		BX_ASSERT(0 == (_flags&BGFX_RESET_RESERVED_MASK), "Do not set reset reserved flags!");
+		BX_ASSERT(BGFX_RESET_LOW_LATENCY_MASK != (_flags&BGFX_RESET_LOW_LATENCY_MASK), "Set either `BGFX_RESET_LOW_LATENCY_ON` or `BGFX_RESET_LOW_LATENCY_BOOST`, not both!");
 		s_ctx->reset(_flags, _swapChain);
 	}
 
@@ -7336,6 +7489,7 @@ static_assert(FLAGS_MASK_TEST(0
 		| BGFX_RESET_FLUSH_AFTER_RENDER
 		| BGFX_RESET_FLIP_AFTER_RENDER
 		| BGFX_RESET_SUSPEND
+		| BGFX_RESET_LOW_LATENCY_MASK
 		| BGFX_RESET_RESERVED_MASK
 		)
 	) );

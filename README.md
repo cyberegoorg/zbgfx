@@ -30,7 +30,7 @@ When [zig](https://codeberg.org/ziglang/zig) meets [bgfx](https://github.com/bka
 Folders `libs`, `shaders` is copy&paste from [bgfx](https://github.com/bkaradzic/bgfx) for more sell-contained
 experience and is licensed by [LICENSEE](https://github.com/bkaradzic/bgfx/blob/master/LICENSE)
 
-Zig binding is licensed by [WTFPL](LICENSE)
+ZBGFX is licensed by [WTFPL](LICENSE)
 
 ## Zig version
 
@@ -40,15 +40,15 @@ Minimal is `0.16.0`. But you know try your version and believe.
 
 See `build.zig.zon` for pinned commits.
 
-- [BX](https://github.com/bkaradzic/bx/compare/09cf98d55c555ddd672e08d847e2f9ded0673424...master)
-- [BImg](https://github.com/bkaradzic/bimg/compare/101b5b5fd4670f82cfdec8e98aa1ab9ee93bb2a1...master)
-- [BGFX](https://github.com/bkaradzic/bgfx/compare/cca91681c953d2de9531197b0f580c866ffaa775...master)
+- [BX](https://github.com/bkaradzic/bx/compare/36b2b6943f7c62276d96ff7a34d59db8057a5d24...master)
+- [BImg](https://github.com/bkaradzic/bimg/compare/671fe06dd7012a1ab85aa931019ed16112909756...master)
+- [BGFX](https://github.com/bkaradzic/bgfx/compare/8f451e9102b1845b29dfe500116611ad283632ec...master)
 
 ### Upgrade BGFX by yourself.
 - Uncomment deps in `build.zig.zon`.
 - Change commit ref and hash for deps you need.
 - `zig build -Dwith_sync sync`.
-- `zig build`.
+- Comment deps in `build.zig.zon`.
 
 ## Getting started
 

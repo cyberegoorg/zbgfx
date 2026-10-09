@@ -147,6 +147,19 @@ namespace bgfx { namespace vk
 		{ VK_PRESENT_MODE_IMMEDIATE_KHR,    false, "VK_PRESENT_MODE_IMMEDIATE_KHR"    },
 	};
 
+	static const VkLatencyMarkerNV s_latencyMarker[] =
+	{
+		VK_LATENCY_MARKER_SIMULATION_START_NV,
+		VK_LATENCY_MARKER_SIMULATION_END_NV,
+		VK_LATENCY_MARKER_RENDERSUBMIT_START_NV,
+		VK_LATENCY_MARKER_RENDERSUBMIT_END_NV,
+		VK_LATENCY_MARKER_PRESENT_START_NV,
+		VK_LATENCY_MARKER_PRESENT_END_NV,
+	};
+	static_assert(LatencyMarker::Count == BX_COUNTOF(s_latencyMarker) );
+
+	static constexpr uint64_t kLowLatencySleepTimeout = UINT64_C(500000000);
+
 #define VK_IMPORT_FUNC(_optional, _func) PFN_##_func _func
 #define VK_IMPORT_INSTANCE_FUNC VK_IMPORT_FUNC
 #define VK_IMPORT_DEVICE_FUNC   VK_IMPORT_FUNC
@@ -383,12 +396,14 @@ VK_IMPORT_DEVICE
 			KHR_fragment_shading_rate,
 			KHR_get_physical_device_properties2,
 			KHR_get_surface_capabilities2,
+			KHR_present_id,
 			KHR_shader_float16_int8,
 			KHR_video_queue,
 			KHR_video_decode_queue,
 			KHR_video_decode_h264,
 			KHR_video_decode_h265,
 			KHR_video_decode_av1,
+			NV_low_latency2,
 
 #	if BX_PLATFORM_ANDROID
 			KHR_android_surface,
@@ -433,12 +448,14 @@ VK_IMPORT_DEVICE
 		{ "VK_KHR_fragment_shading_rate",           1, false, false, true,                                                          Layer::Count },
 		{ "VK_KHR_get_physical_device_properties2", 1, false, false, true,                                                          Layer::Count },
 		{ "VK_KHR_get_surface_capabilities2",       1, false, false, true,                                                          Layer::Count },
+		{ "VK_KHR_present_id",                      1, false, false, false,                                                         Layer::Count },
 		{ "VK_KHR_shader_float16_int8",             1, false, false, true,                                                          Layer::Count },
 		{ "VK_KHR_video_queue",                     1, false, false, true,                                                          Layer::Count },
 		{ "VK_KHR_video_decode_queue",              1, false, false, true,                                                          Layer::Count },
 		{ "VK_KHR_video_decode_h264",               1, false, false, true,                                                          Layer::Count },
 		{ "VK_KHR_video_decode_h265",               1, false, false, true,                                                          Layer::Count },
 		{ "VK_KHR_video_decode_av1",                1, false, false, true,                                                          Layer::Count },
+		{ "VK_NV_low_latency2",                     2, false, false, false,                                                         Layer::Count },
 #	if BX_PLATFORM_ANDROID
 		{ VK_KHR_ANDROID_SURFACE_EXTENSION_NAME,    1, false, false, true,                                                          Layer::Count },
 #	elif BX_PLATFORM_LINUX
@@ -1307,6 +1324,7 @@ VK_IMPORT_DEVICE
 			, m_captureMemory()
 			, m_captureSize(0)
 			, m_variableRateShadingSupported(false)
+			, m_lowLatencySupported(false)
 		{
 		}
 
@@ -1343,6 +1361,8 @@ VK_IMPORT_DEVICE
 			VkPhysicalDeviceSwapchainMaintenance1FeaturesEXT swapchainMaintenance1Features = {};
 			VkPhysicalDeviceShaderFloat16Int8Features shaderFloat16Int8Features = {};
 			VkPhysicalDevice16BitStorageFeatures storage16BitFeatures = {};
+			VkPhysicalDeviceTimelineSemaphoreFeatures timelineSemaphoreFeatures = {};
+			VkPhysicalDevicePresentIdFeaturesKHR presentIdFeatures = {};
 
 			m_fbh = BGFX_INVALID_HANDLE;
 			m_readOnlyDepthLayout = VK_IMAGE_LAYOUT_UNDEFINED;
@@ -1353,6 +1373,13 @@ VK_IMPORT_DEVICE
 			m_globalQueueFamily = UINT32_MAX;
 			m_videoDecodeQueueFamily = UINT32_MAX;
 			m_videoDecodeQueue = VK_NULL_HANDLE;
+
+			m_lowLatencySupported      = false;
+			m_lowLatencyMode           = getLatencyMode(_init.reset);
+			m_lowLatencySwapChain      = VK_NULL_HANDLE;
+			m_lowLatencySemaphore      = VK_NULL_HANDLE;
+			m_lowLatencySemaphoreValue = 0;
+			m_lowLatencyPresentId      = 0;
 
 			if (_init.debug
 			||  _init.profile)
@@ -1412,6 +1439,20 @@ VK_IMPORT
 				s_extension[Extension::EXT_shader_viewport_index_layer].m_initialize = !!(_init.capabilities & BGFX_CAPS_VIEWPORT_LAYER_ARRAY );
 				s_extension[Extension::KHR_draw_indirect_count        ].m_initialize = !!(_init.capabilities & BGFX_CAPS_DRAW_INDIRECT_COUNT  );
 				s_extension[Extension::KHR_fragment_shading_rate      ].m_initialize = !!(_init.capabilities & BGFX_CAPS_VARIABLE_RATE_SHADING);
+
+				// NVIDIA Reflex is Windows only.
+				const bool lowLatency = true
+					&& BX_ENABLED(BX_PLATFORM_WINDOWS)
+					&& 0 != (_init.capabilities & BGFX_CAPS_LOW_LATENCY)
+					&& !headless
+					&& NULL == g_platformData.context
+					;
+
+				s_extension[Extension::KHR_present_id ].m_initialize = lowLatency;
+				s_extension[Extension::NV_low_latency2].m_initialize = lowLatency;
+
+				s_extension[Extension::KHR_present_id ].m_supported = false;
+				s_extension[Extension::NV_low_latency2].m_supported = false;
 
 				dumpExtensions(VK_NULL_HANDLE, s_extension);
 
@@ -1851,6 +1892,45 @@ VK_IMPORT_INSTANCE
 					}
 				}
 
+				{
+					bool lowLatencySupported = true
+						&& s_extension[Extension::NV_low_latency2].m_supported
+						&& s_extension[Extension::KHR_present_id ].m_supported
+						&& VK_API_VERSION_1_2 <= m_instanceApiVersion
+						&& VK_API_VERSION_1_2 <= m_deviceProperties.apiVersion
+						&& NULL != vkGetPhysicalDeviceFeatures2KHR
+						;
+
+					if (lowLatencySupported)
+					{
+						VkPhysicalDeviceFeatures2KHR deviceFeatures2;
+						deviceFeatures2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2_KHR;
+						deviceFeatures2.pNext = &timelineSemaphoreFeatures;
+
+						timelineSemaphoreFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TIMELINE_SEMAPHORE_FEATURES;
+						timelineSemaphoreFeatures.pNext = &presentIdFeatures;
+
+						presentIdFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PRESENT_ID_FEATURES_KHR;
+						presentIdFeatures.pNext = NULL;
+
+						vkGetPhysicalDeviceFeatures2KHR(m_physicalDevice, &deviceFeatures2);
+
+						lowLatencySupported = true
+							&& timelineSemaphoreFeatures.timelineSemaphore
+							&& presentIdFeatures.presentId
+							;
+					}
+
+					if (lowLatencySupported)
+					{
+						presentIdFeatures.pNext = (VkBaseOutStructure*)nextFeatures;
+						nextFeatures = &timelineSemaphoreFeatures;
+					}
+
+					s_extension[Extension::KHR_present_id ].m_supported = lowLatencySupported;
+					s_extension[Extension::NV_low_latency2].m_supported = lowLatencySupported;
+				}
+
 				m_deviceFeatures =
 				{
 					.robustBufferAccess                      = true
@@ -2277,6 +2357,34 @@ VK_IMPORT_DEVICE
 			vkGetDeviceQueue(m_device, m_globalQueueFamily, 0, &m_globalQueue);
 			vkGetDeviceQueue(m_device, m_videoDecodeQueueFamily, 0, &m_videoDecodeQueue);
 
+			m_lowLatencySupported = true
+				&& s_extension[Extension::NV_low_latency2].m_supported
+				&& NULL != vkSetLatencySleepModeNV
+				&& NULL != vkLatencySleepNV
+				&& NULL != vkSetLatencyMarkerNV
+				&& NULL != vkGetLatencyTimingsNV
+				&& NULL != vkWaitSemaphores
+				;
+
+			if (m_lowLatencySupported)
+			{
+				VkSemaphoreTypeCreateInfo stci;
+				stci.sType = VK_STRUCTURE_TYPE_SEMAPHORE_TYPE_CREATE_INFO;
+				stci.pNext = NULL;
+				stci.semaphoreType = VK_SEMAPHORE_TYPE_TIMELINE;
+				stci.initialValue  = 0;
+
+				VkSemaphoreCreateInfo sci;
+				sci.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+				sci.pNext = &stci;
+				sci.flags = 0;
+
+				result = vkCreateSemaphore(m_device, &sci, m_allocatorCb, &m_lowLatencySemaphore);
+				BX_WARN(VK_SUCCESS == result, "vkCreateSemaphore failed %d: %s.", result, getName(result) );
+
+				m_lowLatencySupported = VK_SUCCESS == result;
+			}
+
 			if (_init.videoDecode)
 			{
 				initVideoDecoder(this
@@ -2336,6 +2444,11 @@ VK_IMPORT_DEVICE
 					{
 						BX_TRACE("Init error: creating swap chain failed %d: %s.", result, getName(result) );
 						goto error;
+					}
+
+					if (m_lowLatencySupported)
+					{
+						g_caps.supported |= BGFX_CAPS_LOW_LATENCY;
 					}
 
 					m_windows[0] = BGFX_INVALID_HANDLE;
@@ -2503,6 +2616,7 @@ VK_IMPORT_DEVICE
 				[[fallthrough]];
 
 			case ErrorState::DeviceCreated:
+				vkDestroy(m_lowLatencySemaphore);
 				vkDestroyDevice(m_device, m_allocatorCb);
 				[[fallthrough]];
 
@@ -2574,6 +2688,7 @@ VK_IMPORT_DEVICE
 			m_memoryLru.evictAll();
 
 			vkDestroy(m_pipelineCache);
+			vkDestroy(m_lowLatencySemaphore);
 
 			for (uint32_t ii = 0; ii < m_maxFrameLatency; ++ii)
 			{
@@ -2992,6 +3107,159 @@ VK_IMPORT_DEVICE
 			}
 		}
 
+		void latencySleep() override
+		{
+			uint64_t value;
+
+			{
+				bx::MutexScope scope(m_lowLatencyMutex);
+
+				if (VK_NULL_HANDLE == m_lowLatencySwapChain)
+				{
+					return;
+				}
+
+				value = ++m_lowLatencySemaphoreValue;
+
+				VkLatencySleepInfoNV lsi;
+				lsi.sType = VK_STRUCTURE_TYPE_LATENCY_SLEEP_INFO_NV;
+				lsi.pNext = NULL;
+				lsi.signalSemaphore = m_lowLatencySemaphore;
+				lsi.value           = value;
+
+				const VkResult result = vkLatencySleepNV(m_device, m_lowLatencySwapChain, &lsi);
+
+				if (VK_SUCCESS != result)
+				{
+					BX_TRACE("vkLatencySleepNV failed %d: %s.", result, getName(result) );
+					return;
+				}
+			}
+
+			VkSemaphoreWaitInfo swi;
+			swi.sType = VK_STRUCTURE_TYPE_SEMAPHORE_WAIT_INFO;
+			swi.pNext = NULL;
+			swi.flags = 0;
+			swi.semaphoreCount = 1;
+			swi.pSemaphores    = &m_lowLatencySemaphore;
+			swi.pValues        = &value;
+
+			const VkResult result = vkWaitSemaphores(m_device, &swi, kLowLatencySleepTimeout);
+			BX_WARN(VK_SUCCESS == result, "vkWaitSemaphores failed %d: %s.", result, getName(result) ); BX_UNUSED(result);
+		}
+
+		void setLatencyMarker(LatencyMarker::Enum _marker, uint64_t _frameId) override
+		{
+			bx::MutexScope scope(m_lowLatencyMutex);
+
+			if (LatencyMarker::PresentStart == _marker)
+			{
+				m_lowLatencyPresentId = _frameId;
+			}
+
+			if (VK_NULL_HANDLE != m_lowLatencySwapChain)
+			{
+				VkSetLatencyMarkerInfoNV slmi;
+				slmi.sType     = VK_STRUCTURE_TYPE_SET_LATENCY_MARKER_INFO_NV;
+				slmi.pNext     = NULL;
+				slmi.presentID = _frameId;
+				slmi.marker    = s_latencyMarker[_marker];
+
+				vkSetLatencyMarkerNV(m_device, m_lowLatencySwapChain, &slmi);
+			}
+		}
+
+		void setLowLatencySwapChain(VkSwapchainKHR _swapChain)
+		{
+			bx::MutexScope scope(m_lowLatencyMutex);
+
+			m_lowLatencySwapChain = _swapChain;
+
+			if (VK_NULL_HANDLE != m_lowLatencySwapChain)
+			{
+				setLowLatencySleepMode();
+			}
+		}
+
+		void setLowLatencyMode(LatencyMode::Enum _mode)
+		{
+			bx::MutexScope scope(m_lowLatencyMutex);
+
+			m_lowLatencyMode = _mode;
+
+			if (VK_NULL_HANDLE != m_lowLatencySwapChain)
+			{
+				setLowLatencySleepMode();
+			}
+		}
+
+		void setLowLatencySleepMode()
+		{
+			VkLatencySleepModeInfoNV lsmi;
+			lsmi.sType = VK_STRUCTURE_TYPE_LATENCY_SLEEP_MODE_INFO_NV;
+			lsmi.pNext = NULL;
+			lsmi.lowLatencyMode    = LatencyMode::Off   != m_lowLatencyMode;
+			lsmi.lowLatencyBoost   = LatencyMode::Boost == m_lowLatencyMode;
+			lsmi.minimumIntervalUs = 0;
+
+			VK_CHECK(vkSetLatencySleepModeNV(m_device, m_lowLatencySwapChain, &lsmi) );
+		}
+
+		bool getLatencyReport(LatencyReport& _report)
+		{
+			bx::MutexScope scope(m_lowLatencyMutex);
+
+			if (VK_NULL_HANDLE == m_lowLatencySwapChain)
+			{
+				return false;
+			}
+
+			VkLatencyTimingsFrameReportNV* timings = m_lowLatencyTimings;
+
+			for (uint32_t ii = 0; ii < BX_COUNTOF(m_lowLatencyTimings); ++ii)
+			{
+				timings[ii].sType = VK_STRUCTURE_TYPE_LATENCY_TIMINGS_FRAME_REPORT_NV;
+				timings[ii].pNext = NULL;
+			}
+
+			VkGetLatencyMarkerInfoNV glmi;
+			glmi.sType = VK_STRUCTURE_TYPE_GET_LATENCY_MARKER_INFO_NV;
+			glmi.pNext = NULL;
+			glmi.timingCount = BX_COUNTOF(m_lowLatencyTimings);
+			glmi.pTimings    = timings;
+
+			vkGetLatencyTimingsNV(m_device, m_lowLatencySwapChain, &glmi);
+
+			const VkLatencyTimingsFrameReportNV* newest = NULL;
+
+			for (uint32_t ii = 0, num = bx::min<uint32_t>(glmi.timingCount, BX_COUNTOF(m_lowLatencyTimings) ); ii < num; ++ii)
+			{
+				const VkLatencyTimingsFrameReportNV& timing = timings[ii];
+
+				if (0 != timing.simStartTimeUs
+				&&  timing.gpuRenderEndTimeUs > timing.simStartTimeUs
+				&& (NULL == newest || timing.presentID > newest->presentID) )
+				{
+					newest = &timing;
+				}
+			}
+
+			if (NULL == newest)
+			{
+				return false;
+			}
+
+			_report.simulationStart   = newest->simStartTimeUs;
+			_report.simulationEnd     = newest->simEndTimeUs;
+			_report.renderSubmitStart = newest->renderSubmitStartTimeUs;
+			_report.renderSubmitEnd   = newest->renderSubmitEndTimeUs;
+			_report.presentStart      = newest->presentStartTimeUs;
+			_report.presentEnd        = newest->presentEndTimeUs;
+			_report.gpuRenderStart    = newest->gpuRenderStartTimeUs;
+			_report.gpuRenderEnd      = newest->gpuRenderEndTimeUs;
+			return true;
+		}
+
 		virtual void setName(Handle _handle, const char* _name, uint16_t _len) override
 		{
 			switch (_handle.type)
@@ -3187,7 +3455,8 @@ VK_IMPORT_DEVICE
 
 				release(m_captureBuffer);
 				recycleMemory(m_captureMemory);
-				m_captureSize = 0;
+				m_captureMemory = {};
+				m_captureSize   = 0;
 			}
 		}
 
@@ -3210,7 +3479,7 @@ VK_IMPORT_DEVICE
 					VK_CHECK(createReadbackBuffer(m_captureSize, &m_captureBuffer, &m_captureMemory) );
 				}
 
-				g_callback->captureBegin(m_mainSwapChain.width, m_mainSwapChain.height, pitch, m_mainSwapChain.formatColor, false);
+				g_callback->captureBegin(m_mainSwapChain.width, m_mainSwapChain.height, pitch, m_backBuffer.m_swapChain.m_colorFormat, false);
 			}
 		}
 
@@ -3251,7 +3520,16 @@ VK_IMPORT_DEVICE
 			uint32_t maskFlags = ~(0
 				| BGFX_RESET_SUSPEND
 				| BGFX_RESET_MAXANISOTROPY
+				| BGFX_RESET_LOW_LATENCY_MASK
 				);
+
+			const LatencyMode::Enum lowLatencyMode = getLatencyMode(_reset);
+
+			if (m_lowLatencySupported
+			&&  m_lowLatencyMode != lowLatencyMode)
+			{
+				setLowLatencyMode(lowLatencyMode);
+			}
 
 			if (m_swapchainMaintenance1Supported
 			&& !!((_reset ^ m_reset) & BGFX_RESET_VSYNC) )
@@ -5282,6 +5560,16 @@ VK_IMPORT_DEVICE
 		uint32_t m_captureSize;
 
 		bool m_variableRateShadingSupported;
+
+		bool              m_lowLatencySupported;
+		LatencyMode::Enum m_lowLatencyMode;
+		VkSwapchainKHR    m_lowLatencySwapChain;
+		VkSemaphore       m_lowLatencySemaphore;
+		uint64_t          m_lowLatencySemaphoreValue;
+		uint64_t          m_lowLatencyPresentId;
+		bx::Mutex         m_lowLatencyMutex;
+
+		VkLatencyTimingsFrameReportNV m_lowLatencyTimings[64];
 
 		TextVideoMem m_textVideoMem;
 
@@ -8119,6 +8407,37 @@ VK_DESTROY
 		}
 	}
 
+	bool SwapChainVK::isLowLatency() const
+	{
+		// Reflex paces the main swap chain only.
+		return true
+			&& s_renderVK->m_lowLatencySupported
+			&& this == &s_renderVK->m_backBuffer.m_swapChain
+			;
+	}
+
+	struct LowLatencyScope
+	{
+		LowLatencyScope(const SwapChainVK& _swapChain)
+			: m_mutex(_swapChain.isLowLatency() ? &s_renderVK->m_lowLatencyMutex : NULL)
+		{
+			if (NULL != m_mutex)
+			{
+				m_mutex->lock();
+			}
+		}
+
+		~LowLatencyScope()
+		{
+			if (NULL != m_mutex)
+			{
+				m_mutex->unlock();
+			}
+		}
+
+		bx::Mutex* m_mutex;
+	};
+
 	VkResult SwapChainVK::create(VkCommandBuffer _commandBuffer, void* _nwh, const SwapChain& _desc)
 	{
 		struct ErrorState
@@ -8608,7 +8927,7 @@ VK_DESTROY
 		const VkColorSpaceKHR surfaceColorSpace = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR;
 
 		const bool srgb = !!(m_desc.flags & BGFX_SWAP_CHAIN_SRGB_BACKBUFFER);
-		m_colorFormat = m_desc.formatColor;
+		m_colorFormat = findSurfaceFormat(m_desc.formatColor, surfaceColorSpace, srgb);
 		m_depthFormat = bgfx::TextureFormat::UnknownDepth;
 
 		if (TextureFormat::Count == m_colorFormat)
@@ -8642,23 +8961,42 @@ VK_DESTROY
 					);
 		}
 
-		VkCompositeAlphaFlagBitsKHR compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
-
-		if (m_desc.flags & BGFX_SWAP_CHAIN_TRANSPARENT_BACKBUFFER)
+		static const VkCompositeAlphaFlagBitsKHR s_compositeAlphaOpaque[] =
 		{
-			if (surfaceCapabilities.supportedCompositeAlpha & VK_COMPOSITE_ALPHA_INHERIT_BIT_KHR)
+			VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR,
+			VK_COMPOSITE_ALPHA_INHERIT_BIT_KHR,
+			VK_COMPOSITE_ALPHA_PRE_MULTIPLIED_BIT_KHR,
+			VK_COMPOSITE_ALPHA_POST_MULTIPLIED_BIT_KHR,
+		};
+
+		static const VkCompositeAlphaFlagBitsKHR s_compositeAlphaTransparent[] =
+		{
+			VK_COMPOSITE_ALPHA_INHERIT_BIT_KHR,
+			VK_COMPOSITE_ALPHA_PRE_MULTIPLIED_BIT_KHR,
+			VK_COMPOSITE_ALPHA_POST_MULTIPLIED_BIT_KHR,
+			VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR,
+		};
+
+		const VkCompositeAlphaFlagBitsKHR* compositeAlphaPreference = (m_desc.flags & BGFX_SWAP_CHAIN_TRANSPARENT_BACKBUFFER)
+			? s_compositeAlphaTransparent
+			: s_compositeAlphaOpaque
+			;
+
+		VkCompositeAlphaFlagBitsKHR compositeAlpha = compositeAlphaPreference[0];
+
+		for (uint32_t ii = 0; ii < BX_COUNTOF(s_compositeAlphaOpaque); ++ii)
+		{
+			if (surfaceCapabilities.supportedCompositeAlpha & compositeAlphaPreference[ii])
 			{
-				compositeAlpha = VK_COMPOSITE_ALPHA_INHERIT_BIT_KHR;
-			}
-			else if (surfaceCapabilities.supportedCompositeAlpha & VK_COMPOSITE_ALPHA_PRE_MULTIPLIED_BIT_KHR)
-			{
-				compositeAlpha = VK_COMPOSITE_ALPHA_PRE_MULTIPLIED_BIT_KHR;
-			}
-			else if (surfaceCapabilities.supportedCompositeAlpha & VK_COMPOSITE_ALPHA_POST_MULTIPLIED_BIT_KHR)
-			{
-				compositeAlpha = VK_COMPOSITE_ALPHA_POST_MULTIPLIED_BIT_KHR;
+				compositeAlpha = compositeAlphaPreference[ii];
+				break;
 			}
 		}
+
+		BX_WARN(0 != (surfaceCapabilities.supportedCompositeAlpha & compositeAlpha)
+			, "Create swapchain: No supported composite alpha mode (supported: 0x%x)."
+			, surfaceCapabilities.supportedCompositeAlpha
+			);
 
 		const VkImageUsageFlags imageUsageMask = 0
 			| VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT
@@ -8715,6 +9053,19 @@ VK_DESTROY
 			modesInfo.pNext = m_sci.pNext;
 
 			m_sci.pNext = &modesInfo;
+		}
+
+		const bool lowLatency = isLowLatency();
+
+		VkSwapchainLatencyCreateInfoNV latencyInfo;
+
+		if (lowLatency)
+		{
+			latencyInfo.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_LATENCY_CREATE_INFO_NV;
+			latencyInfo.pNext = m_sci.pNext;
+			latencyInfo.latencyModeEnable = VK_TRUE;
+
+			m_sci.pNext = &latencyInfo;
 		}
 
 		result = vkCreateSwapchainKHR(device, &m_sci, allocatorCb, &m_swapChain);
@@ -8828,12 +9179,22 @@ VK_DESTROY
 		m_needPresent = false;
 		m_needToRecreateSwapchain = false;
 
+		if (lowLatency)
+		{
+			s_renderVK->setLowLatencySwapChain(m_swapChain);
+		}
+
 		return result;
 	}
 
 	void SwapChainVK::releaseSwapChain()
 	{
 		BGFX_PROFILER_SCOPE("SwapChainVK::releaseSwapChain", kColorFrame);
+
+		if (isLowLatency() )
+		{
+			s_renderVK->setLowLatencySwapChain(VK_NULL_HANDLE);
+		}
 
 		for (uint32_t ii = 0; ii < BX_COUNTOF(m_backBufferColorImageView); ++ii)
 		{
@@ -9108,6 +9469,108 @@ VK_DESTROY
 		return idx;
 	}
 
+	TextureFormat::Enum SwapChainVK::findSurfaceFormat(TextureFormat::Enum _format, VkColorSpaceKHR _colorSpace, bool _srgb)
+	{
+		BGFX_PROFILER_SCOPE("SwapChainVK::findSurfaceFormat", kColorFrame);
+
+		const VkPhysicalDevice physicalDevice = s_renderVK->m_physicalDevice;
+
+		uint32_t numSurfaceFormats;
+		VkResult result = vkGetPhysicalDeviceSurfaceFormatsKHR(physicalDevice, m_surface, &numSurfaceFormats, NULL);
+
+		if (VK_SUCCESS != result
+		||  0 == numSurfaceFormats)
+		{
+			BX_TRACE("findSurfaceFormat error: vkGetPhysicalDeviceSurfaceFormatsKHR failed %d: %s.", result, getName(result) );
+			return _format;
+		}
+
+		VkSurfaceFormatKHR* surfaceFormats = (VkSurfaceFormatKHR*)BX_STACK_ALLOC(numSurfaceFormats * sizeof(VkSurfaceFormatKHR) );
+		result = vkGetPhysicalDeviceSurfaceFormatsKHR(physicalDevice, m_surface, &numSurfaceFormats, surfaceFormats);
+
+		if (VK_SUCCESS != result)
+		{
+			BX_TRACE("findSurfaceFormat error: vkGetPhysicalDeviceSurfaceFormatsKHR failed %d: %s.", result, getName(result) );
+			return _format;
+		}
+
+		if (1 == numSurfaceFormats
+		&&  VK_FORMAT_UNDEFINED == surfaceFormats[0].format)
+		{
+			return _format;
+		}
+
+		const TextureFormat::Enum preferredFormats[] =
+		{
+			_format,
+			TextureFormat::BGRA8,
+			TextureFormat::RGBA8,
+		};
+
+		for (uint32_t ii = 0; ii < BX_COUNTOF(preferredFormats); ++ii)
+		{
+			const TextureFormat::Enum format = preferredFormats[ii];
+
+			if (TextureFormat::Count == format)
+			{
+				continue;
+			}
+
+			const VkFormat vkFormat = _srgb
+				? s_textureFormat[format].m_fmtSrgb
+				: s_textureFormat[format].m_fmt
+				;
+
+			if (VK_FORMAT_UNDEFINED == vkFormat)
+			{
+				continue;
+			}
+
+			for (uint32_t jj = 0; jj < numSurfaceFormats; ++jj)
+			{
+				if (_colorSpace == surfaceFormats[jj].colorSpace
+				&&  vkFormat    == surfaceFormats[jj].format)
+				{
+					BX_WARN(format == _format
+						, "findSurfaceFormat: Surface format %s is not supported, using %s instead."
+						, TextureFormat::Count == _format ? "Count" : bimg::getName(bimg::TextureFormat::Enum(_format) )
+						, bimg::getName(bimg::TextureFormat::Enum(format) )
+						);
+					return format;
+				}
+			}
+		}
+
+		for (uint32_t jj = 0; jj < numSurfaceFormats; ++jj)
+		{
+			if (_colorSpace != surfaceFormats[jj].colorSpace)
+			{
+				continue;
+			}
+
+			for (uint32_t ii = TextureFormat::Unknown+1; ii < TextureFormat::UnknownDepth; ++ii)
+			{
+				const VkFormat vkFormat = _srgb
+					? s_textureFormat[ii].m_fmtSrgb
+					: s_textureFormat[ii].m_fmt
+					;
+
+				if (VK_FORMAT_UNDEFINED != vkFormat
+				&&  vkFormat == surfaceFormats[jj].format)
+				{
+					BX_TRACE("findSurfaceFormat: Surface format %s is not supported, using %s instead."
+						, TextureFormat::Count == _format ? "Count" : bimg::getName(bimg::TextureFormat::Enum(_format) )
+						, bimg::getName(bimg::TextureFormat::Enum(ii) )
+						);
+					return TextureFormat::Enum(ii);
+				}
+			}
+		}
+
+		BX_TRACE("findSurfaceFormat error: No supported surface format found.");
+		return TextureFormat::Count;
+	}
+
 	bool SwapChainVK::acquire(VkCommandBuffer _commandBuffer, bool _block)
 	{
 		BGFX_PROFILER_SCOPE("SwapChainVK::acquire", kColorFrame);
@@ -9128,6 +9591,7 @@ VK_DESTROY
 			VkResult result;
 			{
 				BGFX_PROFILER_SCOPE("vkAcquireNextImageKHR", kColorFrame);
+				LowLatencyScope lowLatencyScope(*this);
 
 				result = vkAcquireNextImageKHR(
 					  device
@@ -9238,9 +9702,25 @@ VK_DESTROY
 				pi.pNext = &presentModeInfo;
 			}
 
+			VkPresentIdKHR presentId;
+			const uint64_t lowLatencyPresentId = s_renderVK->m_lowLatencyPresentId;
+
+			if (isLowLatency()
+			&&  0 != lowLatencyPresentId)
+			{
+				presentId.sType = VK_STRUCTURE_TYPE_PRESENT_ID_KHR;
+				presentId.pNext = pi.pNext;
+				presentId.swapchainCount = 1;
+				presentId.pPresentIds    = &lowLatencyPresentId;
+
+				pi.pNext = &presentId;
+				s_renderVK->m_lowLatencyPresentId = 0;
+			}
+
 			VkResult result;
 			{
 				BGFX_PROFILER_SCOPE("vkQueuePresentHKR", kColorFrame);
+				LowLatencyScope lowLatencyScope(*this);
 
 				result = vkQueuePresentKHR(m_queue, &pi);
 			}
@@ -11566,6 +12046,12 @@ VK_DESTROY
 		bx::memCopy(perfStats.numPrims, statsNumPrimsRendered, sizeof(perfStats.numPrims) );
 		perfStats.gpuMemoryMax  = gpuMemoryAvailable;
 		perfStats.gpuMemoryUsed = gpuMemoryUsed;
+
+		LatencyReport latencyReport;
+		if (getLatencyReport(latencyReport) )
+		{
+			setLatencyStats(perfStats, latencyReport);
+		}
 
 		if (_render->m_debug & (BGFX_DEBUG_IFH|BGFX_DEBUG_STATS) )
 		{

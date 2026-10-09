@@ -91,9 +91,7 @@ const sync_list = SyncConfig{
     },
 
     // Use this if you need some changes to upstream bgfx.
-    .patches = &.{
-        "patches/fix_bx.patch",
-    },
+    .patches = &.{},
 };
 
 pub fn main(init: std.process.Init) !void {
