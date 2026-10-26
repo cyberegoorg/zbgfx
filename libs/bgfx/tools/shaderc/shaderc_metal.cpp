@@ -347,9 +347,6 @@ namespace bgfx { namespace metal
 
 		switch (_version)
 		{
-		case 1000:
-		case 1110:
-		case 1210:
 		case 2011:
 		case 2111:
 		case 2211:
@@ -359,10 +356,39 @@ namespace bgfx { namespace metal
 		case 3114:
 			return;
 		default:
-			bx::write(_messageWriter, &err, "Warning: Unknown MSL version requested. Returning 1.0 as default.\n");
-			_major = 1;
+			bx::write(_messageWriter, &err, "Warning: Unknown MSL version requested. Returning 3.0 as default.\n");
+			_major = 3;
 			_minor = 0;
 		}
+	}
+
+	static bool isDeclaredUniform(const std::string& _code, const char* _name)
+	{
+		bx::LineReader reader(_code.c_str() );
+		while (!reader.isDone() )
+		{
+			bx::StringView strLine = reader.next();
+
+			if (strFind(strLine, "uniform ").isEmpty() )
+			{
+				continue;
+			}
+
+			bx::StringView lineEnd = strFind(strLine, ";");
+			while (lineEnd.isEmpty() && !reader.isDone() )
+			{
+				bx::StringView nextLine = reader.next();
+				strLine.set(strLine.getPtr(), nextLine.getTerm() );
+				lineEnd = strFind(nextLine, ";");
+			}
+
+			if (!bx::findIdentifierMatch(strLine, _name).isEmpty() )
+			{
+				return true;
+			}
+		}
+
+		return false;
 	}
 
 	static bool compile(const Options& _options, uint32_t _version, const std::string& _code, bx::WriterI* _shaderWriter, bx::WriterI* _messageWriter, bool _firstPass)
@@ -389,7 +415,7 @@ namespace bgfx { namespace metal
 			| EShMsgVulkanRules
 			| EShMsgSpvRules
 			| EShMsgDebugInfo
-			| (_options.uses16BitTypes ? EShMsgHlslEnable16BitTypes : 0)
+			| (_options.uses16BitTypes ? EShMsgHlslEnable16BitTypes : EShMsgDefault)
 			);
 
 		shader->setEntryPoint("main");
@@ -546,6 +572,7 @@ namespace bgfx { namespace metal
 				}
 
 				UniformArray uniforms;
+				bool implicitUniform = false;
 
 				{
 					uint16_t count = (uint16_t)program->getNumLiveUniformVariables();
@@ -557,6 +584,17 @@ namespace bgfx { namespace metal
 
 						if (bx::hasSuffix(un.name.c_str(), ".@data") )
 						{
+							continue;
+						}
+
+						if (0 <= program->getUniformBlockIndex(ii)
+						&&  !isDeclaredUniform(_code, un.name.c_str() ) )
+						{
+							bx::write(_messageWriter, &messageErr
+								, "Error: Global '%s' is implicitly a uniform. Declare it 'static const', or make it a local variable.\n"
+								, un.name.c_str()
+								);
+							implicitUniform = true;
 							continue;
 						}
 
@@ -624,13 +662,18 @@ namespace bgfx { namespace metal
 				spvtools::ValidatorOptions validatorOptions;
 				validatorOptions.SetBeforeHlslLegalization(true);
 
-				if (!opt.Run(
-					  spirv.data()
-					, spirv.size()
-					, &spirv
-					, validatorOptions
-					, false
-					) )
+				const bool optimized = true
+					&& !implicitUniform
+					&& opt.Run(
+						  spirv.data()
+						, spirv.size()
+						, &spirv
+						, validatorOptions
+						, false
+						)
+					;
+
+				if (!optimized)
 				{
 					compiled = false;
 				}
@@ -662,7 +705,7 @@ namespace bgfx { namespace metal
 						un.num = 0;			// needed?
 						un.regIndex = 0;	// needed?
 						un.regCount = 0;	// needed?
-						un.texDimension = spirvDimToTextureDimensionId(uint32_t(type.image.dim), type.image.arrayed);
+						un.texDimension = spirvDimToTextureDimensionId(uint32_t(type.image.dim), type.image.arrayed, type.image.ms);
 
 						uniforms.push_back(un);
 					}

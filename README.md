@@ -40,10 +40,6 @@ Minimal is `0.16.0`. But you know try your version and believe.
 
 See `build.zig.zon` for pinned commits.
 
-- [BX](https://github.com/bkaradzic/bx/compare/36b2b6943f7c62276d96ff7a34d59db8057a5d24...master)
-- [BImg](https://github.com/bkaradzic/bimg/compare/671fe06dd7012a1ab85aa931019ed16112909756...master)
-- [BGFX](https://github.com/bkaradzic/bgfx/compare/8f451e9102b1845b29dfe500116611ad283632ec...master)
-
 ### Upgrade BGFX by yourself.
 - Uncomment deps in `build.zig.zon`.
 - Change commit ref and hash for deps you need.

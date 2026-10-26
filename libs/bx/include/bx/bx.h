@@ -76,10 +76,13 @@ namespace bx
 
 		/// Current source location.
 		///
-		static Location current(
+		static constexpr Location current(
 			  const char* _filePath = __builtin_FILE()
 			, uint32_t _line = __builtin_LINE()
-			);
+			)
+		{
+			return Location(_filePath, _line);
+		}
 
 		const char* filePath; //!< File path.
 		uint32_t    line;     //!< File line.
@@ -104,11 +107,14 @@ namespace bx
 
 		/// Current source location.
 		///
-		static LocationFull current(
+		static constexpr LocationFull current(
 			  const char* _function = __builtin_FUNCTION()
 			, const char* _filePath = __builtin_FILE()
 			, uint32_t _line = __builtin_LINE()
-			);
+			)
+		{
+			return LocationFull(_function, _filePath, _line);
+		}
 
 		const char* function; //!< Function name.
 		const char* filePath; //!< File path.
@@ -250,6 +256,10 @@ namespace bx
 	/// Returns clamped value between min/max.
 	template<typename Ty>
 	constexpr Ty clamp(const Ty& _a, const TypeIdentityType<Ty>& _min, const TypeIdentityType<Ty>& _max);
+
+	/// Returns true if value `_a` is in inclusive range [`_min`, `_max`].
+	template<typename Ty>
+	constexpr bool isInRange(const Ty& _a, const TypeIdentityType<Ty>& _min, const TypeIdentityType<Ty>& _max);
 
 	/// Returns true if value `_a` is power of 2.
 	template<typename Ty>

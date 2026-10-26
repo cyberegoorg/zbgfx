@@ -178,9 +178,6 @@ pub fn profileToPartName(profile: shader.Profile) []const u8 {
         => "dxil",
 
         .metal,
-        .metal10_10,
-        .metal11_10,
-        .metal12_10,
         .metal20_11,
         .metal21_11,
         .metal22_11,

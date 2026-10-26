@@ -535,6 +535,25 @@ namespace bgfx
 					}
 					break;
 
+				case PredefinedUniform::NumWorkGroups:
+					if constexpr (bx::isSame<Draw, RenderCompute>() )
+					{
+						const bool direct = !isValid(_draw.m_indirectBuffer);
+						const float numWorkGroups[4] =
+						{
+							direct ? float(_draw.m_numX) : 0.0f,
+							direct ? float(_draw.m_numY) : 0.0f,
+							direct ? float(_draw.m_numZ) : 0.0f,
+							0.0f,
+						};
+						_renderer->setShaderUniform4f(flags
+							, predefined.m_loc
+							, numWorkGroups
+							, 1
+							);
+					}
+					break;
+
 				default:
 					BX_ASSERT(false, "predefined %d not handled", predefined.m_type);
 					break;
@@ -1005,9 +1024,9 @@ namespace bgfx
 
 		if (UINT32_MAX != _new.m_streamMask)
 		{
-			for (BitMaskToIndexIteratorT it(_new.m_streamMask); !it.isDone(); it.next() )
+			for (bx::BitMaskToIndexIteratorT it(_new.m_streamMask); !it.isDone(); it.next() )
 			{
-				const uint8_t idx = it.idx;
+				const uint8_t idx = it.getIndex();
 
 				if (_current.m_stream[idx].m_handle.idx       != _new.m_stream[idx].m_handle.idx
 				||  _current.m_stream[idx].m_startVertex      != _new.m_stream[idx].m_startVertex
@@ -1024,12 +1043,14 @@ namespace bgfx
 	template<typename Ty>
 	struct Profiler
 	{
-		Profiler(Frame* _frame, Ty& _gpuTimer, bool _enabled = true)
+		Profiler(Frame* _frame, Ty& _gpuTimer, bool _gpuTimerEnabled = true)
 			: m_frame(_frame)
 			, m_gpuTimer(_gpuTimer)
 			, m_queryIdx(UINT32_MAX)
 			, m_numViews(0)
-			, m_enabled(_enabled && 0 != (_frame->m_debug & BGFX_DEBUG_PROFILER) )
+			, m_enabled(0 != (_frame->m_debug & BGFX_DEBUG_PROFILER) )
+			, m_gpuTimerEnabled(_gpuTimerEnabled)
+			, m_inView(false)
 		{
 		}
 
@@ -1045,7 +1066,11 @@ namespace bgfx
 				ViewStats& viewStats   = m_frame->m_perfStats.viewStats[m_numViews];
 				viewStats.cpuTimeBegin = bx::getHPCounter();
 
-				m_queryIdx = m_gpuTimer.begin(_view, m_frame->m_frameNum);
+				m_queryIdx = m_gpuTimerEnabled
+					? m_gpuTimer.begin(_view, m_frame->m_frameNum)
+					: UINT32_MAX
+					;
+				m_inView = true;
 
 				viewStats.view = ViewId(_view);
 				bx::strCopy(viewStats.name
@@ -1057,21 +1082,27 @@ namespace bgfx
 
 		void end()
 		{
-			if (m_enabled
-			&&  UINT32_MAX != m_queryIdx)
+			if (m_inView)
 			{
-				m_gpuTimer.end(m_queryIdx);
-
 				ViewStats& viewStats = m_frame->m_perfStats.viewStats[m_numViews];
-				const typename Ty::Result& result = m_gpuTimer.m_result[viewStats.view];
-
 				viewStats.cpuTimeEnd   = bx::getHPCounter();
-				viewStats.gpuTimeBegin = result.m_begin;
-				viewStats.gpuTimeEnd   = result.m_end;
-				viewStats.gpuFrameNum  = result.m_frameNum;
+				viewStats.gpuTimeBegin = 0;
+				viewStats.gpuTimeEnd   = 0;
+				viewStats.gpuFrameNum  = 0;
+
+				if (UINT32_MAX != m_queryIdx)
+				{
+					m_gpuTimer.end(m_queryIdx);
+
+					const typename Ty::Result& result = m_gpuTimer.m_result[viewStats.view];
+					viewStats.gpuTimeBegin = result.m_begin;
+					viewStats.gpuTimeEnd   = result.m_end;
+					viewStats.gpuFrameNum  = result.m_frameNum;
+				}
 
 				++m_numViews;
 				m_queryIdx = UINT32_MAX;
+				m_inView   = false;
 			}
 		}
 
@@ -1080,6 +1111,8 @@ namespace bgfx
 		uint32_t m_queryIdx;
 		uint16_t m_numViews;
 		bool     m_enabled;
+		bool     m_gpuTimerEnabled;
+		bool     m_inView;
 	};
 
 } // namespace bgfx

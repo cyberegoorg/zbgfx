@@ -14,16 +14,6 @@
 
 namespace bx
 {
-	Location Location::current(const char* _filePath, uint32_t _line)
-	{
-		return Location(_filePath, _line);
-	}
-
-	LocationFull LocationFull::current(const char* _function, const char* _filePath, uint32_t _line)
-	{
-		return LocationFull(_function, _filePath, _line);
-	}
-
 	static bool defaultAssertHandler(const Location& _location, uint32_t _skip, const char* _format, va_list _argList)
 	{
 		char    temp[8192];
@@ -114,8 +104,13 @@ namespace bx
 		constexpr size_t kSimdSize = sizeof(SimdT);
 
 #if BX_COMPILER_MSVC
+#	if BX_CPU_X86 && BX_ARCH_32BIT
+		typedef uint32_t UnalignedU32;
+		typedef uint64_t UnalignedU64;
+#	else
 		typedef __unaligned uint32_t UnalignedU32;
 		typedef __unaligned uint64_t UnalignedU64;
+#	endif // BX_CPU_X86 && BX_ARCH_32BIT
 #else
 		typedef uint32_t __attribute__( (aligned(1), may_alias) ) UnalignedU32;
 		typedef uint64_t __attribute__( (aligned(1), may_alias) ) UnalignedU64;

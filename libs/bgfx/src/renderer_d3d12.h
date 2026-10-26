@@ -462,6 +462,7 @@ namespace bgfx { namespace d3d12
 			bx::memSet(&m_srvd, 0, sizeof(m_srvd) );
 			bx::memSet(&m_uavd, 0, sizeof(m_uavd) );
 			m_srvHandle.ptr = 0;
+			m_sampleDesc = { 1, 0 };
 		}
 
 		void* create(const Memory* _mem, uint64_t _flags, uint8_t _skip, uint64_t _external);
@@ -493,6 +494,7 @@ namespace bgfx { namespace d3d12
 		void* m_directAccessPtr;
 		D3D12_RESOURCE_STATES m_state;
 		D3D12_RESOURCE_STATES* m_subStates;
+		DXGI_SAMPLE_DESC m_sampleDesc;
 		uint64_t m_flags;
 		uint32_t m_width;
 		uint32_t m_height;
@@ -593,7 +595,7 @@ namespace bgfx { namespace d3d12
 		uint64_t kick();
 		void finish(uint64_t _waitFence = UINT64_MAX, bool _finishAll = false);
 		bool tryFinish(uint64_t _waitFence);
-		void release(ID3D12Resource* _ptr);
+		void release(IUnknown* _ptr);
 		bool consume(uint32_t _ms = UINT32_MAX);
 
 		void addExternal(TextureHandle _handle);
@@ -649,7 +651,7 @@ namespace bgfx { namespace d3d12
 		uint64_t m_completedFence;
 		ID3D12Fence* m_fence;
 		CommandList m_commandList[kMaxCommandLists];
-		typedef stl::vector<ID3D12Resource*> ResourceArray;
+		typedef stl::vector<IUnknown*> ResourceArray;
 		ResourceArray m_release[kMaxCommandLists];
 		typedef stl::vector<TextureHandle> ExternalTextureArray;
 		ExternalTextureArray m_external;

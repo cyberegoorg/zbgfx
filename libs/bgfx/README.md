@@ -375,13 +375,6 @@ target="_blank"><img src="http://img.youtube.com/vi/U4lv_nQ4PUY/0.jpg"
 alt="Nira 2025"
 width="640" height="480" border="0" /></a>
 
-## openblack
-
-https://github.com/openblack/openblack#openblack - An open-source
-reimplementation of the game Black & White (2001).
-
-![openblack screenshot](https://user-images.githubusercontent.com/32263167/184559293-56cfc6a7-a7da-4876-8fce-434ba8827eae.png)
-
 ## Cluster
 
 https://github.com/pezcode/Cluster#cluster - Implementation of Clustered Shading
@@ -730,6 +723,15 @@ mobile platforms.
 https://store.steampowered.com/app/2492670/METAL_GEAR_SOLID_4_Guns_of_the_Patriots__Master_Collection_Version/ 2026 remaster of the 2008 action-adventure stealth video game.
 
 <img width="1800" height="1013" alt="mgs4_cover" src="https://github.com/user-attachments/assets/cea9ec8a-f71b-4bf9-b826-0be898ca8658" />
+
+## MyTin2
+
+https://www.mytin2.eu - MyTin2 is a cross-platform fantasy MMORPG for Windows,
+macOS, iOS and Android, where PC and mobile players share the same servers.
+Its client renders with bgfx: Direct3D 11 on Windows, OpenGL ES on Android
+and Metal on iOS and macOS.
+
+<img width="1920" height="960" alt="mytin2-cross-platform-" src="https://github.com/user-attachments/assets/56468125-f220-40a2-9655-357447b4b264" />
 
 [License (BSD 2-clause)](https://bkaradzic.github.io/bgfx/license.html)
 -----------------------------------------------------------------------

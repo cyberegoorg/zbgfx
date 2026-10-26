@@ -740,8 +740,10 @@ typedef struct bgfx_caps_s
      *     and written to.
      *   - `BGFX_CAPS_FORMAT_TEXTURE_FRAMEBUFFER` - Texture format can be used as frame
      *     buffer.
-     *   - `BGFX_CAPS_FORMAT_TEXTURE_FRAMEBUFFER_MSAA` - Texture format can be used as MSAA
-     *     frame buffer.
+     *   - `BGFX_CAPS_FORMAT_TEXTURE_FRAMEBUFFER_MSAA_X2`, `_X4`, `_X8`, `_X16` - Texture
+     *     format can be used as MSAA frame buffer with that many samples. A
+     *     `BGFX_TEXTURE_RT_MSAA_X*` request is clamped to the highest one set.
+     *     `BGFX_CAPS_FORMAT_TEXTURE_FRAMEBUFFER_MSAA` is the mask of all of them.
      *   - `BGFX_CAPS_FORMAT_TEXTURE_MSAA` - Texture can be sampled as MSAA.
      *   - `BGFX_CAPS_FORMAT_TEXTURE_MIP_AUTOGEN` - Texture format supports auto-generated
      *     mips.
@@ -1638,7 +1640,10 @@ BGFX_C_API void bgfx_shutdown(void);
  *  chains wants. Otherwise the main window takes on this
  *  description: resize it, change its format, or change its
  *  per-surface flags. Fields left neutral keep their current
- *  value, and `nwh`/`ndt` are ignored -- main's are bgfx's own.
+ *  value. A new `nwh` moves the main window to another native
+ *  window: the renderer recreates the main swap chain for it and
+ *  keeps the device, context and every GPU resource. `ndt` must
+ *  stay what `bgfx::init` received.
  *  Must be `NULL` when `bgfx::init` created no main window.
  *
  */
@@ -3298,7 +3303,7 @@ BGFX_C_API void bgfx_set_view_uniform(bgfx_view_id_t _id, bgfx_uniform_handle_t 
 /**
  * Set shader uniform parameter for frame.
  *
- * @attention Uniform must be created with `bgfx::UniformFreq::View` argument.
+ * @attention Uniform must be created with `bgfx::UniformFreq::Frame` argument.
  *
  * @param[in] _handle Uniform.
  * @param[in] _value Pointer to uniform data.

@@ -340,11 +340,11 @@ namespace bgfx { namespace glsl
 
 				Uniform un;
 				un.name         = compiler.get_name(resource.id);
-				un.type         = UniformType::Sampler;
+				un.type         = UniformType::Enum(kUniformSamplerBit | UniformType::Sampler);
 				un.num          = 1;
 				un.regIndex     = 0;
 				un.regCount     = 1;
-				un.texDimension = spirvDimToTextureDimensionId(uint32_t(type.image.dim), type.image.arrayed);
+				un.texDimension = spirvDimToTextureDimensionId(uint32_t(type.image.dim), type.image.arrayed, type.image.ms);
 
 				uniforms.push_back(un);
 			}

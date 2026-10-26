@@ -210,6 +210,7 @@
 			VK_IMPORT_DEVICE_FUNC(false, vkCmdBeginQuery);                            \
 			VK_IMPORT_DEVICE_FUNC(false, vkCmdEndQuery);                              \
 			VK_IMPORT_DEVICE_FUNC(false, vkCmdCopyQueryPoolResults);                  \
+			VK_IMPORT_DEVICE_FUNC(false, vkGetQueryPoolResults);                      \
 			VK_IMPORT_DEVICE_FUNC(false, vkMapMemory);                                \
 			VK_IMPORT_DEVICE_FUNC(false, vkUnmapMemory);                              \
 			VK_IMPORT_DEVICE_FUNC(false, vkFlushMappedMemoryRanges);                  \
@@ -484,6 +485,9 @@ VK_DESTROY_FUNC(DescriptorSet);
 			, m_size(0)
 			, m_flags(BGFX_BUFFER_NONE)
 			, m_dynamic(false)
+			, m_copyEpoch(0)
+			, m_copyBegin(0)
+			, m_copyEnd(0)
 		{
 		}
 
@@ -496,6 +500,9 @@ VK_DESTROY_FUNC(DescriptorSet);
 		uint32_t m_size;
 		uint16_t m_flags;
 		bool m_dynamic;
+		uint32_t m_copyEpoch;
+		uint32_t m_copyBegin;
+		uint32_t m_copyEnd;
 	};
 
 	typedef BufferVK IndexBufferVK;
@@ -537,6 +544,7 @@ VK_DESTROY_FUNC(DescriptorSet);
 	struct TextureBindInfo
 	{
 		VkImageViewType type;
+		bool msaa;
 	};
 
 	struct ShaderVK
@@ -601,6 +609,7 @@ VK_DESTROY_FUNC(DescriptorSet);
 
 		TextureBindInfo m_textures[BGFX_CONFIG_MAX_TEXTURE_SAMPLERS];
 		uint8_t m_numTextures;
+		uint32_t m_msaaMask;
 
 		PredefinedUniform m_predefined[PredefinedUniform::Count * 2];
 		uint8_t m_numPredefined;
@@ -664,7 +673,8 @@ VK_DESTROY_FUNC(DescriptorSet);
 	struct OcclusionQueryVK
 	{
 		OcclusionQueryVK()
-			: m_control(BX_COUNTOF(m_handle) )
+			: m_numQueryPools(0)
+			, m_control(BX_COUNTOF(m_handle) )
 		{
 		}
 
@@ -672,16 +682,17 @@ VK_DESTROY_FUNC(DescriptorSet);
 		void shutdown();
 		void begin(OcclusionQueryHandle _handle);
 		void end();
+		void reset(uint32_t _frameInFlight, VkCommandBuffer _commandBuffer);
 		void flush(Frame* _render);
-		void resolve(Frame* _render);
 		void invalidate(OcclusionQueryHandle _handle);
 
 		OcclusionQueryHandle m_handle[BGFX_CONFIG_MAX_OCCLUSION_QUERIES];
+		uint32_t m_result[BGFX_CONFIG_MAX_OCCLUSION_QUERIES];
+		uint8_t  m_frameInFlight[BGFX_CONFIG_MAX_OCCLUSION_QUERIES];
+		bool     m_ready[BGFX_CONFIG_MAX_OCCLUSION_QUERIES];
 
-		VkBuffer m_readback;
-		DeviceMemoryAllocationVK m_readbackMemory;
-		VkQueryPool m_queryPool;
-		const uint32_t* m_queryResult;
+		VkQueryPool m_queryPool[BGFX_CONFIG_MAX_FRAME_LATENCY];
+		uint32_t m_numQueryPools;
 		bx::RingBufferControl m_control;
 	};
 
@@ -733,7 +744,7 @@ VK_DESTROY_FUNC(DescriptorSet);
 		void copyBufferToTexture(VkCommandBuffer _commandBuffer, VkBuffer _stagingBuffer, uint32_t _bufferImageCopyCount, VkBufferImageCopy* _bufferImageCopy);
 		void setState(VkCommandBuffer _commandBuffer, VkImageLayout _newImageLayout, bool _singleMsaaImage = false);
 
-		VkResult createView(uint32_t _layer, uint32_t _numLayers, uint32_t _mip, uint32_t _numMips, VkImageViewType _type, VkImageAspectFlags _aspectMask, bool _renderTarget, ::VkImageView* _view, VkFormat _format = VK_FORMAT_UNDEFINED) const;
+		VkResult createView(uint32_t _layer, uint32_t _numLayers, uint32_t _mip, uint32_t _numMips, VkImageViewType _type, VkImageAspectFlags _aspectMask, bool _renderTarget, ::VkImageView* _view, VkFormat _format = VK_FORMAT_UNDEFINED, bool _msaa = false) const;
 
 		VkFormat getViewFormat(uint32_t _flags, uint32_t _bit) const;
 

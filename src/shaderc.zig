@@ -96,9 +96,6 @@ pub const Profile = enum {
     s_6_9,
 
     metal,
-    metal10_10,
-    metal11_10,
-    metal12_10,
     metal20_11,
     metal21_11,
     metal22_11,
@@ -131,9 +128,6 @@ pub const Profile = enum {
             .es_320 => "320_es",
 
             // Metal
-            .metal10_10 => "metal10-10",
-            .metal11_10 => "metal11-10",
-            .metal12_10 => "metal12-10",
             .metal20_11 => "metal20-11",
             .metal21_11 => "metal21-11",
             .metal22_11 => "metal22-11",

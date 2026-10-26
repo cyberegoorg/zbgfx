@@ -766,20 +766,32 @@ pub const CapsFormatFlags_TextureImageWrite: CapsFormatFlags      = 0x00000800;
 /// Texture format can be used as frame buffer.
 pub const CapsFormatFlags_TextureFramebuffer: CapsFormatFlags     = 0x00001000;
 
-/// Texture format can be used as MSAA frame buffer.
-pub const CapsFormatFlags_TextureFramebufferMsaa: CapsFormatFlags = 0x00002000;
-
 /// Texture can be sampled as MSAA.
-pub const CapsFormatFlags_TextureMsaa: CapsFormatFlags            = 0x00004000;
+pub const CapsFormatFlags_TextureMsaa: CapsFormatFlags            = 0x00002000;
 
 /// Texture format supports auto-generated mips.
-pub const CapsFormatFlags_TextureMipAutogen: CapsFormatFlags      = 0x00008000;
+pub const CapsFormatFlags_TextureMipAutogen: CapsFormatFlags      = 0x00004000;
 
 /// Texture format can be used as back buffer format.
-pub const CapsFormatFlags_TextureBackbuffer: CapsFormatFlags      = 0x00010000;
+pub const CapsFormatFlags_TextureBackbuffer: CapsFormatFlags      = 0x00008000;
 
 /// Texture format can be used as video decode destination.
-pub const CapsFormatFlags_TextureVideoDecodeDst: CapsFormatFlags  = 0x00020000;
+pub const CapsFormatFlags_TextureVideoDecodeDst: CapsFormatFlags  = 0x00010000;
+
+/// Texture format can be used as MSAA frame buffer with 2 samples.
+pub const CapsFormatFlags_TextureFramebufferMsaaX2: CapsFormatFlags = 0x00020000;
+
+/// Texture format can be used as MSAA frame buffer with 4 samples.
+pub const CapsFormatFlags_TextureFramebufferMsaaX4: CapsFormatFlags = 0x00040000;
+
+/// Texture format can be used as MSAA frame buffer with 8 samples.
+pub const CapsFormatFlags_TextureFramebufferMsaaX8: CapsFormatFlags = 0x00080000;
+
+/// Texture format can be used as MSAA frame buffer with 16 samples.
+pub const CapsFormatFlags_TextureFramebufferMsaaX16: CapsFormatFlags = 0x00100000;
+
+/// Texture format can be used as MSAA frame buffer with any sample count.
+pub const CapsFormatFlags_TextureFramebufferMsaa: CapsFormatFlags = 0x001e0000;
 
 pub const CapsVideoCodecFlags = u32;
 /// Video codec is not supported.
@@ -2669,7 +2681,7 @@ extern fn bgfx_shutdown() void;
 ///   the back-buffer. Your windowing code controls the window size.
 /// 
 /// <param name="_flags">See: `BGFX_RESET_*` for more info.   - `BGFX_RESET_NONE` - No reset flags.   - `BGFX_RESET_VSYNC` - Enable V-Sync.   - `BGFX_RESET_MAXANISOTROPY` - Turn on/off max anisotropy.   - `BGFX_RESET_CAPTURE` - Begin screen capture.   - `BGFX_RESET_FLUSH_AFTER_RENDER` - Flush rendering after submitting to GPU.   - `BGFX_RESET_FLIP_AFTER_RENDER` - This flag  specifies where flip     occurs. Default behaviour is that flip occurs before rendering new     frame. This flag only has effect when `BGFX_CONFIG_MULTITHREADED=0`.   - `BGFX_RESET_LOW_LATENCY_ON` - Enable low latency mode (NVIDIA Reflex).     Availability depends on: `BGFX_CAPS_LOW_LATENCY`.   - `BGFX_RESET_LOW_LATENCY_BOOST` - Enable low latency mode, and keep GPU     clocks high even when GPU is mostly idle. Availability depends on:     `BGFX_CAPS_LOW_LATENCY`. Set either `BGFX_RESET_LOW_LATENCY_ON` or     `BGFX_RESET_LOW_LATENCY_BOOST`, not both. Per-surface settings are not here. `BGFX_SWAP_CHAIN_*` flags belong on `SwapChain::flags`, and are ignored if passed here.</param>
-/// <param name="_swapChain">Main window swap chain. When `NULL` the main window is left untouched and only the device and frame globals above are applied, which is what an application driving its own swap chains wants. Otherwise the main window takes on this description: resize it, change its format, or change its per-surface flags. Fields left neutral keep their current value, and `nwh`/`ndt` are ignored -- main's are bgfx's own. Must be `NULL` when `bgfx::init` created no main window.</param>
+/// <param name="_swapChain">Main window swap chain. When `NULL` the main window is left untouched and only the device and frame globals above are applied, which is what an application driving its own swap chains wants. Otherwise the main window takes on this description: resize it, change its format, or change its per-surface flags. Fields left neutral keep their current value. A new `nwh` moves the main window to another native window: the renderer recreates the main swap chain for it and keeps the device, context and every GPU resource. `ndt` must stay what `bgfx::init` received. Must be `NULL` when `bgfx::init` created no main window.</param>
 pub inline fn reset(_flags: u32, _swapChain: [*c]const SwapChain) void {
     return bgfx_reset(_flags, _swapChain);
 }
@@ -3903,7 +3915,7 @@ extern fn bgfx_set_view_uniform(_id: ViewId, _handle: UniformHandle, _value: ?*c
 
 /// Set shader uniform parameter for frame.
 /// 
-/// @attention Uniform must be created with `bgfx::UniformFreq::View` argument.
+/// @attention Uniform must be created with `bgfx::UniformFreq::Frame` argument.
 /// 
 /// <param name="_handle">Uniform.</param>
 /// <param name="_value">Pointer to uniform data.</param>
