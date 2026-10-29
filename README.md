@@ -34,7 +34,7 @@ ZBGFX is licensed by [WTFPL](LICENSE)
 
 ## Zig version
 
-Minimal is `0.16.0`. But you know try your version and believe.
+Minimal is `0.17.0`. But you know try your version and believe.
 
 ## Bgfx version
 
@@ -141,6 +141,10 @@ zig-out/bin/shader-runtime
 ### [ZGui](examples/zgui/)
 
 Minimal setup for zgui/ImGui.
+
+> [!IMPORTANT]
+>
+> - Disabled until `zgui` migrate to zig 0.17.0.
 
 ```sh
 zig-out/bin/zgui

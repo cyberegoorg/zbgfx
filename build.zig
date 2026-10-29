@@ -15,13 +15,15 @@ pub fn build(b: *std.Build) !void {
         .imgui_include = b.option([]const u8, "imgui_include", "Path to imgui (need for imgui bgfx backend)"),
         .multithread = b.option(bool, "multithread", "Compile with BGFX_CONFIG_MULTITHREADED") orelse true,
         .with_shaderc = b.option(bool, "with_shaderc", "Compile with shaderc executable") orelse true,
-        .shaderc_optimize = b.option(std.builtin.OptimizeMode, "shaderc_optimize", "Shaderc optimize mode") orelse .ReleaseFast,
+        .shaderc_optimize = b.option(std.builtin.OptimizeMode, "shaderc_optimize", "Shaderc optimize mode") orelse .fast,
         .with_sync = b.option(bool, "with_sync", "Enable bgfx src sync tool") orelse false,
     };
 
     const options_step = b.addOptions();
-    inline for (std.meta.fields(@TypeOf(options))) |field| {
-        options_step.addOption(field.type, field.name, @field(options, field.name));
+    const field_names = comptime std.meta.fieldNames(@TypeOf(options));
+    const field_types = comptime std.meta.fieldTypes(@TypeOf(options));
+    inline for (field_names, field_types) |field_name, field_type| {
+        options_step.addOption(field_type, field_name, @field(options, field_name));
     }
     const options_module = options_step.createModule();
     _ = options_module; // autofix
@@ -154,6 +156,8 @@ pub fn build(b: *std.Build) !void {
     bgfx.root_module.addIncludePath(b.path("includes"));
 
     if (target.result.isDarwinLibC()) {
+        bgfx.root_module.addCMacro("INFINITY", "(__builtin_inff())"); // TODO: WHY????
+
         bgfx.root_module.linkFramework("Cocoa", .{ .needed = true });
         bgfx.root_module.linkFramework("IOKit", .{ .needed = true });
         bgfx.root_module.linkFramework("QuartzCore", .{ .needed = true });
@@ -243,7 +247,7 @@ pub fn build(b: *std.Build) !void {
             .root_module = b.createModule(.{
                 .target = target,
                 .optimize = options.shaderc_optimize,
-                .strip = options.shaderc_optimize != .Debug,
+                .strip = options.shaderc_optimize != .debug,
                 .link_libcpp = true,
             }),
             .use_llvm = true,
@@ -326,7 +330,7 @@ pub fn build(b: *std.Build) !void {
             .root_module = b.createModule(.{
                 .target = target,
                 .optimize = options.shaderc_optimize,
-                .strip = options.shaderc_optimize != .Debug,
+                .strip = options.shaderc_optimize != .debug,
                 .link_libcpp = true,
             }),
             .use_llvm = true,
@@ -362,7 +366,7 @@ pub fn build(b: *std.Build) !void {
             .root_module = b.createModule(.{
                 .target = target,
                 .optimize = options.shaderc_optimize,
-                .strip = options.shaderc_optimize != .Debug,
+                .strip = options.shaderc_optimize != .debug,
                 .link_libcpp = true,
             }),
             .use_llvm = true,
@@ -402,7 +406,7 @@ pub fn build(b: *std.Build) !void {
             .root_module = b.createModule(.{
                 .target = target,
                 .optimize = options.shaderc_optimize,
-                .strip = options.shaderc_optimize != .Debug,
+                .strip = options.shaderc_optimize != .debug,
                 .link_libcpp = true,
             }),
             .use_llvm = true,
@@ -471,7 +475,7 @@ fn bxInclude(b: *std.Build, step: *std.Build.Step.Compile, target: std.Build.Res
     step.root_module.addCMacro("__STDC_FORMAT_MACROS", "1");
     step.root_module.addCMacro("__STDC_CONSTANT_MACROS", "1");
 
-    step.root_module.addCMacro("BX_CONFIG_DEBUG", if (optimize == .Debug) "1" else "0");
+    step.root_module.addCMacro("BX_CONFIG_DEBUG", if (optimize == .debug) "1" else "0");
 
     switch (target.result.os.tag) {
         .freebsd => step.root_module.addIncludePath(b.path("libs/bx/include/compat/freebsd")),

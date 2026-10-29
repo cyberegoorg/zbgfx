@@ -105,7 +105,7 @@ pub fn main(init: std.process.Init) !void {
         var lib_dir = try std.Io.Dir.cwd().openDir(init.io, LIB_DIR, .{});
         defer lib_dir.close(init.io);
 
-        const repo_src = args[@intFromEnum(config.lib)];
+        const repo_src = args[@backingInt(config.lib)];
 
         var src_dir = try std.Io.Dir.cwd().openDir(init.io, repo_src, .{});
         defer src_dir.close(init.io);
