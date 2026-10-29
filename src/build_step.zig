@@ -36,13 +36,13 @@ pub const BuildShaderOptions = struct {
     profile: shader.Profile,
     optimize: ?shader.Optimize,
 };
-
 pub fn callShaderc(
     b: *std.Build,
     install_shaderc_step: *std.Build.Step,
     options: BuildShaderOptions,
 ) !BuildShaderC {
-    var shaderc_cmd = b.addSystemCommand(&.{b.getInstallPath(.bin, if (b.graph.host.result.os.tag == .windows) "shaderc.exe" else "shaderc")});
+    const install_dir = "zig-out/bin/"; // FIXME: HATE THIS SOLUTION =(
+    var shaderc_cmd = b.addSystemCommand(&.{if (b.graph.host.result.os.tag == .windows) install_dir ++ "shaderc.exe" else install_dir ++ "shaderc"});
     shaderc_cmd.expectStdOutEqual("");
 
     shaderc_cmd.step.dependOn(install_shaderc_step);
