@@ -45,6 +45,7 @@ pub fn build(b: *std.Build) !void {
         "-Wno-error=date-time",
         "-Wno-error=unused-command-line-argument",
         "-Wno-nan-infinity-disabled",
+        "-Wno-address-of-temporary",
     };
     const cxx_options = common_options ++ [_][]const u8{
         "-std=c++20",
