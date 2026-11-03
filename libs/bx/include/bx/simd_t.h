@@ -145,7 +145,6 @@ namespace bx
 	BX_ALIGN_DECL(4,  struct) simd32_ref_t  { uint32_t u32; };
 	BX_ALIGN_DECL(8,  struct) simd64_ref_t  { uint64_t u64; };
 	BX_ALIGN_DECL(16, struct) simd128_ref_t { uint32_t u32[4]; };
-	BX_ALIGN_DECL(32, struct) simd256_ref_t { simd128_ref_t lo; simd128_ref_t hi; };
 
 #if BX_SIMD_SSE
 	typedef simd128_sse_t  simd128_t;
@@ -157,6 +156,8 @@ namespace bx
 	typedef simd128_ref_t  simd128_t;
 #endif // BX_SIMD_*
 
+	BX_ALIGN_DECL(32, struct) simd256_ref_t { simd128_t lo; simd128_t hi; };
+
 #if BX_SIMD_AVX
 	typedef simd256_avx_t  simd256_t;
 #else
@@ -165,6 +166,8 @@ namespace bx
 
 	typedef simd32_ref_t   simd32_t;
 	typedef simd64_ref_t   simd64_t;
+
+	constexpr bool kSimdSupported = 0 != BX_SIMD_SUPPORTED;
 
 	// These deduce register width from the type parameter. Call with
 	// simd128_t for 128-bit, simd256_t for 256-bit, etc.
@@ -264,6 +267,39 @@ namespace bx
 	///
 	template<typename Ty>
 	int simd_x8_signbitsmask(Ty _a);
+
+	/// Test if any 8-bit lane sign bit is set.
+	///
+	/// @param[in] _a Input register.
+	///
+	/// @returns True if any 8-bit lane has sign bit set.
+	///
+	/// @remark Widths: simd32, simd64, simd128, simd256.
+	///
+	template<typename Ty>
+	bool simd_x8_signbits_any(Ty _a);
+
+	/// Find the first 8-bit lane with sign bit set.
+	///
+	/// @param[in] _a Input register.
+	///
+	/// @returns Lane index, or the number of lanes when no sign bit is set.
+	///
+	/// @remark Widths: simd32, simd64, simd128, simd256.
+	///
+	template<typename Ty>
+	int32_t simd_x8_signbits_first(Ty _a);
+
+	/// Find the last 8-bit lane with sign bit set.
+	///
+	/// @param[in] _a Input register.
+	///
+	/// @returns Lane index, or -1 when no sign bit is set.
+	///
+	/// @remark Widths: simd32, simd64, simd128, simd256.
+	///
+	template<typename Ty>
+	int32_t simd_x8_signbits_last(Ty _a);
 
 	/// Per-byte shuffle within each 16-byte lane (single-source).
 	///

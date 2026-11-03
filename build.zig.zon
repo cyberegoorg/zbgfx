@@ -1,7 +1,7 @@
 .{
     .name = .zbgfx,
     .fingerprint = 0xc48ed871c4086e4a,
-    .version = "0.25.0",
+    .version = "0.26.0",
     .minimum_zig_version = "0.17.0",
     .paths = .{
         "includes",
@@ -14,18 +14,18 @@
 
     .dependencies = .{
         // .bx = .{
-        //     .url = "https://github.com/bkaradzic/bx/archive/0e5bbca6878000f6371c65c53fe06f6f0ae87ca9.tar.gz",
-        //     .hash = "N-V-__8AABQiYABd6nhlJrYg70TQvF5vCC4hwf2w3TwDyXsU",
+        //     .url = "https://github.com/bkaradzic/bx/archive/c7fe8e81202de8ef136869744ef8ddf2b48c4c57.tar.gz",
+        //     .hash = "N-V-__8AALENYQDuSpqKLrldWSZF_j9gvVxfBE-9hQEWBO8A",
         //     .lazy = true,
         // },
         // .bimg = .{
-        //     .url = "https://github.com/bkaradzic/bimg/archive/9bfbd6493b48a15238f2d1374a718ec026524515.tar.gz",
-        //     .hash = "N-V-__8AACZEfgBKD7mUDn-FtcKWkLiDjLDU_I-aH8ytBrB0",
+        //     .url = "https://github.com/bkaradzic/bimg/archive/64a34f7441af8f06e40ccab08d76bbf5e59e55b1.tar.gz",
+        //     .hash = "N-V-__8AAJI9fgCF7Qr6oII7RqrDFJDaW0zH-JR5JRCHzkG-",
         //     .lazy = true,
         // },
         // .bgfx = .{
-        //     .url = "https://github.com/bkaradzic/bgfx/archive/fe9bbdec66110f8626b9251a4947fc336ac3f62c.tar.gz",
-        //     .hash = "N-V-__8AAFLWPg-4EKWqf-uZ6fybFh81OMlPspM9Eydh_3Op",
+        //     .url = "https://github.com/bkaradzic/bgfx/archive/00a1927c1fe7634fc017c023208019e00b51a853.tar.gz",
+        //     .hash = "N-V-__8AAH6bQQ8W4i_4Om72HZ2CSC_-NGavYq1gOK4WydZu",
         //     .lazy = true,
         // },
     },

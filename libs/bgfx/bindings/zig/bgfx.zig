@@ -882,17 +882,20 @@ pub const PciIdFlags_Amd: PciIdFlags                    = 0x1002;
 /// Apple adapter.
 pub const PciIdFlags_Apple: PciIdFlags                  = 0x106b;
 
+/// ARM adapter.
+pub const PciIdFlags_Arm: PciIdFlags                    = 0x13b5;
+
+/// Google adapter.
+pub const PciIdFlags_Google: PciIdFlags                 = 0x1ae0;
+
 /// Intel adapter.
 pub const PciIdFlags_Intel: PciIdFlags                  = 0x8086;
-
-/// NVIDIA adapter.
-pub const PciIdFlags_Nvidia: PciIdFlags                 = 0x10de;
 
 /// Microsoft adapter.
 pub const PciIdFlags_Microsoft: PciIdFlags              = 0x1414;
 
-/// ARM adapter.
-pub const PciIdFlags_Arm: PciIdFlags                    = 0x13b5;
+/// NVIDIA adapter.
+pub const PciIdFlags_Nvidia: PciIdFlags                 = 0x10de;
 
 pub const CubeMapFlags = u32;
 /// Cubemap +x.
@@ -2388,6 +2391,10 @@ pub const Init = extern struct {
         ///   draw commands are executed after blit and compute commands.
         /// 
         /// @attention Destination texture must be created with `BGFX_TEXTURE_BLIT_DST` flag.
+        /// 
+        /// @attention A depth texture, or one created with `BGFX_TEXTURE_MSAA_SAMPLE`, can only
+        ///   be blitted whole: both sides start at the origin of mips of the same size, and
+        ///   the copy covers the whole mip.
         /// 
         /// <param name="_id">View id.</param>
         /// <param name="_dst">Destination texture region.</param>
@@ -4188,6 +4195,10 @@ extern fn bgfx_encoder_discard(self: ?*Encoder, _flags: u8) void;
 /// 
 /// @attention Destination texture must be created with `BGFX_TEXTURE_BLIT_DST` flag.
 /// 
+/// @attention A depth texture, or one created with `BGFX_TEXTURE_MSAA_SAMPLE`, can only
+///   be blitted whole: both sides start at the origin of mips of the same size, and
+///   the copy covers the whole mip.
+/// 
 /// <param name="_id">View id.</param>
 /// <param name="_dst">Destination texture region.</param>
 /// <param name="_src">Source texture region.</param>
@@ -4822,6 +4833,10 @@ extern fn bgfx_discard(_flags: u8) void;
 ///   draw commands are executed after blit and compute commands.
 /// 
 /// @attention Destination texture must be created with `BGFX_TEXTURE_BLIT_DST` flag.
+/// 
+/// @attention A depth texture, or one created with `BGFX_TEXTURE_MSAA_SAMPLE`, can only
+///   be blitted whole: both sides start at the origin of mips of the same size, and
+///   the copy covers the whole mip.
 /// 
 /// <param name="_id">View id.</param>
 /// <param name="_dst">Destination texture region.</param>
