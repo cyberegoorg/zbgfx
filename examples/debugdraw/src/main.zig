@@ -119,7 +119,7 @@ pub fn main(init: std.process.Init) anyerror!u8 {
     const dde = debugdraw.Encoder.create();
     defer debugdraw.Encoder.destroy(dde);
 
-    const bunny = debugdraw.createGeometry(bunnyVertices.len, &bunnyVertices, bunnyTriList.len, @ptrCast(&bunnyTriList), false);
+    const bunny = debugdraw.createGeometry(&bunnyVertices, bunnyTriList.len, @ptrCast(&bunnyTriList), false);
     defer debugdraw.destroyGeometry(bunny);
 
     var data: [32 * 32 * 4]u32 = undefined;
