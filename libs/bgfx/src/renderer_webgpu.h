@@ -547,6 +547,7 @@ namespace wgpu {
 		uint16_t m_blockSize;
 		uint8_t  m_numPredefined;
 		uint8_t  m_numAttrs;
+		uint8_t  m_numInstanceData;
 
 		ShaderBinding m_shaderBinding[BGFX_CONFIG_MAX_TEXTURE_SAMPLERS];
 
@@ -696,6 +697,7 @@ namespace wgpu {
 
 		bool configure(const SwapChain& _desc);
 		WGPUTextureView createTextureView();
+		void acquire();
 		void present();
 
 		void* m_nwh;

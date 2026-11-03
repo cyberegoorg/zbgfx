@@ -33,14 +33,13 @@
 #		include <dlfcn.h> // dlopen, dlclose, dlsym
 #	endif // !BX_PLATFORM_PS4 && !BX_PLATFORM_PS5
 
-#	if BX_PLATFORM_ANDROID
-#		include <malloc.h> // mallinfo
-#	elif   BX_PLATFORM_LINUX \
-		|| BX_PLATFORM_RPI
+#	if BX_PLATFORM_ANDROID \
+	|| BX_PLATFORM_LINUX   \
+	|| BX_PLATFORM_RPI
 #		include <stdio.h>  // fopen
 #		include <sys/mman.h>
 #		include <sys/syscall.h>
-#	elif BX_PLATFORM_OSX
+#	elif BX_PLATFORM_IOS || BX_PLATFORM_OSX
 #		include <mach/mach.h> // mach_task_basic_info
 #		include <sys/mman.h>
 #	endif // BX_PLATFORM_ANDROID
@@ -143,7 +142,8 @@ namespace bx
 	{
 #if BX_PLATFORM_WINDOWS
 		return ::GetCurrentThreadId();
-#elif  BX_PLATFORM_LINUX \
+#elif  BX_PLATFORM_ANDROID \
+	|| BX_PLATFORM_LINUX   \
 	|| BX_PLATFORM_RPI
 		return (pid_t)::syscall(SYS_gettid);
 #elif  BX_PLATFORM_IOS \
@@ -157,10 +157,7 @@ namespace bx
 
 	size_t getProcessMemoryUsed()
 	{
-#if BX_PLATFORM_ANDROID
-		struct mallinfo mi = mallinfo();
-		return mi.uordblks;
-#elif  BX_PLATFORM_LINUX
+#if BX_PLATFORM_ANDROID || BX_PLATFORM_LINUX
 		FILE* file = fopen("/proc/self/statm", "r");
 		if (NULL == file)
 		{
@@ -174,7 +171,7 @@ namespace bx
 			? pages * sysconf(_SC_PAGESIZE)
 			: 0
 			;
-#elif BX_PLATFORM_OSX
+#elif BX_PLATFORM_IOS || BX_PLATFORM_OSX
 #	if defined(MACH_TASK_BASIC_INFO)
 		mach_task_basic_info info;
 		mach_msg_type_number_t infoCount = MACH_TASK_BASIC_INFO_COUNT;
@@ -504,7 +501,7 @@ namespace bx
 
 	namespace
 	{
-#if BX_PLATFORM_LINUX || BX_PLATFORM_OSX
+#if BX_PLATFORM_ANDROID || BX_PLATFORM_IOS || BX_PLATFORM_LINUX || BX_PLATFORM_OSX
 		static int32_t toPosixProt(uint32_t _protect)
 		{
 			switch (_protect)
@@ -557,7 +554,7 @@ namespace bx
 		BX_ASSERT(_alignment <= granularity, "Alignments greater than the allocation granularity are not implemented (requested %zu, granularity %zu).", _alignment, granularity);
 		BX_UNUSED(_alignment, granularity);
 
-#if BX_PLATFORM_LINUX || BX_PLATFORM_OSX
+#if BX_PLATFORM_ANDROID || BX_PLATFORM_IOS || BX_PLATFORM_LINUX || BX_PLATFORM_OSX
 		if (NULL == _address)
 		{
 			if (0 == (state & Memory::Reserve) )
@@ -567,12 +564,24 @@ namespace bx
 			}
 
 			uint32_t effectiveProtect = protect;
+
 			if (0 == effectiveProtect)
 			{
-				effectiveProtect = (Memory::Commit == (state & Memory::Commit) ) ? Memory::ProtectReadWrite : Memory::ProtectNone;
+				effectiveProtect = (Memory::Commit == (state & Memory::Commit) )
+					? Memory::ProtectReadWrite
+					: Memory::ProtectNone
+					;
 			}
 
-			int32_t mmapFlags = MAP_ANON | MAP_PRIVATE;
+			int32_t mmapFlags = 0
+				| MAP_ANON
+				| MAP_PRIVATE
+				;
+
+#	ifdef MAP_NORESERVE
+			mmapFlags |= Memory::ProtectNone == effectiveProtect ? MAP_NORESERVE : 0;
+#	endif // MAP_NORESERVE
+
 #	if BX_PLATFORM_LINUX
 			if (0 != (page & Memory::PageHuge) )
 			{
@@ -612,10 +621,8 @@ namespace bx
 			return result;
 		}
 
-		// Reconfigure existing region.
 		if (0 != (state & Memory::Decommit) )
 		{
-			// Drop physical pages, then revoke access so use-after-free faults.
 			madvise(_address, _size, MADV_DONTNEED);
 			const int32_t prot = (0 != protect) ? toPosixProt(protect) : PROT_NONE;
 			if (0 != mprotect(_address, _size, prot) )
@@ -652,6 +659,7 @@ namespace bx
 		}
 
 		return _address;
+
 #elif BX_PLATFORM_WINDOWS
 		if (NULL == _address)
 		{
@@ -691,7 +699,6 @@ namespace bx
 			return result;
 		}
 
-		// Reconfigure existing region.
 		if (0 != (state & Memory::Decommit) )
 		{
 			if (!VirtualFree(_address, _size, MEM_DECOMMIT) )
@@ -737,7 +744,7 @@ namespace bx
 	{
 		BX_ERROR_SCOPE(_err);
 
-#if BX_PLATFORM_LINUX || BX_PLATFORM_OSX
+#if BX_PLATFORM_ANDROID || BX_PLATFORM_IOS || BX_PLATFORM_LINUX || BX_PLATFORM_OSX
 		int32_t result = munmap(_address, _size);
 
 		if (-1 == result)
@@ -768,7 +775,7 @@ namespace bx
 	{
 		const uint32_t page = _flags & Memory::PageMask;
 
-#if BX_PLATFORM_LINUX || BX_PLATFORM_OSX
+#if BX_PLATFORM_ANDROID || BX_PLATFORM_IOS || BX_PLATFORM_LINUX || BX_PLATFORM_OSX
 		if (0 != (page & Memory::PageHuge) )
 		{
 			return 1ull << 30; // 1 GiB nominal

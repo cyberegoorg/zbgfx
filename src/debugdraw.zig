@@ -56,8 +56,8 @@ extern fn zbgfx_ddDestroySprite(_handle: SpriteHandle) void;
 //
 // Geometry
 //
-pub fn createGeometry(numVertices: u32, vertices: []const Vertex, numIndices: u32, indices: ?[*]const u8, index32: bool) GeometryHandle {
-    return zbgfx_ddCreateGeometry(numVertices, vertices.ptr, numIndices, indices.?, index32);
+pub fn createGeometry(vertices: []const Vertex, numIndices: u32, indices: ?[*]const u8, index32: bool) GeometryHandle {
+    return zbgfx_ddCreateGeometry(@intCast(vertices.len), vertices.ptr, numIndices, indices.?, index32);
 }
 extern fn zbgfx_ddCreateGeometry(_numVertices: u32, _vertices: [*]const Vertex, _numIndices: u32, _indices: ?[*]const u8, _index32: bool) GeometryHandle;
 
@@ -243,14 +243,14 @@ pub const Encoder = opaque {
     extern fn zbgfx_EncoderDrawGeometry(dde: *Encoder, _handle: GeometryHandle) void;
 
     ///
-    pub fn drawLineList(Dde: *Encoder, _numVertices: u32, _vertices: []const Vertex, _numIndices: u32, _indices: ?[*]const u16) void {
-        zbgfx_EncoderDrawLineList(Dde, _numVertices, _vertices.ptr, _numIndices, _indices);
+    pub fn drawLineList(Dde: *Encoder, _vertices: []const Vertex, _indices: []const u16) void {
+        zbgfx_EncoderDrawLineList(Dde, @intCast(_vertices.len), _vertices.ptr, @intCast(_indices.len), _indices.ptr);
     }
     extern fn zbgfx_EncoderDrawLineList(Dde: *Encoder, _numVertices: u32, _vertices: [*]const Vertex, _numIndices: u32, _indices: ?[*]const u16) void;
 
     ///
-    pub fn drawTriList(Dde: *Encoder, _numVertices: u32, _vertices: []const Vertex, _numIndices: u32, _indices: ?[*]const u16) void {
-        zbgfx_EncoderDrawTriList(Dde, _numVertices, _vertices.ptr, _numIndices, _indices.?);
+    pub fn drawTriList(Dde: *Encoder, _vertices: []const Vertex, _indices: []const u16) void {
+        zbgfx_EncoderDrawTriList(Dde, @intCast(_vertices.len), _vertices.ptr, @intCast(_indices.len), _indices.ptr);
     }
     extern fn zbgfx_EncoderDrawTriList(Dde: *Encoder, _numVertices: u32, _vertices: [*]const Vertex, _numIndices: u32, _indices: ?[*]const u16) void;
 

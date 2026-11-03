@@ -143,6 +143,8 @@ namespace bgfx { namespace mtl
 		return lib;
 	}
 
+	inline char s_lastPipelineError[1024] = "";
+
 	inline MTL::RenderPipelineState* newRenderPipelineStateWithDescriptor(MTL::Device* _device, MTL::RenderPipelineDescriptor* _descriptor)
 	{
 		NS::Error* error = NULL;
@@ -163,6 +165,11 @@ namespace bgfx { namespace mtl
 	{
 		NS::Error* error = NULL;
 		MTL::RenderPipelineState* state = _device->newRenderPipelineState(_descriptor, _options, _reflection, &error);
+		if (NULL != error)
+		{
+			bx::strCopy(s_lastPipelineError, sizeof(s_lastPipelineError), error->localizedDescription()->utf8String() );
+		}
+
 		BX_WARN(NULL == error
 			, "newRenderPipelineStateWithDescriptor failed: %s"
 			, error->localizedDescription()->utf8String()
@@ -331,6 +338,8 @@ namespace bgfx { namespace mtl
 
 		MTL::Function* getFunction(uint32_t _sampleMask) const;
 
+		UniformHandle findUniform(const char* _name) const;
+
 		void destroy()
 		{
 			for (FunctionMap::iterator it = m_functions.begin(), itEnd = m_functions.end(); it != itEnd; ++it)
@@ -340,15 +349,18 @@ namespace bgfx { namespace mtl
 
 			m_functions.clear();
 			m_function = NULL;
+			m_uniforms.clear();
 
 			MTL_RELEASE_DEFERRED(m_lib);
 		}
 
 		typedef stl::unordered_map<uint32_t, MTL::Function*> FunctionMap;
+		typedef stl::unordered_map<uint32_t, UniformHandle> UniformMap;
 
 		MTL::Library*  m_lib;
 		MTL::Function* m_function;
 		mutable FunctionMap m_functions;
+		UniformMap m_uniforms;
 		uint32_t m_hash;
 		uint16_t m_numThreads[3];
 	};
@@ -479,6 +491,7 @@ namespace bgfx { namespace mtl
 			, m_ptrStencil(NULL)
 			, m_ptrAlt(NULL)
 			, m_ptrMsaaAlt(NULL)
+			, m_ptrMsaaStencil(NULL)
 			, m_sampler(NULL)
 			, m_videoDecoder(NULL)
 			, m_flags(0)
@@ -519,6 +532,7 @@ namespace bgfx { namespace mtl
 			);
 
 		MTL::Texture* getMultisampleView(uint32_t _flags) const;
+		MTL::Texture* getMultisampleStencilView();
 		MTL::Texture* getSampledView(uint8_t _textureType, uint32_t _flags, uint16_t _firstLayer, uint16_t _numLayers, uint8_t _firstMip, uint8_t _numMips, bool _stencil);
 
 		MTL::Texture* getTextureImage(uint8_t _mip, uint16_t _firstLayer = 0, uint16_t _numLayers = UINT16_MAX);
@@ -532,6 +546,7 @@ namespace bgfx { namespace mtl
 		MTL::Texture* m_ptrStencil; // for emulating packed depth/stencil formats - only for iOS8...
 		MTL::Texture* m_ptrAlt;
 		MTL::Texture* m_ptrMsaaAlt;
+		MTL::Texture* m_ptrMsaaStencil;
 		stl::unordered_map<uint64_t, MTL::Texture*> m_ptrViews;
 		MTL::SamplerState* m_sampler;
 		VideoDecoderMtl*   m_videoDecoder;

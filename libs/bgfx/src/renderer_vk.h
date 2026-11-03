@@ -576,6 +576,7 @@ VK_DESTROY_FUNC(DescriptorSet);
 		uint16_t m_size;
 		uint8_t m_numPredefined;
 		uint8_t m_numAttrs;
+		uint8_t m_numInstanceData;
 
 		BindInfo m_bindInfo[BGFX_CONFIG_MAX_TEXTURE_SAMPLERS];
 
@@ -793,10 +794,14 @@ VK_DESTROY_FUNC(DescriptorSet);
 		SwapChainVK()
 			: m_nwh(NULL)
 			, m_vsync(false)
+			, m_surface(VK_NULL_HANDLE)
 			, m_swapChain(VK_NULL_HANDLE)
+			, m_backBufferColorIdx(0)
 			, m_lastImageRenderedSemaphore(VK_NULL_HANDLE)
 			, m_lastImageAcquiredSemaphore(VK_NULL_HANDLE)
 			, m_needPresent(false)
+			, m_needToRecreateSwapchain(false)
+			, m_needToRecreateSurface(false)
 			, m_backBufferDepthStencilImageView(VK_NULL_HANDLE)
 			, m_depthStencilFormat(VK_FORMAT_UNDEFINED)
 			, m_depthStencilAspect(0)
@@ -891,6 +896,7 @@ VK_DESTROY_FUNC(DescriptorSet);
 			, m_numTh(0)
 			, m_nwh(NULL)
 			, m_needPresent(false)
+			, m_needResolve(false)
 			, m_framebuffer(VK_NULL_HANDLE)
 			, m_currentFramebuffer(VK_NULL_HANDLE)
 		{

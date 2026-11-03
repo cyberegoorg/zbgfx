@@ -2578,8 +2578,8 @@ namespace bgfx { namespace d3d12
 			const uint32_t blockWidth  = bx::max<uint32_t>(1, blockInfo.blockWidth);
 			const uint32_t blockHeight = bx::max<uint32_t>(1, blockInfo.blockHeight);
 
-			const uint32_t alignedWidth  = bx::alignUp(srcWidth,  blockWidth);
-			const uint32_t alignedHeight = bx::alignUp(srcHeight, blockHeight);
+			const uint32_t alignedWidth  = bx::strideAlign(srcWidth,  blockWidth);
+			const uint32_t alignedHeight = bx::strideAlign(srcHeight, blockHeight);
 
 			layout.Footprint.Width  = alignedWidth;
 			layout.Footprint.Height = alignedHeight;
@@ -3868,6 +3868,31 @@ namespace bgfx { namespace d3d12
 				curr->InputSlot = _numStreams;
 				curr->SemanticIndex = index;
 				curr->AlignedByteOffset = ii*16;
+			}
+
+			const D3D12_INPUT_ELEMENT_DESC fallback = { "TEXCOORD", 0, DXGI_FORMAT_R8G8B8A8_UNORM, 0, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 };
+
+			const uint32_t numFallback = 0 < _numStreams ? BGFX_CONFIG_MAX_INSTANCE_DATA_COUNT : 0;
+
+			for (uint32_t ii = _numInstanceData; ii < numFallback && uint32_t(elem-_vertexElements) < D3D12_IA_VERTEX_INPUT_STRUCTURE_ELEMENT_COUNT; ++ii)
+			{
+				const uint32_t index = BGFX_CONFIG_INSTANCE_DATA_FIRST_TEXCOORD - ii;
+
+				bool found = false;
+				for (const D3D12_INPUT_ELEMENT_DESC* curr = _vertexElements; curr != elem && !found; ++curr)
+				{
+					found = true
+						&& 0 == bx::strCmp(curr->SemanticName, "TEXCOORD")
+						&& curr->SemanticIndex == index
+						;
+				}
+
+				if (!found)
+				{
+					bx::memCopy(elem, &fallback, sizeof(D3D12_INPUT_ELEMENT_DESC) );
+					elem->SemanticIndex = index;
+					++elem;
+				}
 			}
 
 			return uint32_t(elem-_vertexElements);
@@ -6772,8 +6797,7 @@ namespace bgfx { namespace d3d12
 				uint8_t type = 0;
 				bx::read(&reader, type, &err);
 
-				uint8_t num = 0;
-				bx::read(&reader, num, &err);
+				const uint16_t num = readUniformNum(&reader, magic, &err);
 
 				uint16_t regIndex = 0;
 				bx::read(&reader, regIndex, &err);
@@ -7271,8 +7295,11 @@ namespace bgfx { namespace d3d12
 
 			if (writeOnly)
 			{
-				resourceDesc.Flags |= D3D12_RESOURCE_FLAG_DENY_SHADER_RESOURCE;
-				state              &= ~D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
+				resourceDesc.Flags |= depth
+					? D3D12_RESOURCE_FLAG_DENY_SHADER_RESOURCE
+					: D3D12_RESOURCE_FLAG_NONE
+					;
+				state &= ~D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE;
 			}
 
 			if (computeWrite)
@@ -7747,8 +7774,8 @@ namespace bgfx { namespace d3d12
 			const bimg::ImageBlockInfo& blockInfo = bimg::getBlockInfo(bimg::TextureFormat::Enum(m_textureFormat) );
 			const uint32_t blockW = blockInfo.blockWidth;
 			const uint32_t blockH = blockInfo.blockHeight;
-			boxWidth  = bx::max<uint32_t>(blockW, bx::alignUp(_rect.m_width,  blockW) );
-			boxHeight = bx::max<uint32_t>(blockH, bx::alignUp(_rect.m_height, blockH) );
+			boxWidth  = bx::max<uint32_t>(blockW, bx::strideAlign(_rect.m_width,  blockW) );
+			boxHeight = bx::max<uint32_t>(blockH, bx::strideAlign(_rect.m_height, blockH) );
 			rectPitch = (boxWidth / blockW) * blockInfo.blockSize;
 		}
 
@@ -7902,12 +7929,10 @@ namespace bgfx { namespace d3d12
 
 			for (uint32_t ii = _layer, end = _layer + _numLayers; ii < end; ++ii)
 			{
-				const uint32_t resource = _mip + (ii * m_numMips);
-
 				_commandList->ResolveSubresource(m_singleMsaa
-					, resource
+					, _mip + (ii * m_numMips)
 					, m_ptr
-					, resource
+					, ii
 					, resolveFormat
 				);
 			}
@@ -9833,6 +9858,21 @@ namespace bgfx { namespace d3d12
 
 				const bool depthStencil = bimg::isDepth(bimg::TextureFormat::Enum(src.m_textureFormat) );
 
+				const bool sameTexture = true
+					&& blit.m_src.idx == blit.m_dst.idx
+					&& srcLocation.SubresourceIndex != dstLocation.SubresourceIndex
+					;
+
+				if (sameTexture)
+				{
+					setResourceBarrier(m_commandList
+						, dst.m_ptr
+						, D3D12_RESOURCE_STATE_COPY_SOURCE
+						, D3D12_RESOURCE_STATE_COPY_DEST
+						, dstLocation.SubresourceIndex
+						);
+				}
+
 				m_commandList->CopyTextureRegion(
 					  &dstLocation
 					, blit.m_dstX
@@ -9841,6 +9881,16 @@ namespace bgfx { namespace d3d12
 					, &srcLocation
 					, depthStencil ? NULL : &box
 					);
+
+				if (sameTexture)
+				{
+					setResourceBarrier(m_commandList
+						, dst.m_ptr
+						, D3D12_RESOURCE_STATE_COPY_DEST
+						, D3D12_RESOURCE_STATE_COPY_SOURCE
+						, dstLocation.SubresourceIndex
+						);
+				}
 
 				if (hasStencilPlane(TextureFormat::Enum(src.m_textureFormat) )
 				&&  hasStencilPlane(TextureFormat::Enum(dst.m_textureFormat) ) )

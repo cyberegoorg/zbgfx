@@ -244,13 +244,18 @@ namespace bx
 
 	void memCopy(void* _dst, const void* _src, size_t _numBytes)
 	{
-#if BX_SIMD_SUPPORTED
-		memCopySimd(_dst, _src, _numBytes);
-#elif BX_CRT_NONE
-		memCopyRef(_dst, _src, _numBytes);
+		if constexpr (kSimdSupported)
+		{
+			memCopySimd(_dst, _src, _numBytes);
+		}
+		else
+		{
+#if BX_CRT_NONE
+			memCopyRef(_dst, _src, _numBytes);
 #else
-		::memcpy(_dst, _src, _numBytes);
-#endif // BX_*
+			::memcpy(_dst, _src, _numBytes);
+#endif // BX_CRT_NONE
+		}
 	}
 
 	void memCopy(
@@ -368,13 +373,18 @@ namespace bx
 
 	void memMove(void* _dst, const void* _src, size_t _numBytes)
 	{
-#if BX_SIMD_SUPPORTED
-		memMoveSimd(_dst, _src, _numBytes);
-#elif BX_CRT_NONE
-		memMoveRef(_dst, _src, _numBytes);
+		if constexpr (kSimdSupported)
+		{
+			memMoveSimd(_dst, _src, _numBytes);
+		}
+		else
+		{
+#if BX_CRT_NONE
+			memMoveRef(_dst, _src, _numBytes);
 #else
-		::memmove(_dst, _src, _numBytes);
-#endif // BX_*
+			::memmove(_dst, _src, _numBytes);
+#endif // BX_CRT_NONE
+		}
 	}
 
 	void memMove(
@@ -478,13 +488,18 @@ namespace bx
 
 	void memSet(void* _dst, uint8_t _ch, size_t _numBytes)
 	{
-#if BX_SIMD_SUPPORTED
-		memSetSimd(_dst, _ch, _numBytes);
-#elif BX_CRT_NONE
-		memSetRef(_dst, _ch, _numBytes);
+		if constexpr (kSimdSupported)
+		{
+			memSetSimd(_dst, _ch, _numBytes);
+		}
+		else
+		{
+#if BX_CRT_NONE
+			memSetRef(_dst, _ch, _numBytes);
 #else
-		::memset(_dst, _ch, _numBytes);
-#endif // BX_*
+			::memset(_dst, _ch, _numBytes);
+#endif // BX_CRT_NONE
+		}
 	}
 
 	void memSet(void* _dst, uint32_t _dstStride, uint8_t _ch, uint32_t _stride, uint32_t _num)
@@ -500,6 +515,30 @@ namespace bx
 		for (uint32_t ii = 0; ii < _num; ++ii, dst += _dstStride)
 		{
 			memSet(dst, _ch, _stride);
+		}
+	}
+
+	using MemSetFn = void (*)(void*, uint8_t, size_t);
+	static MemSetFn volatile s_memSet = memSet;
+
+	void memSetSecure(void* _dst, uint8_t _ch, size_t _numBytes)
+	{
+		s_memSet(_dst, _ch, _numBytes);
+	}
+
+	void memSetSecure(void* _dst, uint32_t _dstStride, uint8_t _ch, uint32_t _stride, uint32_t _num)
+	{
+		if (_stride == _dstStride)
+		{
+			s_memSet(_dst, _ch, size_t(_stride)*_num);
+			return;
+		}
+
+		uint8_t* dst = (uint8_t*)_dst;
+
+		for (uint32_t ii = 0; ii < _num; ++ii, dst += _dstStride)
+		{
+			s_memSet(dst, _ch, _stride);
 		}
 	}
 
@@ -602,13 +641,18 @@ namespace bx
 
 	int32_t memCmp(const void* _lhs, const void* _rhs, size_t _numBytes)
 	{
-#if BX_SIMD_SUPPORTED
-		return memCmpSimd(_lhs, _rhs, _numBytes);
-#elif BX_CRT_NONE
-		return memCmpRef(_lhs, _rhs, _numBytes);
+		if constexpr (kSimdSupported)
+		{
+			return memCmpSimd(_lhs, _rhs, _numBytes);
+		}
+		else
+		{
+#if BX_CRT_NONE
+			return memCmpRef(_lhs, _rhs, _numBytes);
 #else
-		return ::memcmp(_lhs, _rhs, _numBytes);
-#endif // BX_*
+			return ::memcmp(_lhs, _rhs, _numBytes);
+#endif // BX_CRT_NONE
+		}
 	}
 
 	///

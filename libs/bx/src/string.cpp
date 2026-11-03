@@ -6,6 +6,8 @@
 #include <bx/allocator.h>
 #include <bx/file.h>
 #include <bx/hash.h>
+#include <bx/math.h>
+#include <bx/simd_t.h>
 #include <bx/string.h>
 
 namespace bx
@@ -122,6 +124,7 @@ namespace bx
 
 		const int32_t max = _dstSize;
 		const int32_t len = strLen(_dst, max);
+
 		return strCopy(&_dst[len], max-len, _src, _num);
 	}
 
@@ -130,8 +133,74 @@ namespace bx
 		return strCat(_dst, _dstSize, _str.getPtr(), min(_str.getLength(), _num) );
 	}
 
-	inline const char* strFindUnsafe(const char* _str, int32_t _len, char _ch)
+	inline simd64_t matchBytes(const char* _str, simd64_t _pattern)
 	{
+		const uint64_t word    = loadUnaligned<uint64_t>(_str);
+		const simd64_t chunk   = simd64_splat(word);
+		const simd64_t low7    = simd64_splat(uint8_t(0x7f) );
+		const simd64_t diff    = simd64_xor(chunk, _pattern);
+		const simd64_t lowBits = simd64_and(diff, low7);
+		const simd64_t carry   = simd64_u64_add(lowBits, low7);
+		const simd64_t nonZero = simd64_or(carry, diff);
+		const simd64_t equal   = simd64_not(nonZero);
+
+		return equal;
+	}
+
+	inline simd128_t matchBytes(const char* _str, simd128_t _pattern)
+	{
+		const simd128_t chunk = simd_ldu<simd128_t>(_str);
+		const simd128_t equal = simd_i8_cmpeq(chunk, _pattern);
+
+		return equal;
+	}
+
+	inline bool matchAny(const char* _str, simd128_t _pattern)
+	{
+		const simd128_t chunk0 = simd_ldu<simd128_t>(&_str[ 0]);
+		const simd128_t chunk1 = simd_ldu<simd128_t>(&_str[16]);
+		const simd128_t chunk2 = simd_ldu<simd128_t>(&_str[32]);
+		const simd128_t chunk3 = simd_ldu<simd128_t>(&_str[48]);
+		const simd128_t equal0 = simd_i8_cmpeq(chunk0, _pattern);
+		const simd128_t equal1 = simd_i8_cmpeq(chunk1, _pattern);
+		const simd128_t equal2 = simd_i8_cmpeq(chunk2, _pattern);
+		const simd128_t equal3 = simd_i8_cmpeq(chunk3, _pattern);
+		const simd128_t any01  = simd_or(equal0, equal1);
+		const simd128_t any23  = simd_or(equal2, equal3);
+		const simd128_t any    = simd_or(any01, any23);
+
+		return simd_x8_signbits_any(any);
+	}
+
+	inline const char* strFindShort(const char* _str, int32_t _len, char _ch)
+	{
+		if (8 <= _len)
+		{
+			const simd64_t pattern = simd64_splat(uint8_t(_ch) );
+
+			int32_t ii = 0;
+
+			for (; ii + 8 <= _len; ii += 8)
+			{
+				const simd64_t equal = matchBytes(&_str[ii], pattern);
+
+				if (simd_x8_signbits_any(equal) )
+				{
+					return &_str[ii + simd_x8_signbits_first(equal)];
+				}
+			}
+
+			if (ii == _len)
+			{
+				return NULL;
+			}
+
+			const int32_t  at    = _len - 8;
+			const simd64_t equal = matchBytes(&_str[at], pattern);
+
+			return simd_x8_signbits_any(equal) ? &_str[at + simd_x8_signbits_first(equal)] : NULL;
+		}
+
 		for (int32_t ii = 0; ii < _len; ++ii)
 		{
 			if (_str[ii] == _ch)
@@ -143,24 +212,94 @@ namespace bx
 		return NULL;
 	}
 
+	BX_FORCE_INLINE const char* strFindUnsafe(const char* _str, int32_t _len, char _ch)
+	{
+		if constexpr (kSimdSupported)
+		{
+			if (16 <= _len)
+			{
+				const uint32_t  splat   = uint32_t(uint8_t(_ch) ) * 0x01010101u;
+				const simd128_t pattern = simd_splat<simd128_t>(splat);
+
+				int32_t ii = 0;
+
+				for (; ii + 16 <= _len && ii < 64; ii += 16)
+				{
+					const simd128_t equal = matchBytes(&_str[ii], pattern);
+
+					if (simd_x8_signbits_any(equal) )
+					{
+						return &_str[ii + simd_x8_signbits_first(equal)];
+					}
+				}
+
+				for (; ii + 64 <= _len && !matchAny(&_str[ii], pattern); ii += 64)
+				{
+				}
+
+				for (; ii + 16 <= _len; ii += 16)
+				{
+					const simd128_t equal = matchBytes(&_str[ii], pattern);
+
+					if (simd_x8_signbits_any(equal) )
+					{
+						return &_str[ii + simd_x8_signbits_first(equal)];
+					}
+				}
+
+				if (ii == _len)
+				{
+					return NULL;
+				}
+
+				const int32_t   at    = _len - 16;
+				const simd128_t equal = matchBytes(&_str[at], pattern);
+
+				return simd_x8_signbits_any(equal) ? &_str[at + simd_x8_signbits_first(equal)] : NULL;
+			}
+		}
+
+		return strFindShort(_str, _len, _ch);
+	}
+
 	inline const char* strFind(const char* _str, int32_t _max, char _ch)
 	{
 		return strFindUnsafe(_str, strLen(_str, _max), _ch);
 	}
 
-	StringView strFind(const StringView& _str, char _ch)
+	const char* internal::strFind(const char* _str, int32_t _len, char _ch)
 	{
-		const char* ptr = strFindUnsafe(_str.getPtr(), _str.getLength(), _ch);
-		if (NULL == ptr)
-		{
-			return StringView(_str.getTerm(), _str.getTerm() );
-		}
-
-		return StringView(ptr, ptr+1);
+		return strFindUnsafe(_str, _len, _ch);
 	}
 
-	inline const char* strRFindUnsafe(const char* _str, int32_t _len, char _ch)
+	inline const char* strRFindShort(const char* _str, int32_t _len, char _ch)
 	{
+		if (8 <= _len)
+		{
+			const simd64_t pattern = simd64_splat(uint8_t(_ch) );
+
+			int32_t end = _len;
+
+			for (; 8 <= end; end -= 8)
+			{
+				const simd64_t equal = matchBytes(&_str[end - 8], pattern);
+
+				if (simd_x8_signbits_any(equal) )
+				{
+					return &_str[end - 8 + simd_x8_signbits_last(equal)];
+				}
+			}
+
+			if (0 == end)
+			{
+				return NULL;
+			}
+
+			const simd64_t equal = matchBytes(_str, pattern);
+
+			return simd_x8_signbits_any(equal) ? &_str[simd_x8_signbits_last(equal)] : NULL;
+		}
+
 		for (int32_t ii = _len-1; 0 <= ii; --ii)
 		{
 			if (_str[ii] == _ch)
@@ -172,15 +311,58 @@ namespace bx
 		return NULL;
 	}
 
-	StringView strRFind(const StringView& _str, char _ch)
+	BX_FORCE_INLINE const char* strRFindUnsafe(const char* _str, int32_t _len, char _ch)
 	{
-		const char* ptr = strRFindUnsafe(_str.getPtr(), _str.getLength(), _ch);
-		if (NULL == ptr)
+		if constexpr (kSimdSupported)
 		{
-			return StringView(_str.getTerm(), _str.getTerm() );
+			if (16 <= _len)
+			{
+				const uint32_t  splat   = uint32_t(uint8_t(_ch) ) * 0x01010101u;
+				const simd128_t pattern = simd_splat<simd128_t>(splat);
+
+				int32_t end = _len;
+
+				for (; 16 <= end && _len - 64 < end; end -= 16)
+				{
+					const simd128_t equal = matchBytes(&_str[end - 16], pattern);
+
+					if (simd_x8_signbits_any(equal) )
+					{
+						return &_str[end - 16 + simd_x8_signbits_last(equal)];
+					}
+				}
+
+				for (; 64 <= end && !matchAny(&_str[end - 64], pattern); end -= 64)
+				{
+				}
+
+				for (; 16 <= end; end -= 16)
+				{
+					const simd128_t equal = matchBytes(&_str[end - 16], pattern);
+
+					if (simd_x8_signbits_any(equal) )
+					{
+						return &_str[end - 16 + simd_x8_signbits_last(equal)];
+					}
+				}
+
+				if (0 == end)
+				{
+					return NULL;
+				}
+
+				const simd128_t equal = matchBytes(_str, pattern);
+
+				return simd_x8_signbits_any(equal) ? &_str[simd_x8_signbits_last(equal)] : NULL;
+			}
 		}
 
-		return StringView(ptr, ptr+1);
+		return strRFindShort(_str, _len, _ch);
+	}
+
+	const char* internal::strRFind(const char* _str, int32_t _len, char _ch)
+	{
+		return strRFindUnsafe(_str, _len, _ch);
 	}
 
 	template<CharFn fn>
@@ -193,13 +375,11 @@ namespace bx
 
 		for (; stringLen >= findLen; ++ptr, --stringLen)
 		{
-			// Find start of the string.
 			while (fn(*ptr) != fn(*_find) )
 			{
 				++ptr;
 				--stringLen;
 
-				// Search pattern length can't be longer than the string.
 				if (findLen > stringLen)
 				{
 					return NULL;
@@ -215,42 +395,180 @@ namespace bx
 		return NULL;
 	}
 
-	StringView strFind(const StringView& _str, const StringView& _find, int32_t _num)
+	template<typename Ty>
+	inline bool isEqualAt(const char* _lhs, const char* _rhs, int32_t _offset)
 	{
-		int32_t len = min(_find.getLength(), _num);
-
-		const char* ptr = strFind<toNoop>(
-			  _str.getPtr()
-			, _str.getLength()
-			, _find.getPtr()
-			, len
-			);
-
-		if (NULL == ptr)
-		{
-			return StringView(_str.getTerm(), _str.getTerm() );
-		}
-
-		return StringView(ptr, len);
+		return loadUnaligned<Ty>(&_lhs[_offset]) == loadUnaligned<Ty>(&_rhs[_offset]);
 	}
 
-	StringView strFindI(const StringView& _str, const StringView& _find, int32_t _num)
+	inline bool strEqualExact(const char* _lhs, const char* _rhs, int32_t _len)
 	{
-		int32_t len = min(_find.getLength(), _num);
-
-		const char* ptr = strFind<toLower>(
-			  _str.getPtr()
-			, _str.getLength()
-			, _find.getPtr()
-			, len
-			);
-
-		if (NULL == ptr)
+		if (4 >= _len)
 		{
-			return StringView(_str.getTerm(), _str.getTerm() );
+			return 2 >= _len
+				|| (isEqualAt<uint16_t>(_lhs, _rhs, 0) && isEqualAt<uint16_t>(_lhs, _rhs, _len - 2) )
+				;
 		}
 
-		return StringView(ptr, len);
+		if (8 >= _len)
+		{
+			return isEqualAt<uint32_t>(_lhs, _rhs, 0) && isEqualAt<uint32_t>(_lhs, _rhs, _len - 4);
+		}
+
+		for (int32_t ii = 0; ii < _len - 8; ii += 8)
+		{
+			if (!isEqualAt<uint64_t>(_lhs, _rhs, ii) )
+			{
+				return false;
+			}
+		}
+
+		return isEqualAt<uint64_t>(_lhs, _rhs, _len - 8);
+	}
+
+	inline simd128_t matchFirstLast(const char* _str, int32_t _lastOffset, simd128_t _first, simd128_t _last)
+	{
+		const simd128_t chunkFirst = simd_ldu<simd128_t>(_str);
+		const simd128_t chunkLast  = simd_ldu<simd128_t>(&_str[_lastOffset]);
+		const simd128_t equalFirst = simd_i8_cmpeq(chunkFirst, _first);
+		const simd128_t equalLast  = simd_i8_cmpeq(chunkLast, _last);
+		const simd128_t equal      = simd_and(equalFirst, equalLast);
+		return equal;
+	}
+
+	inline const char* strFindCandidates(const char* _str, uint32_t _mask, const char* _find, int32_t _findLen)
+	{
+		for (uint32_t mask = _mask; 0 != mask; mask &= mask - 1)
+		{
+			const char* ptr = &_str[countTrailingZeros(mask)];
+
+			if (strEqualExact(ptr, _find, _findLen) )
+			{
+				return ptr;
+			}
+		}
+
+		return NULL;
+	}
+
+	inline const char* strFindBlock(const char* _str, simd128_t _first, simd128_t _last, const char* _find, int32_t _findLen)
+	{
+		const simd128_t equal = matchFirstLast(_str, _findLen - 1, _first, _last);
+
+		if (simd_x8_signbits_any(equal) )
+		{
+			const uint32_t mask = uint32_t(simd_x8_signbitsmask(equal) );
+			return strFindCandidates(_str, mask, _find, _findLen);
+		}
+
+		return NULL;
+	}
+
+	BX_FORCE_INLINE const char* strFindExact(const char* _str, int32_t _strLen, const char* _find, int32_t _findLen)
+	{
+		if (0 >= _findLen
+		||  _findLen > _strLen)
+		{
+			return NULL;
+		}
+
+		if (1 == _findLen)
+		{
+			return strFindUnsafe(_str, _strLen, _find[0]);
+		}
+
+		const int32_t num        = _strLen - _findLen + 1;
+		const int32_t lastOffset = _findLen - 1;
+
+		if constexpr (kSimdSupported)
+		{
+			if (16 <= num)
+			{
+				const simd128_t first = simd_splat<simd128_t>(uint32_t(uint8_t(_find[         0]) ) * 0x01010101u);
+				const simd128_t last  = simd_splat<simd128_t>(uint32_t(uint8_t(_find[lastOffset]) ) * 0x01010101u);
+
+				int32_t ii = 0;
+
+				for (; ii + 16 <= num && ii < 64; ii += 16)
+				{
+					const char* ptr = strFindBlock(&_str[ii], first, last, _find, _findLen);
+
+					if (NULL != ptr)
+					{
+						return ptr;
+					}
+				}
+
+				for (; ii + 64 <= num; ii += 64)
+				{
+					if (matchAny(&_str[ii], first) )
+					{
+						for (int32_t jj = ii; jj < ii + 64; jj += 16)
+						{
+							const char* ptr = strFindBlock(&_str[jj], first, last, _find, _findLen);
+
+							if (NULL != ptr)
+							{
+								return ptr;
+							}
+						}
+					}
+				}
+
+				for (; ii + 16 <= num; ii += 16)
+				{
+					const char* ptr = strFindBlock(&_str[ii], first, last, _find, _findLen);
+
+					if (NULL != ptr)
+					{
+						return ptr;
+					}
+				}
+
+				if (ii == num)
+				{
+					return NULL;
+				}
+
+				const int32_t   at    = num - 16;
+				const simd128_t equal = matchFirstLast(&_str[at], lastOffset, first, last);
+				const uint32_t  mask  = uint32_t(simd_x8_signbitsmask(equal) ) & (UINT32_MAX << (ii - at) );
+
+				return strFindCandidates(&_str[at], mask, _find, _findLen);
+			}
+		}
+
+		const char* term = _str + _strLen;
+		const char* end  = term - _findLen;
+
+		for (const char* ptr = _str; ptr <= end; ++ptr)
+		{
+			ptr = strFindUnsafe(ptr, int32_t(term - ptr), _find[0]);
+
+			if (NULL == ptr
+			||  ptr > end)
+			{
+				return NULL;
+			}
+
+			if (_find[lastOffset] == ptr[lastOffset]
+			&&  strEqualExact(ptr, _find, _findLen) )
+			{
+				return ptr;
+			}
+		}
+
+		return NULL;
+	}
+
+	const char* internal::strFind(const char* _str, int32_t _len, const char* _find, int32_t _findLen)
+	{
+		return strFindExact(_str, _len, _find, _findLen);
+	}
+
+	const char* internal::strFindI(const char* _str, int32_t _len, const char* _find, int32_t _findLen)
+	{
+		return bx::strFind<toLower>(_str, _len, _find, _findLen);
 	}
 
 	StringView strLTrim(const StringView& _str, const StringView& _chars)
@@ -381,13 +699,13 @@ namespace bx
 	{
 		StringView str(_str);
 
-		// This method returns the character past the \n, so
-		// there is no need to look for he \r which preceedes it.
 		StringView eol = strFind(str, "\n");
+
 		if (!eol.isEmpty() )
 		{
 			return StringView(eol.getTerm(), str.getTerm() );
 		}
+
 		return StringView(_str.getTerm(), _str.getTerm() );
 	}
 
@@ -500,16 +818,21 @@ namespace bx
 	{
 		const int32_t len = _word.getLength();
 		StringView ptr = strFind(_str, _word);
+
 		for (; !ptr.isEmpty(); ptr = strFind(StringView(ptr.getPtr() + len, _str.getTerm() ), _word) )
 		{
 			char ch = ptr.getPtr() != _str.getPtr() ? *(ptr.getPtr() - 1) : ' ';
-			if (isAlphaNum(ch) || '_' == ch)
+
+			if (isAlphaNum(ch)
+			||  '_' == ch)
 			{
 				continue;
 			}
 
 			ch = *(ptr.getPtr() + len);
-			if (isAlphaNum(ch) || '_' == ch)
+
+			if (isAlphaNum(ch)
+			||  '_' == ch)
 			{
 				continue;
 			}
@@ -534,6 +857,8 @@ namespace bx
 
 		return StringView(_str.getTerm(), _str.getTerm() );
 	}
+
+	int32_t toStringFormatted(char* _out, int32_t _max, double _value, char _fmt, int32_t _prec, bool _alt);
 
 	namespace
 	{
@@ -801,60 +1126,24 @@ namespace bx
 
 		static int32_t write(WriterI* _writer, double _d, const Param& _param, Error* _err)
 		{
-			char str[1024];
-			int32_t len = toString(str, sizeof(str), _d);
+			char str[1152];
+			const int32_t prec = INT32_MAX == _param.prec ? 6 : _param.prec;
+			const int32_t len  = toStringFormatted(str, sizeof(str), _d, _param.fmt, prec, _param.spec);
 
 			if (len == 0)
 			{
 				return 0;
 			}
 
-			const char* dot = strFind(str, INT32_MAX, '.');
-			if (NULL != dot)
+			Param param = _param;
+			param.prec  = INT32_MAX;
+
+			if (!isFinite(_d) )
 			{
-				const int32_t defaultPrec = ('g' == _param.fmt) ? 6 : 6;
-				int32_t prec = INT32_MAX == _param.prec ? defaultPrec : _param.prec;
-
-				const char* strEnd   = str + len;
-				const char* exponent = strFind(str, INT32_MAX, 'e');
-				const char* fracEnd  = NULL != exponent ? exponent : strEnd;
-
-				char* fracBegin = &str[dot - str + min(prec + _param.spec, 1)];
-				const int32_t curPrec = int32_t(fracEnd - fracBegin);
-
-				const int32_t exponentLen = int32_t(strEnd - fracEnd);
-				const int32_t maxPrec     = int32_t(sizeof(str) ) - 1
-					- int32_t(fracBegin - str)
-					- exponentLen
-					;
-
-				const int32_t reqPrec = 'g' == _param.fmt ? min(prec, curPrec) : prec;
-				const int32_t outPrec = min(reqPrec, maxPrec);
-
-				// Move exponent to its final location after trimming or adding extra 0s.
-				if (fracEnd != strEnd)
-				{
-					char* finalExponentPtr = &fracBegin[outPrec];
-					memMove(finalExponentPtr, fracEnd, exponentLen);
-
-					finalExponentPtr[exponentLen] = '\0';
-					len = int32_t(&finalExponentPtr[exponentLen] - str);
-				}
-				else
-				{
-					len = (int32_t)(fracBegin + outPrec - str);
-				}
-
-				if (curPrec < outPrec)
-				{
-					for (int32_t ii = curPrec; ii < outPrec; ++ii)
-					{
-						fracBegin[ii] = '0';
-					}
-				}
+				param.fill = ' ';
 			}
 
-			return write(_writer, str, len, _param, _err);
+			return write(_writer, str, len, param, _err);
 		}
 
 		static int32_t write(WriterI* _writer, const void* _ptr, const Param& _param, Error* _err)

@@ -52,6 +52,10 @@ namespace bx
 		constexpr bool isEmpty() const;
 
 	private:
+		friend class Error;
+
+		constexpr StringLiteral(const char* _ptr, int32_t _len);
+
 		const char* m_ptr;
 		int32_t     m_len;
 	};
@@ -181,8 +185,6 @@ namespace bx
 		constexpr FixedStringT(const StringView& _str);
 
 		///
-		constexpr ~FixedStringT();
-
 		///
 		constexpr void set(const char* _str);
 
@@ -597,6 +599,18 @@ namespace bx
 
 	/// Converts string to 64-bit unsigned long long value.
 	bool fromString(unsigned long long* _out, const StringView& _str);
+
+	namespace internal
+	{
+		const char* strFind(const char* _str, int32_t _len, char _ch);
+
+		const char* strRFind(const char* _str, int32_t _len, char _ch);
+
+		const char* strFind(const char* _str, int32_t _len, const char* _find, int32_t _findLen);
+
+		const char* strFindI(const char* _str, int32_t _len, const char* _find, int32_t _findLen);
+
+	} // namespace internal
 
 } // namespace bx
 
