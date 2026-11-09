@@ -103,6 +103,23 @@ namespace bgfx { namespace wgpu
 	};
 	static_assert(AttribType::Count == BX_COUNTOF(s_attribType) );
 
+	static const WGPUBackendType s_wgpuBackendType[] =
+	{
+		WGPUBackendType_Null,      // Noop
+		WGPUBackendType_Undefined, // Agc
+		WGPUBackendType_D3D11,     // Direct3D11
+		WGPUBackendType_D3D12,     // Direct3D12
+		WGPUBackendType_Undefined, // Gnm
+		WGPUBackendType_Metal,     // Metal
+		WGPUBackendType_Undefined, // Nvn
+		WGPUBackendType_OpenGLES,  // OpenGLES
+		WGPUBackendType_OpenGL,    // OpenGL
+		WGPUBackendType_Vulkan,    // Vulkan
+		WGPUBackendType_Undefined, // WebGPU
+		WGPUBackendType_Undefined, // Count
+	};
+	static_assert(RendererType::Count+1 == BX_COUNTOF(s_wgpuBackendType) );
+
 	static const WGPUCullMode s_cullMode[] =
 	{
 		WGPUCullMode_None,
@@ -281,28 +298,28 @@ namespace bgfx { namespace wgpu
 		{ WGPUTextureFormat_Undefined,            WGPUTextureFormat_Undefined,           WGPUTextureSampleType_Float,             true,  { $_, $_, $_, $_ } }, // R1
 		{ WGPUTextureFormat_R8Unorm,              WGPUTextureFormat_Undefined,           WGPUTextureSampleType_Float,             true,  { $0, $0, $0, $R } }, // A8
 		{ WGPUTextureFormat_R8Unorm,              WGPUTextureFormat_Undefined,           WGPUTextureSampleType_Float,             true,  { $_, $_, $_, $_ } }, // R8
-		{ WGPUTextureFormat_R8Sint,               WGPUTextureFormat_Undefined,           WGPUTextureSampleType_Float,             true,  { $_, $_, $_, $_ } }, // R8I
-		{ WGPUTextureFormat_R8Uint,               WGPUTextureFormat_Undefined,           WGPUTextureSampleType_Float,             true,  { $_, $_, $_, $_ } }, // R8U
+		{ WGPUTextureFormat_R8Sint,               WGPUTextureFormat_Undefined,           WGPUTextureSampleType_Sint,              true,  { $_, $_, $_, $_ } }, // R8I
+		{ WGPUTextureFormat_R8Uint,               WGPUTextureFormat_Undefined,           WGPUTextureSampleType_Uint,              true,  { $_, $_, $_, $_ } }, // R8U
 		{ WGPUTextureFormat_R8Snorm,              WGPUTextureFormat_Undefined,           WGPUTextureSampleType_Float,             true,  { $_, $_, $_, $_ } }, // R8S
-		{ WGPUTextureFormat_R16Unorm,             WGPUTextureFormat_Undefined,           WGPUTextureSampleType_Float,             true,  { $_, $_, $_, $_ } }, // R16
-		{ WGPUTextureFormat_R16Sint,              WGPUTextureFormat_Undefined,           WGPUTextureSampleType_Float,             true,  { $_, $_, $_, $_ } }, // R16I
-		{ WGPUTextureFormat_R16Uint,              WGPUTextureFormat_Undefined,           WGPUTextureSampleType_Float,             true,  { $_, $_, $_, $_ } }, // R16U
+		{ WGPUTextureFormat_R16Unorm,             WGPUTextureFormat_Undefined,           WGPUTextureSampleType_UnfilterableFloat, true,  { $_, $_, $_, $_ } }, // R16
+		{ WGPUTextureFormat_R16Sint,              WGPUTextureFormat_Undefined,           WGPUTextureSampleType_Sint,              true,  { $_, $_, $_, $_ } }, // R16I
+		{ WGPUTextureFormat_R16Uint,              WGPUTextureFormat_Undefined,           WGPUTextureSampleType_Uint,              true,  { $_, $_, $_, $_ } }, // R16U
 		{ WGPUTextureFormat_R16Float,             WGPUTextureFormat_Undefined,           WGPUTextureSampleType_Float,             true,  { $_, $_, $_, $_ } }, // R16F
-		{ WGPUTextureFormat_R16Snorm,             WGPUTextureFormat_Undefined,           WGPUTextureSampleType_Float,             true,  { $_, $_, $_, $_ } }, // R16S
-		{ WGPUTextureFormat_R32Sint,              WGPUTextureFormat_Undefined,           WGPUTextureSampleType_Float,             true,  { $_, $_, $_, $_ } }, // R32I
-		{ WGPUTextureFormat_R32Uint,              WGPUTextureFormat_Undefined,           WGPUTextureSampleType_Float,             true,  { $_, $_, $_, $_ } }, // R32U
+		{ WGPUTextureFormat_R16Snorm,             WGPUTextureFormat_Undefined,           WGPUTextureSampleType_UnfilterableFloat, true,  { $_, $_, $_, $_ } }, // R16S
+		{ WGPUTextureFormat_R32Sint,              WGPUTextureFormat_Undefined,           WGPUTextureSampleType_Sint,              true,  { $_, $_, $_, $_ } }, // R32I
+		{ WGPUTextureFormat_R32Uint,              WGPUTextureFormat_Undefined,           WGPUTextureSampleType_Uint,              true,  { $_, $_, $_, $_ } }, // R32U
 		{ WGPUTextureFormat_R32Float,             WGPUTextureFormat_Undefined,           WGPUTextureSampleType_UnfilterableFloat, false, { $_, $_, $_, $_ } }, // R32F
 		{ WGPUTextureFormat_RG8Unorm,             WGPUTextureFormat_Undefined,           WGPUTextureSampleType_Float,             true,  { $_, $_, $_, $_ } }, // RG8
-		{ WGPUTextureFormat_RG8Sint,              WGPUTextureFormat_Undefined,           WGPUTextureSampleType_Float,             true,  { $_, $_, $_, $_ } }, // RG8I
-		{ WGPUTextureFormat_RG8Uint,              WGPUTextureFormat_Undefined,           WGPUTextureSampleType_Float,             true,  { $_, $_, $_, $_ } }, // RG8U
+		{ WGPUTextureFormat_RG8Sint,              WGPUTextureFormat_Undefined,           WGPUTextureSampleType_Sint,              true,  { $_, $_, $_, $_ } }, // RG8I
+		{ WGPUTextureFormat_RG8Uint,              WGPUTextureFormat_Undefined,           WGPUTextureSampleType_Uint,              true,  { $_, $_, $_, $_ } }, // RG8U
 		{ WGPUTextureFormat_RG8Snorm,             WGPUTextureFormat_Undefined,           WGPUTextureSampleType_Float,             true,  { $_, $_, $_, $_ } }, // RG8S
-		{ WGPUTextureFormat_RG16Unorm,            WGPUTextureFormat_Undefined,           WGPUTextureSampleType_Float,             true,  { $_, $_, $_, $_ } }, // RG16
-		{ WGPUTextureFormat_RG16Sint,             WGPUTextureFormat_Undefined,           WGPUTextureSampleType_Float,             true,  { $_, $_, $_, $_ } }, // RG16I
-		{ WGPUTextureFormat_RG16Uint,             WGPUTextureFormat_Undefined,           WGPUTextureSampleType_Float,             true,  { $_, $_, $_, $_ } }, // RG16U
+		{ WGPUTextureFormat_RG16Unorm,            WGPUTextureFormat_Undefined,           WGPUTextureSampleType_UnfilterableFloat, true,  { $_, $_, $_, $_ } }, // RG16
+		{ WGPUTextureFormat_RG16Sint,             WGPUTextureFormat_Undefined,           WGPUTextureSampleType_Sint,              true,  { $_, $_, $_, $_ } }, // RG16I
+		{ WGPUTextureFormat_RG16Uint,             WGPUTextureFormat_Undefined,           WGPUTextureSampleType_Uint,              true,  { $_, $_, $_, $_ } }, // RG16U
 		{ WGPUTextureFormat_RG16Float,            WGPUTextureFormat_Undefined,           WGPUTextureSampleType_Float,             true,  { $_, $_, $_, $_ } }, // RG16F
-		{ WGPUTextureFormat_RG16Snorm,            WGPUTextureFormat_Undefined,           WGPUTextureSampleType_Float,             true,  { $_, $_, $_, $_ } }, // RG16S
-		{ WGPUTextureFormat_RG32Sint,             WGPUTextureFormat_Undefined,           WGPUTextureSampleType_Float,             true,  { $_, $_, $_, $_ } }, // RG32I
-		{ WGPUTextureFormat_RG32Uint,             WGPUTextureFormat_Undefined,           WGPUTextureSampleType_Float,             true,  { $_, $_, $_, $_ } }, // RG32U
+		{ WGPUTextureFormat_RG16Snorm,            WGPUTextureFormat_Undefined,           WGPUTextureSampleType_UnfilterableFloat, true,  { $_, $_, $_, $_ } }, // RG16S
+		{ WGPUTextureFormat_RG32Sint,             WGPUTextureFormat_Undefined,           WGPUTextureSampleType_Sint,              true,  { $_, $_, $_, $_ } }, // RG32I
+		{ WGPUTextureFormat_RG32Uint,             WGPUTextureFormat_Undefined,           WGPUTextureSampleType_Uint,              true,  { $_, $_, $_, $_ } }, // RG32U
 		{ WGPUTextureFormat_RG32Float,            WGPUTextureFormat_Undefined,           WGPUTextureSampleType_UnfilterableFloat, false, { $_, $_, $_, $_ } }, // RG32F
 		{ WGPUTextureFormat_Undefined,            WGPUTextureFormat_Undefined,           WGPUTextureSampleType_Float,             true,  { $_, $_, $_, $_ } }, // RGB8
 		{ WGPUTextureFormat_Undefined,            WGPUTextureFormat_Undefined,           WGPUTextureSampleType_Float,             true,  { $_, $_, $_, $_ } }, // RGB8I
@@ -311,16 +328,16 @@ namespace bgfx { namespace wgpu
 		{ WGPUTextureFormat_RGB9E5Ufloat,         WGPUTextureFormat_Undefined,           WGPUTextureSampleType_Float,             true,  { $_, $_, $_, $_ } }, // RGB9E5F
 		{ WGPUTextureFormat_BGRA8Unorm,           WGPUTextureFormat_BGRA8UnormSrgb,      WGPUTextureSampleType_Float,             true,  { $_, $_, $_, $_ } }, // BGRA8
 		{ WGPUTextureFormat_RGBA8Unorm,           WGPUTextureFormat_RGBA8UnormSrgb,      WGPUTextureSampleType_Float,             true,  { $_, $_, $_, $_ } }, // RGBA8
-		{ WGPUTextureFormat_RGBA8Sint,            WGPUTextureFormat_Undefined,           WGPUTextureSampleType_Float,             true,  { $_, $_, $_, $_ } }, // RGBA8I
-		{ WGPUTextureFormat_RGBA8Uint,            WGPUTextureFormat_Undefined,           WGPUTextureSampleType_Float,             true,  { $_, $_, $_, $_ } }, // RGBA8U
+		{ WGPUTextureFormat_RGBA8Sint,            WGPUTextureFormat_Undefined,           WGPUTextureSampleType_Sint,              true,  { $_, $_, $_, $_ } }, // RGBA8I
+		{ WGPUTextureFormat_RGBA8Uint,            WGPUTextureFormat_Undefined,           WGPUTextureSampleType_Uint,              true,  { $_, $_, $_, $_ } }, // RGBA8U
 		{ WGPUTextureFormat_RGBA8Snorm,           WGPUTextureFormat_Undefined,           WGPUTextureSampleType_Float,             true,  { $_, $_, $_, $_ } }, // RGBA8S
-		{ WGPUTextureFormat_RGBA16Unorm,          WGPUTextureFormat_Undefined,           WGPUTextureSampleType_Float,             true,  { $_, $_, $_, $_ } }, // RGBA16
-		{ WGPUTextureFormat_RGBA16Sint,           WGPUTextureFormat_Undefined,           WGPUTextureSampleType_Float,             true,  { $_, $_, $_, $_ } }, // RGBA16I
-		{ WGPUTextureFormat_RGBA16Uint,           WGPUTextureFormat_Undefined,           WGPUTextureSampleType_Float,             true,  { $_, $_, $_, $_ } }, // RGBA16U
+		{ WGPUTextureFormat_RGBA16Unorm,          WGPUTextureFormat_Undefined,           WGPUTextureSampleType_UnfilterableFloat, true,  { $_, $_, $_, $_ } }, // RGBA16
+		{ WGPUTextureFormat_RGBA16Sint,           WGPUTextureFormat_Undefined,           WGPUTextureSampleType_Sint,              true,  { $_, $_, $_, $_ } }, // RGBA16I
+		{ WGPUTextureFormat_RGBA16Uint,           WGPUTextureFormat_Undefined,           WGPUTextureSampleType_Uint,              true,  { $_, $_, $_, $_ } }, // RGBA16U
 		{ WGPUTextureFormat_RGBA16Float,          WGPUTextureFormat_Undefined,           WGPUTextureSampleType_Float,             true,  { $_, $_, $_, $_ } }, // RGBA16F
-		{ WGPUTextureFormat_RGBA16Snorm,          WGPUTextureFormat_Undefined,           WGPUTextureSampleType_Float,             true,  { $_, $_, $_, $_ } }, // RGBA16S
-		{ WGPUTextureFormat_RGBA32Sint,           WGPUTextureFormat_Undefined,           WGPUTextureSampleType_Float,             true,  { $_, $_, $_, $_ } }, // RGBA32I
-		{ WGPUTextureFormat_RGBA32Uint,           WGPUTextureFormat_Undefined,           WGPUTextureSampleType_Float,             true,  { $_, $_, $_, $_ } }, // RGBA32U
+		{ WGPUTextureFormat_RGBA16Snorm,          WGPUTextureFormat_Undefined,           WGPUTextureSampleType_UnfilterableFloat, true,  { $_, $_, $_, $_ } }, // RGBA16S
+		{ WGPUTextureFormat_RGBA32Sint,           WGPUTextureFormat_Undefined,           WGPUTextureSampleType_Sint,              true,  { $_, $_, $_, $_ } }, // RGBA32I
+		{ WGPUTextureFormat_RGBA32Uint,           WGPUTextureFormat_Undefined,           WGPUTextureSampleType_Uint,              true,  { $_, $_, $_, $_ } }, // RGBA32U
 		{ WGPUTextureFormat_RGBA32Float,          WGPUTextureFormat_Undefined,           WGPUTextureSampleType_UnfilterableFloat, false, { $_, $_, $_, $_ } }, // RGBA32F
 		{ WGPUTextureFormat_Undefined,            WGPUTextureFormat_Undefined,           WGPUTextureSampleType_Float,             true,  { $_, $_, $_, $_ } }, // B5G6R5
 		{ WGPUTextureFormat_Undefined,            WGPUTextureFormat_Undefined,           WGPUTextureSampleType_Float,             true,  { $_, $_, $_, $_ } }, // R5G6B5
@@ -561,6 +578,7 @@ namespace bgfx { namespace wgpu
 		{
 			m_core          = isFeatureSupported(WGPUFeatureName_CoreFeaturesAndLimits);
 			m_tier1         = isFeatureSupported(WGPUFeatureName_TextureFormatsTier1);
+			m_tier2         = isFeatureSupported(WGPUFeatureName_TextureFormatsTier2);
 			m_rg11b10Rend   = m_tier1 || isFeatureSupported(WGPUFeatureName_RG11B10UfloatRenderable);
 			m_unorm16       = m_tier1 || isFeatureSupported(WGPUFeatureName_Unorm16TextureFormats);
 			m_bgra8Storage  = isFeatureSupported(WGPUFeatureName_BGRA8UnormStorage);
@@ -574,6 +592,26 @@ namespace bgfx { namespace wgpu
 			if (m_d32fs8)
 			{
 				s_textureFormat[TextureFormat::D24S8].m_fmt = WGPUTextureFormat_Depth32FloatStencil8;
+			}
+
+			static const TextureFormat::Enum s_norm16[] =
+			{
+				TextureFormat::R16,
+				TextureFormat::R16S,
+				TextureFormat::RG16,
+				TextureFormat::RG16S,
+				TextureFormat::RGBA16,
+				TextureFormat::RGBA16S,
+			};
+
+			const WGPUTextureSampleType norm16SampleType = isFeatureSupported(WGPUFeatureName_Unorm16TextureFormats)
+				? WGPUTextureSampleType_Float
+				: WGPUTextureSampleType_UnfilterableFloat
+				;
+
+			for (uint32_t ii = 0; ii < BX_COUNTOF(s_norm16); ++ii)
+			{
+				s_textureFormat[s_norm16[ii] ].m_samplerType = norm16SampleType;
 			}
 		}
 
@@ -736,10 +774,39 @@ namespace bgfx { namespace wgpu
 					 ;
 			}
 
+			bool readWrite = false;
+
+			switch (_fmt)
+			{
+			case TextureFormat::R32I:
+			case TextureFormat::R32U:
+			case TextureFormat::R32F:    readWrite = true; break;
+
+			case TextureFormat::A8:
+			case TextureFormat::R8:
+			case TextureFormat::R8I:
+			case TextureFormat::R8U:
+			case TextureFormat::R16I:
+			case TextureFormat::R16U:
+			case TextureFormat::R16F:
+			case TextureFormat::RGBA8:
+			case TextureFormat::RGBA8I:
+			case TextureFormat::RGBA8U:
+			case TextureFormat::RGBA16I:
+			case TextureFormat::RGBA16U:
+			case TextureFormat::RGBA16F:
+			case TextureFormat::RGBA32I:
+			case TextureFormat::RGBA32U:
+			case TextureFormat::RGBA32F: readWrite = m_tier2; break;
+
+			default:
+				break;
+			}
+
 			if (storage)
 			{
-				caps |= BGFX_CAPS_FORMAT_TEXTURE_IMAGE_READ
-					 |  BGFX_CAPS_FORMAT_TEXTURE_IMAGE_WRITE
+				caps |= BGFX_CAPS_FORMAT_TEXTURE_IMAGE_WRITE
+					 |  (readWrite ? BGFX_CAPS_FORMAT_TEXTURE_IMAGE_READ : 0)
 					 ;
 			}
 
@@ -756,6 +823,7 @@ namespace bgfx { namespace wgpu
 
 		bool m_core;
 		bool m_tier1;
+		bool m_tier2;
 		bool m_rg11b10Rend;
 		bool m_unorm16;
 		bool m_bgra8Storage;
@@ -881,6 +949,9 @@ WGPU_IMPORT
 			, m_instance(NULL)
 			, m_adapter(NULL)
 			, m_device(NULL)
+			, m_backendType(WGPUBackendType_Undefined)
+			, m_callbackMode(WGPUCallbackMode_AllowProcessEvents)
+			, m_diagnostics(BGFX_DIAGNOSTIC_NONE)
 			, m_maxAnisotropy(1)
 			, m_wireframe(false)
 			, m_mipGen(NULL)
@@ -1007,6 +1078,7 @@ WGPU_IMPORT
 			ErrorState::Enum errorState = ErrorState::Default;
 
 //			m_fbh = BGFX_INVALID_HANDLE;
+			m_diagnostics = _init.diagnostics;
 			bx::memSet(&m_mainSwapChain, 0, sizeof(m_mainSwapChain) );
 
 			if (_init.debug
@@ -1020,6 +1092,7 @@ WGPU_IMPORT
 				);
 
 			const bool headless = NULL == _init.swapChain.nwh;
+			const bool externalDevice = NULL != g_platformData.context;
 
 			bool imported = true;
 
@@ -1079,13 +1152,32 @@ WGPU_IMPORT
 #endif // !BX_PLATFORM_EMSCRIPTEN
 
 			{
+				if (externalDevice)
+				{
+					m_device = (WGPUDevice)g_platformData.context;
+					wgpuDeviceAddRef(m_device);
+					errorState = ErrorState::DeviceCreated;
+
+#if !BX_PLATFORM_EMSCRIPTEN
+					m_adapter  = wgpuDeviceGetAdapter(m_device);
+					m_instance = wgpuAdapterGetInstance(m_adapter);
+#else
+					const WGPUInstanceDescriptor instanceDesc = WGPU_INSTANCE_DESCRIPTOR_INIT;
+					m_instance     = wgpuCreateInstance(&instanceDesc);
+					m_callbackMode = WGPUCallbackMode_AllowSpontaneous;
+#endif // !BX_PLATFORM_EMSCRIPTEN
+
+					if (NULL == m_instance)
+					{
+						BX_TRACE("Failed to get instance of external device!");
+						goto error;
+					}
+				}
+				else
 				{
 					WGPUInstanceFeatureName requiredFeatures[] =
 					{
 						WGPUInstanceFeatureName_TimedWaitAny,
-#if !BX_PLATFORM_EMSCRIPTEN
-						WGPUInstanceFeatureName_ShaderSourceSPIRV,
-#endif // !BX_PLATFORM_EMSCRIPTEN
 					};
 
 					WGPUInstanceDescriptor instanceDesc =
@@ -1107,6 +1199,7 @@ WGPU_IMPORT
 					errorState = ErrorState::InstanceCreated;
 				}
 
+				if (!externalDevice)
 				{
 					WGPURequestAdapterOptions rao =
 					{
@@ -1114,7 +1207,7 @@ WGPU_IMPORT
 						.featureLevel         = WGPUFeatureLevel_Undefined,
 						.powerPreference      = WGPUPowerPreference_HighPerformance,
 						.forceFallbackAdapter = false,
-						.backendType          = WGPUBackendType_Undefined,
+						.backendType          = s_wgpuBackendType[_init.backendType],
 						.compatibleSurface    = NULL,
 					};
 
@@ -1178,7 +1271,15 @@ WGPU_IMPORT
 					BX_TRACE("");
 
 					WGPUSupportedFeatures supportedFeatures;
-					wgpuAdapterGetFeatures(m_adapter, &supportedFeatures);
+
+					if (externalDevice)
+					{
+						wgpuDeviceGetFeatures(m_device, &supportedFeatures);
+					}
+					else
+					{
+						wgpuAdapterGetFeatures(m_adapter, &supportedFeatures);
+					}
 
 					BX_TRACE("Supported features (%d):", supportedFeatures.featureCount);
 
@@ -1210,7 +1311,10 @@ WGPU_IMPORT
 					BX_TRACE("");
 
 					wgpuSupportedFeaturesFreeMembers(supportedFeatures);
+				}
 
+				if (!externalDevice)
+				{
 					WGPUFeatureName requiredFeatures[] =
 					{
 						ifSupported(WGPUFeatureName_TimestampQuery),
@@ -1389,7 +1493,7 @@ WGPU_IMPORT
 					WGPUStatus status;
 
 					WGPUAdapterInfo adapterInfo = WGPU_ADAPTER_INFO_INIT;
-					status = wgpuAdapterGetInfo(m_adapter, &adapterInfo);
+					status = wgpuDeviceGetAdapterInfo(m_device, &adapterInfo);
 
 					if (WGPUStatus_Success == status)
 					{
@@ -1418,6 +1522,8 @@ WGPU_IMPORT
 							, s_adapterType[bx::min<uint32_t>(adapterInfo.adapterType, BX_COUNTOF(s_adapterType)-1)]
 							);
 
+						m_backendType = adapterInfo.backendType;
+
 						g_caps.vendorId = bx::narrowCast<uint16_t>(adapterInfo.vendorID);
 						g_caps.deviceId = bx::narrowCast<uint16_t>(adapterInfo.deviceID);
 					}
@@ -1425,7 +1531,7 @@ WGPU_IMPORT
 					BX_TRACE("");
 
 					m_limits = WGPU_LIMITS_INIT;
-					status = wgpuAdapterGetLimits(m_adapter, &m_limits);
+					status = wgpuDeviceGetLimits(m_device, &m_limits);
 
 					if (WGPUStatus_Success == status)
 					{
@@ -1485,6 +1591,7 @@ WGPU_IMPORT
 							| BGFX_CAPS_RENDERER_MULTITHREADED
 							| BGFX_CAPS_SWAP_CHAIN
 							| BGFX_CAPS_TEXTURE_CUBE_ARRAY
+							| BGFX_CAPS_TRANSPARENT_BACKBUFFER
 							| (isFeatureSupported(WGPUFeatureName_ShaderF16) ? BGFX_CAPS_SHADER_F16 : 0)
 							;
 
@@ -1526,6 +1633,11 @@ WGPU_IMPORT
 					{
 						m_backBuffer.create(UINT16_MAX, m_mainSwapChain);
 
+						if (!m_backBuffer.m_swapChain.m_premultipliedAlpha)
+						{
+							g_caps.supported &= ~BGFX_CAPS_TRANSPARENT_BACKBUFFER;
+						}
+
 						m_windows[0] = BGFX_INVALID_HANDLE;
 						m_numWindows++;
 
@@ -1542,6 +1654,7 @@ WGPU_IMPORT
 				}
 			}
 
+			g_internalData.context = m_device;
 			return true;
 
 		error:
@@ -4206,6 +4319,7 @@ WGPU_IMPORT
 							const WGPUTextureViewDimension viewDimension = _isCompute
 								&& Binding::Image == bind.m_type
 								&& UINT16_MAX != bind.m_numLayers
+								&& WGPUTextureViewDimension_3D != texture.m_viewDimension
 								? WGPUTextureViewDimension_2DArray
 								: shaderBind.viewDimension
 								;
@@ -4520,6 +4634,9 @@ WGPU_IMPORT
 
 		bx::FixedString256 m_webgpuInfo;
 		WGPULimits         m_limits;
+		WGPUBackendType    m_backendType;
+		WGPUCallbackMode   m_callbackMode;
+		uint32_t           m_diagnostics;
 
 		uint32_t         m_maxFrameLatency;
 		CommandQueueWGPU m_cmd;
@@ -5169,13 +5286,19 @@ WGPU_IMPORT
 				ShaderBinding& shaderBind = m_shaderBinding[stage];
 				shaderBind.clear();
 
-				if (isValid(m_vsh->m_shaderBinding[stage].uniformHandle) )
+				const bool vertex   = isValid(m_vsh->m_shaderBinding[stage].uniformHandle);
+				const bool fragment = isValid(m_fsh->m_shaderBinding[stage].uniformHandle);
+
+				if (vertex)
 				{
 					shaderBind = m_vsh->m_shaderBinding[stage];
-					shaderBind.shaderStage = WGPUShaderStage_Vertex;
+					shaderBind.shaderStage = fragment
+						? WGPUShaderStage_Vertex | WGPUShaderStage_Fragment
+						: WGPUShaderStage_Vertex
+						;
 					numBindings += getNumBindGroupEntries(shaderBind);
 				}
-				else if (NULL != m_fsh && isValid(m_fsh->m_shaderBinding[stage].uniformHandle) )
+				else if (fragment)
 				{
 					shaderBind = m_fsh->m_shaderBinding[stage];
 					shaderBind.shaderStage = WGPUShaderStage_Fragment;
@@ -5729,7 +5852,13 @@ WGPU_IMPORT
 			) & (BGFX_SAMPLER_BITS_MASK | BGFX_SAMPLER_BORDER_COLOR_MASK | BGFX_SAMPLER_COMPARE_MASK)
 			;
 
-		if (WGPUTextureSampleType_UnfilterableFloat == s_textureFormat[m_textureFormat].m_samplerType
+		const WGPUTextureSampleType sampleType = s_textureFormat[m_textureFormat].m_samplerType;
+
+		if ( (false
+			|| WGPUTextureSampleType_UnfilterableFloat == sampleType
+			|| WGPUTextureSampleType_Uint              == sampleType
+			|| WGPUTextureSampleType_Sint              == sampleType
+			)
 		&&  0 == (samplerFlags & BGFX_SAMPLER_COMPARE_MASK) )
 		{
 			samplerFlags &= ~(BGFX_SAMPLER_MIN_MASK |BGFX_SAMPLER_MAG_MASK |BGFX_SAMPLER_MIP_MASK);
@@ -5746,9 +5875,10 @@ WGPU_IMPORT
 
 		WGPUSampler sampler = s_renderWGPU->m_samplerStateCache.find(key);
 
-		const bool disableAniso = true
-			&& (BGFX_SAMPLER_MIN_POINT == (samplerFlags&BGFX_SAMPLER_MIN_POINT) )
-			&& (BGFX_SAMPLER_MAG_POINT == (samplerFlags&BGFX_SAMPLER_MAG_POINT) )
+		const bool disableAniso = false
+			|| (BGFX_SAMPLER_MIN_POINT == (samplerFlags&BGFX_SAMPLER_MIN_MASK) )
+			|| (BGFX_SAMPLER_MAG_POINT == (samplerFlags&BGFX_SAMPLER_MAG_MASK) )
+			|| (BGFX_SAMPLER_MIP_POINT == (samplerFlags&BGFX_SAMPLER_MIP_MASK) )
 			;
 
 		if (NULL == sampler)
@@ -5842,12 +5972,16 @@ WGPU_IMPORT
 				}
 			}
 
-			if (WGPUTextureViewDimension_2D == tvd)
+			if (WGPUTextureViewDimension_2D == tvd
+			||  WGPUTextureViewDimension_3D == tvd)
 			{
 				arrayLayerCount = 1;
 			}
 
-			uint32_t baseArrayLayer = _baseArrayLayer;
+			uint32_t baseArrayLayer = WGPUTextureViewDimension_3D == tvd
+				? 0
+				: _baseArrayLayer
+				;
 
 			if (WGPUTextureViewDimension_Cube      == tvd
 			||  WGPUTextureViewDimension_CubeArray == tvd)
@@ -6008,6 +6142,23 @@ WGPU_IMPORT
 
 		m_readable = 0 != (surfaceCaps.usages & WGPUTextureUsage_CopySrc);
 
+		m_premultipliedAlpha = false;
+
+		const bool hwndIgnoresAlpha = false
+			|| WGPUBackendType_D3D11 == s_renderWGPU->m_backendType
+			|| WGPUBackendType_D3D12 == s_renderWGPU->m_backendType
+			;
+
+		for (uint32_t ii = 0; ii < surfaceCaps.alphaModeCount && !hwndIgnoresAlpha; ++ii)
+		{
+			m_premultipliedAlpha |= WGPUCompositeAlphaMode_Premultiplied == surfaceCaps.alphaModes[ii];
+		}
+
+		const bool transparent = true
+			&& m_premultipliedAlpha
+			&& 0 != (m_desc.flags & BGFX_SWAP_CHAIN_TRANSPARENT_BACKBUFFER)
+			;
+
 		m_viewFormat = 0 != (m_desc.flags & BGFX_SWAP_CHAIN_SRGB_BACKBUFFER)
 			? srgbFormat(format)
 			: format
@@ -6018,14 +6169,18 @@ WGPU_IMPORT
 			.nextInChain     = NULL,
 			.device          = s_renderWGPU->m_device,
 			.format          = format,
-			.usage           = WGPUTextureUsage_RenderAttachment
+			.usage           = 0
+				| WGPUTextureUsage_RenderAttachment
 				| (m_readable ? WGPUTextureUsage_CopySrc : 0)
 				,
 			.width           = m_desc.width,
 			.height          = m_desc.height,
 			.viewFormatCount = format != m_viewFormat ? 1u : 0u,
 			.viewFormats     = format != m_viewFormat ? &m_viewFormat : NULL,
-			.alphaMode       = WGPUCompositeAlphaMode_Auto,
+			.alphaMode       = transparent
+				? WGPUCompositeAlphaMode_Premultiplied
+				: WGPUCompositeAlphaMode_Auto
+				,
 			.presentMode     = WGPUPresentMode_Fifo,
 		};
 
@@ -6642,6 +6797,7 @@ WGPU_IMPORT
 
 	void CommandQueueWGPU::shutdown()
 	{
+		wait();
 		wgpuRelease(m_queue);
 	}
 
@@ -6654,7 +6810,11 @@ WGPU_IMPORT
 	{
 //		BX_ASSERT(WGPUQueueWorkDoneStatus_Success == _status, "%d", _status);
 		BX_UNUSED(_status, _message, _userdata1, _userdata2);
-		s_renderWGPU->m_cmd.m_counter--;
+
+		if (NULL != s_renderWGPU)
+		{
+			s_renderWGPU->m_cmd.m_counter--;
+		}
 	}
 
 	WGPUCommandEncoder CommandQueueWGPU::alloc()
@@ -6683,7 +6843,7 @@ WGPU_IMPORT
 			  m_queue
 			, {
 				.nextInChain = NULL,
-				.mode        = WGPUCallbackMode_AllowProcessEvents,
+				.mode        = s_renderWGPU->m_callbackMode,
 				.callback    = queueWorkDoneCb,
 				.userdata1   = (void*)uintptr_t(m_counter),
 				.userdata2   = NULL,
@@ -6695,6 +6855,11 @@ WGPU_IMPORT
 	#if !BX_PLATFORM_EMSCRIPTEN
 		WGPU_CHECK(wgpuInstanceProcessEvents(s_renderWGPU->m_instance) );
 	#endif // !BX_PLATFORM_EMSCRIPTEN
+
+		if (0 != (s_renderWGPU->m_diagnostics & BGFX_DIAGNOSTIC_SERIALIZE) )
+		{
+			wait();
+		}
 
 		m_commandEncoder = WGPU_CHECK(wgpuDeviceCreateCommandEncoder(s_renderWGPU->m_device, NULL) );
 	}
@@ -6780,7 +6945,7 @@ WGPU_IMPORT
 			.nextInChain = NULL,
 			.label       = toWGPUStringView("TimerQuery"),
 			.type        = WGPUQueryType_Timestamp,
-			.count       = m_numQueries*2,
+			.count       = m_numQueries*2 + 1,
 		};
 
 		m_querySet = WGPU_CHECK(wgpuDeviceCreateQuerySet(device, &querySetDesc) );
@@ -6848,7 +7013,7 @@ WGPU_IMPORT
 			.nextInChain               = NULL,
 			.querySet                  = m_querySet,
 			.beginningOfPassWriteIndex = _index,
-			.endOfPassWriteIndex       = WGPU_QUERY_SET_INDEX_UNDEFINED,
+			.endOfPassWriteIndex       = m_numQueries*2,
 		};
 
 		const WGPUComputePassDescriptor computePassDesc =
@@ -6956,7 +7121,7 @@ WGPU_IMPORT
 			, size_t(getBufferSize() )
 			, {
 				.nextInChain = NULL,
-				.mode        = WGPUCallbackMode_AllowProcessEvents,
+				.mode        = s_renderWGPU->m_callbackMode,
 				.callback    = readTimestampResultsCb,
 				.userdata1   = this,
 				.userdata2   = NULL,
@@ -7118,7 +7283,7 @@ WGPU_IMPORT
 				, kOcclusionQueryBufferSize
 				, {
 					.nextInChain = NULL,
-					.mode        = WGPUCallbackMode_AllowProcessEvents,
+					.mode        = s_renderWGPU->m_callbackMode,
 					.callback    = readQueryResultsCb,
 					.userdata1   = this,
 					.userdata2   = _frame,
@@ -7136,7 +7301,8 @@ WGPU_IMPORT
 			, kOcclusionQueryBufferSize
 			) );
 
-		while (0 < m_control.getNumUsed() )
+		while (NULL != result
+		&&     0 < m_control.getNumUsed() )
 		{
 			OcclusionQueryHandle handle = m_handle[m_control.m_read];
 			if (isValid(handle) )
