@@ -399,6 +399,7 @@ BX_PRAGMA_DIAGNOSTIC_POP();
 			m_apple7   = _device->supportsFamily(MTL::GPUFamilyApple7);
 			m_mac2     = _device->supportsFamily(MTL::GPUFamilyMac2);
 			m_bc       = _device->supportsBCTextureCompression();
+			m_filter32 = _device->supports32BitFloatFiltering();
 			m_packed16 = _hasPacked16Formats;
 			m_d32fs8   = _hasDepth32FloatStencil8;
 			m_rwTier   = _device->readWriteTextureSupport();
@@ -418,6 +419,7 @@ BX_PRAGMA_DIAGNOSTIC_POP();
 			bool multisample = false;
 			bool storage     = false;
 			bool supports3D  = false;
+			bool autoMipmap  = tfi.autoGetMipmap;
 
 			switch (_fmt)
 			{
@@ -532,6 +534,7 @@ BX_PRAGMA_DIAGNOSTIC_POP();
 				multisample = m_mac2 || m_apple7;
 				storage     = true;
 				supports3D  = true;
+				autoMipmap  = m_filter32;
 				break;
 
 			case TextureFormat::RGBA32F:
@@ -541,6 +544,7 @@ BX_PRAGMA_DIAGNOSTIC_POP();
 				multisample = m_mac2;
 				storage     = true;
 				supports3D  = true;
+				autoMipmap  = m_filter32;
 				break;
 
 			case TextureFormat::R32I:
@@ -577,6 +581,7 @@ BX_PRAGMA_DIAGNOSTIC_POP();
 				framebuffer = m_apple;
 				multisample = m_apple;
 				supports3D  = true;
+				autoMipmap  = m_apple;
 				break;
 
 			case TextureFormat::B5G6R5:
@@ -667,7 +672,7 @@ BX_PRAGMA_DIAGNOSTIC_POP();
 					;
 			}
 
-			if (tfi.autoGetMipmap)
+			if (autoMipmap)
 			{
 				caps |= BGFX_CAPS_FORMAT_TEXTURE_MIP_AUTOGEN;
 			}
@@ -692,6 +697,7 @@ BX_PRAGMA_DIAGNOSTIC_POP();
 		bool m_apple7;
 		bool m_mac2;
 		bool m_bc;
+		bool m_filter32;
 		bool m_packed16;
 		bool m_d32fs8;
 		MTL::ReadWriteTextureTier m_rwTier;
@@ -1009,6 +1015,7 @@ static_assert(BX_COUNTOF(s_accessNames) == Access::Count, "Invalid s_accessNames
 				| BGFX_CAPS_SHADER_F16
 				| BGFX_CAPS_SWAP_CHAIN
 				| BGFX_CAPS_TEXTURE_EXTERNAL
+				| BGFX_CAPS_TRANSPARENT_BACKBUFFER
 				| BGFX_CAPS_VERTEX_ATTRIB_UINT10
 				);
 
@@ -1889,7 +1896,7 @@ static_assert(BX_COUNTOF(s_accessNames) == Access::Count, "Invalid s_accessNames
 		{
 			BX_UNUSED(_len);
 
-			if (BX_ENABLED(BGFX_CONFIG_DEBUG_ANNOTATION) )
+			if constexpr (BX_ENABLED(BGFX_CONFIG_DEBUG_ANNOTATION) )
 			{
 				m_renderCommandEncoder->insertDebugSignpost(nsstr(_marker) );
 			}
@@ -5153,6 +5160,8 @@ static_assert(BX_COUNTOF(s_accessNames) == Access::Count, "Invalid s_accessNames
 
 	SwapChainMtl::~SwapChainMtl()
 	{
+		releaseTransparent();
+
 		MTL_RELEASE(m_metalLayer, 2);
 		MTL_RELEASE_DEFERRED(m_drawable);
 
@@ -5199,8 +5208,72 @@ static_assert(BX_COUNTOF(s_accessNames) == Access::Count, "Invalid s_accessNames
 #endif // BX_PLATFORM_OSX
 	}
 
+#if BX_PLATFORM_OSX
+	static void setWindowTransparent(void* _nwh, bool _transparent)
+	{
+		if (NULL == _nwh
+		||  !MtlObjAccess::send<bool>(_nwh, sel_registerName("isKindOfClass:"), objc_lookUpClass("NSWindow") ) )
+		{
+			return;
+		}
+
+		if (_transparent)
+		{
+			retain( (NS::Object*)_nwh);
+		}
+
+		void (^setTransparent)(void) =
+		^{
+			Class nsColorClass = objc_lookUpClass("NSColor");
+
+			MtlObjAccess::send<void>(_nwh, sel_registerName("setOpaque:"), !_transparent);
+			MtlObjAccess::send<void>(_nwh, sel_registerName("setBackgroundColor:"), MtlObjAccess::send<void*>(
+				  nsColorClass
+				, sel_registerName(_transparent ? "clearColor" : "windowBackgroundColor")
+				) );
+
+			if (!_transparent)
+			{
+				release( (NS::Object*)_nwh);
+			}
+		};
+
+		if (MtlObjAccess::send<bool>(objc_lookUpClass("NSThread"), sel_registerName("isMainThread") ) )
+		{
+			setTransparent();
+		}
+		else
+		{
+			CFRunLoopRef mainRunLoop = CFRunLoopGetMain();
+			CFRunLoopPerformBlock(mainRunLoop, kCFRunLoopCommonModes, setTransparent);
+			CFRunLoopWakeUp(mainRunLoop);
+		}
+	}
+#endif // BX_PLATFORM_OSX
+
+	void SwapChainMtl::releaseTransparent()
+	{
+		if (!m_transparent)
+		{
+			return;
+		}
+
+		m_transparent = false;
+
+		if (NULL != m_metalLayer)
+		{
+			MtlObjAccess::send<void>(m_metalLayer, sel_registerName("setOpaque:"), true);
+		}
+
+#if BX_PLATFORM_OSX
+		setWindowTransparent(m_nwh, false);
+#endif // BX_PLATFORM_OSX
+	}
+
 	void SwapChainMtl::init(void* _nwh)
 	{
+		releaseTransparent();
+
 		{
 			MTL_RELEASE(m_metalLayer, 2);
 
@@ -5395,6 +5468,19 @@ static_assert(BX_COUNTOF(s_accessNames) == Access::Count, "Invalid s_accessNames
 				}
 
 				m_hdr10 = hdr10;
+			}
+
+			const bool transparent = 0 != (_desc.flags & BGFX_SWAP_CHAIN_TRANSPARENT_BACKBUFFER);
+
+			MtlObjAccess::send<void>(m_metalLayer, sel_registerName("setOpaque:"), !transparent);
+
+			if (transparent != m_transparent)
+			{
+				m_transparent = transparent;
+
+#if BX_PLATFORM_OSX
+				setWindowTransparent(m_nwh, transparent);
+#endif // BX_PLATFORM_OSX
 			}
 
 			const CGSize actualSize = m_metalLayer->drawableSize();
@@ -6877,12 +6963,12 @@ static_assert(BX_COUNTOF(s_accessNames) == Access::Count, "Invalid s_accessNames
 
 							MTL_RELEASE(renderPassDescriptor, 0);
 						}
-						else if (BX_ENABLED(BGFX_CONFIG_DEBUG_ANNOTATION) )
+						else if constexpr (BX_ENABLED(BGFX_CONFIG_DEBUG_ANNOTATION) )
 						{
 							rce->popDebugGroup();
 						}
 
-						if (BX_ENABLED(BGFX_CONFIG_DEBUG_ANNOTATION) )
+						if constexpr (BX_ENABLED(BGFX_CONFIG_DEBUG_ANNOTATION) )
 						{
 							rce->pushDebugGroup(nsstr(viewName) );
 						}
@@ -7623,7 +7709,7 @@ static_assert(BX_COUNTOF(s_accessNames) == Access::Count, "Invalid s_accessNames
 			}
 		}
 
-		if (BX_ENABLED(BGFX_CONFIG_DEBUG_ANNOTATION) )
+		if constexpr (BX_ENABLED(BGFX_CONFIG_DEBUG_ANNOTATION) )
 		{
 			if (0 < _render->m_numRenderItems)
 			{

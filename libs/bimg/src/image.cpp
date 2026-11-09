@@ -1600,9 +1600,9 @@ namespace bimg
 		return uint8_t(result.u32);
 	}
 
-	static void decodeBlockDxt(uint8_t _dst[16*4], const uint8_t _src[8])
+	[[maybe_unused]] static void decodeBlockDxt(uint8_t _dst[16*4], const uint8_t _src[8])
 	{
-		if (!BX_ENABLED(BIMG_CONFIG_DECODE_BC2 || BIMG_CONFIG_DECODE_BC3) )
+		if constexpr (!BX_ENABLED(BIMG_CONFIG_DECODE_BC2 || BIMG_CONFIG_DECODE_BC3) )
 		{
 			return;
 		}
@@ -1636,9 +1636,9 @@ namespace bimg
 		}
 	}
 
-	static void decodeBlockDxt1(uint8_t _dst[16*4], const uint8_t _src[8])
+	[[maybe_unused]] static void decodeBlockDxt1(uint8_t _dst[16*4], const uint8_t _src[8])
 	{
-		if (!BX_ENABLED(BIMG_CONFIG_DECODE_BC1 || BIMG_CONFIG_DECODE_BC2 || BIMG_CONFIG_DECODE_BC3) )
+		if constexpr (!BX_ENABLED(BIMG_CONFIG_DECODE_BC1 || BIMG_CONFIG_DECODE_BC2 || BIMG_CONFIG_DECODE_BC3) )
 		{
 			return;
 		}
@@ -1694,7 +1694,7 @@ namespace bimg
 
 	static void decodeBlockDxt23A(uint8_t _dst[16*4], const uint8_t _src[8])
 	{
-		if (!BX_ENABLED(BIMG_CONFIG_DECODE_BC2) )
+		if constexpr (!BX_ENABLED(BIMG_CONFIG_DECODE_BC2) )
 		{
 			return;
 		}
@@ -1708,7 +1708,7 @@ namespace bimg
 
 	static void decodeBlockDxt45A(uint8_t _dst[16*4], const uint8_t _src[8])
 	{
-		if (!BX_ENABLED(BIMG_CONFIG_DECODE_BC3 || BIMG_CONFIG_DECODE_BC4 || BIMG_CONFIG_DECODE_BC5) )
+		if constexpr (!BX_ENABLED(BIMG_CONFIG_DECODE_BC3 || BIMG_CONFIG_DECODE_BC4 || BIMG_CONFIG_DECODE_BC5) )
 		{
 			return;
 		}
@@ -2088,7 +2088,7 @@ namespace bimg
 
 	static void decodeBlockBc6h(uint16_t _dst[16*3], const uint8_t _src[16], bool _signed)
 	{
-		if (!BX_ENABLED(BIMG_CONFIG_DECODE_BC6) )
+		if constexpr (!BX_ENABLED(BIMG_CONFIG_DECODE_BC6) )
 		{
 			return;
 		}
@@ -2513,7 +2513,7 @@ namespace bimg
 
 	static void decodeBlockBc6h(float _dst[16*4], const uint8_t _src[16])
 	{
-		if (!BX_ENABLED(BIMG_CONFIG_DECODE_BC6) )
+		if constexpr (!BX_ENABLED(BIMG_CONFIG_DECODE_BC6) )
 		{
 			return;
 		}
@@ -2564,9 +2564,9 @@ namespace bimg
 		{ 2, 6, 0, 0, 5, 5, 1, 0, { 2, 0 } }, // 7
 	};
 
-	static void decodeBlockBc7(uint8_t _dst[16*4], const uint8_t _src[16])
+	[[maybe_unused]] static void decodeBlockBc7(uint8_t _dst[16*4], const uint8_t _src[16])
 	{
-		if (!BX_ENABLED(BIMG_CONFIG_DECODE_BC7) )
+		if constexpr (!BX_ENABLED(BIMG_CONFIG_DECODE_BC7) )
 		{
 			return;
 		}
@@ -2762,7 +2762,7 @@ namespace bimg
 	//
 	static void decodeBlockATC(uint8_t _dst[16*4], const uint8_t _src[8])
 	{
-		if (!BX_ENABLED(BIMG_CONFIG_DECODE_ATC) )
+		if constexpr (!BX_ENABLED(BIMG_CONFIG_DECODE_ATC) )
 		{
 			return;
 		}
@@ -3073,9 +3073,9 @@ namespace bimg
 		}
 	}
 
-	static void decodeBlockEtc12(uint8_t _dst[16*4], const uint8_t _src[8])
+	[[maybe_unused]] static void decodeBlockEtc12(uint8_t _dst[16*4], const uint8_t _src[8])
 	{
-		if (!BX_ENABLED(BIMG_CONFIG_DECODE_ETC1 || BIMG_CONFIG_DECODE_ETC2) )
+		if constexpr (!BX_ENABLED(BIMG_CONFIG_DECODE_ETC1 || BIMG_CONFIG_DECODE_ETC2) )
 		{
 			return;
 		}
@@ -3227,9 +3227,9 @@ namespace bimg
 		}
 	}
 
-	static void decodeBlockEtc2Rgb8A1(uint8_t _dst[16*4], const uint8_t _src[8])
+	[[maybe_unused]] static void decodeBlockEtc2Rgb8A1(uint8_t _dst[16*4], const uint8_t _src[8])
 	{
-		if (!BX_ENABLED(BIMG_CONFIG_DECODE_ETC2) )
+		if constexpr (!BX_ENABLED(BIMG_CONFIG_DECODE_ETC2) )
 		{
 			return;
 		}
@@ -3356,7 +3356,7 @@ namespace bimg
 
 	void decodeBlockEtc2Alpha(uint8_t _dst[16 * 4], const uint8_t _src[8])
 	{
-		if (!BX_ENABLED(BIMG_CONFIG_DECODE_ETC2))
+		if constexpr (!BX_ENABLED(BIMG_CONFIG_DECODE_ETC2))
 		{
 			return;
 		}
@@ -3383,7 +3383,7 @@ namespace bimg
 	template<bool SignedT>
 	static void decodeBlockEac(uint8_t _dst[16*4], const uint8_t _src[8], uint32_t _byteOffset)
 	{
-		if (!BX_ENABLED(BIMG_CONFIG_DECODE_ETC2) )
+		if constexpr (!BX_ENABLED(BIMG_CONFIG_DECODE_ETC2) )
 		{
 			return;
 		}
@@ -6090,7 +6090,7 @@ namespace bimg
 		switch (_srcFormat)
 		{
 		case TextureFormat::BC1:
-			if (BX_ENABLED(BIMG_CONFIG_DECODE_BC1) )
+			if constexpr (BX_ENABLED(BIMG_CONFIG_DECODE_BC1) )
 			{
 				for (uint32_t yy = 0; yy < height; ++yy)
 				{
@@ -6111,7 +6111,7 @@ namespace bimg
 			break;
 
 		case TextureFormat::BC2:
-			if (BX_ENABLED(BIMG_CONFIG_DECODE_BC2) )
+			if constexpr (BX_ENABLED(BIMG_CONFIG_DECODE_BC2) )
 			{
 				for (uint32_t yy = 0; yy < height; ++yy)
 				{
@@ -6134,7 +6134,7 @@ namespace bimg
 			break;
 
 		case TextureFormat::BC3:
-			if (BX_ENABLED(BIMG_CONFIG_DECODE_BC3) )
+			if constexpr (BX_ENABLED(BIMG_CONFIG_DECODE_BC3) )
 			{
 				for (uint32_t yy = 0; yy < height; ++yy)
 				{
@@ -6158,7 +6158,7 @@ namespace bimg
 
 		case TextureFormat::BC4:
 		case TextureFormat::BC4S:
-			if (BX_ENABLED(BIMG_CONFIG_DECODE_BC4) )
+			if constexpr (BX_ENABLED(BIMG_CONFIG_DECODE_BC4) )
 			{
 				for (uint32_t yy = 0; yy < height; ++yy)
 				{
@@ -6187,7 +6187,7 @@ namespace bimg
 
 		case TextureFormat::BC5:
 		case TextureFormat::BC5S:
-			if (BX_ENABLED(BIMG_CONFIG_DECODE_BC5) )
+			if constexpr (BX_ENABLED(BIMG_CONFIG_DECODE_BC5) )
 			{
 				for (uint32_t yy = 0; yy < height; ++yy)
 				{
@@ -6217,7 +6217,7 @@ namespace bimg
 
 		case TextureFormat::BC6H:
 		case TextureFormat::BC6HU:
-			if (BX_ENABLED(BIMG_CONFIG_DECODE_BC6) )
+			if constexpr (BX_ENABLED(BIMG_CONFIG_DECODE_BC6) )
 			{
 				ImageContainer* rgba32f = imageAlloc(_allocator
 					, TextureFormat::RGBA32F
@@ -6243,7 +6243,7 @@ namespace bimg
 			break;
 
 		case TextureFormat::BC7:
-			if (BX_ENABLED(BIMG_CONFIG_DECODE_BC7) )
+			if constexpr (BX_ENABLED(BIMG_CONFIG_DECODE_BC7) )
 			{
 				for (uint32_t yy = 0; yy < height; ++yy)
 				{
@@ -6265,7 +6265,7 @@ namespace bimg
 
 		case TextureFormat::ETC1:
 		case TextureFormat::ETC2:
-			if (BX_ENABLED(BIMG_CONFIG_DECODE_ETC1 || BIMG_CONFIG_DECODE_ETC2) )
+			if constexpr (BX_ENABLED(BIMG_CONFIG_DECODE_ETC1 || BIMG_CONFIG_DECODE_ETC2) )
 			{
 				for (uint32_t yy = 0; yy < height; ++yy)
 				{
@@ -6286,7 +6286,7 @@ namespace bimg
 			break;
 
 		case TextureFormat::ETC2A:
-			if (BX_ENABLED(BIMG_CONFIG_DECODE_ETC2))
+			if constexpr (BX_ENABLED(BIMG_CONFIG_DECODE_ETC2))
 			{
 				for (uint32_t yy = 0; yy < height; ++yy)
 				{
@@ -6309,7 +6309,7 @@ namespace bimg
 			break;
 
 		case TextureFormat::ETC2A1:
-			if (BX_ENABLED(BIMG_CONFIG_DECODE_ETC2) )
+			if constexpr (BX_ENABLED(BIMG_CONFIG_DECODE_ETC2) )
 			{
 				for (uint32_t yy = 0; yy < height; ++yy)
 				{
@@ -6331,7 +6331,7 @@ namespace bimg
 
 		case TextureFormat::EACR11:
 		case TextureFormat::EACR11S:
-			if (BX_ENABLED(BIMG_CONFIG_DECODE_ETC2) )
+			if constexpr (BX_ENABLED(BIMG_CONFIG_DECODE_ETC2) )
 			{
 				const bool sign = TextureFormat::EACR11S == _srcFormat;
 
@@ -6371,7 +6371,7 @@ namespace bimg
 
 		case TextureFormat::EACRG11:
 		case TextureFormat::EACRG11S:
-			if (BX_ENABLED(BIMG_CONFIG_DECODE_ETC2) )
+			if constexpr (BX_ENABLED(BIMG_CONFIG_DECODE_ETC2) )
 			{
 				const bool sign = TextureFormat::EACRG11S == _srcFormat;
 
@@ -7088,6 +7088,61 @@ namespace bimg
 		return total;
 	}
 
+	struct ImageWriteFormat
+	{
+		TextureFormat::Enum m_format;
+		uint8_t m_bytes;
+		uint8_t m_bgr[3];
+		uint8_t m_rgba[4];
+	};
+
+	static const ImageWriteFormat* imageWriteFormat(TextureFormat::Enum _format)
+	{
+		static const ImageWriteFormat s_formats[] =
+		{
+			{ TextureFormat::R8,    1, { 0, 0, 0 }, { 0, 0, 0, 0 } },
+			{ TextureFormat::RGBA8, 4, { 2, 1, 0 }, { 0, 1, 2, 3 } },
+			{ TextureFormat::BGRA8, 4, { 0, 1, 2 }, { 2, 1, 0, 3 } },
+		};
+
+		for (const ImageWriteFormat& format : s_formats)
+		{
+			if (format.m_format == _format)
+			{
+				return &format;
+			}
+		}
+
+		return NULL;
+	}
+
+	static int32_t writeTexels(bx::WriterI* _writer, const uint8_t* _src, uint32_t _width, uint32_t _srcBytes, const uint8_t* _channels, uint32_t _numChannels, bx::Error* _err)
+	{
+		constexpr uint32_t kBatch = 256;
+		uint8_t batch[kBatch*4];
+
+		int32_t total = 0;
+
+		for (uint32_t left = _width; 0 < left && _err->isOk(); )
+		{
+			const uint32_t count = bx::min(left, kBatch);
+			uint8_t* dst = batch;
+
+			for (uint32_t xx = 0; xx < count; ++xx, _src += _srcBytes)
+			{
+				for (uint32_t cc = 0; cc < _numChannels; ++cc)
+				{
+					*dst++ = _src[_channels[cc] ];
+				}
+			}
+
+			total += bx::write(_writer, batch, int32_t(count*_numChannels), _err);
+			left  -= count;
+		}
+
+		return total;
+	}
+
 	template<typename Ty>
 	class HashWriter : public bx::WriterI
 	{
@@ -7123,16 +7178,20 @@ namespace bimg
 	{
 		BX_ERROR_SCOPE(_err);
 
-		switch (_format)
-		{
-		case TextureFormat::R8:
-		case TextureFormat::RGBA8:
-		case TextureFormat::BGRA8:
-			break;
+		const ImageWriteFormat* format = imageWriteFormat(_format);
 
-		default:
+		if (NULL == format)
+		{
 			BX_ERROR_SET(_err, BIMG_ERROR, "PNG: Unsupported texture format.");
 			return 0;
+		}
+
+		const int32_t written = imageEncodeWic(_writer, WicContainer::Png, _width, _height, _srcPitch, _src, _format, _yflip, _err);
+
+		if (0 != written
+		||  !_err->isOk() )
+		{
+			return written;
 		}
 
 		const bool grayscale = TextureFormat::R8    == _format;
@@ -7146,7 +7205,8 @@ namespace bimg
 		total += bx::write(&writerC, "IHDR", _err);
 		total += bx::write(&writerC, bx::toBigEndian(_width),  _err);
 		total += bx::write(&writerC, bx::toBigEndian(_height), _err);
-		total += bx::write(&writerC, "\x08\x06", _err);
+		total += bx::write(&writerC, uint8_t(8), _err);
+		total += bx::write(&writerC, uint8_t(grayscale ? 0 : 6), _err);
 		total += bx::writeRep(&writerC, 0, 3, _err);
 		total += bx::write(_writer, bx::toBigEndian(writerC.end() ), _err);
 
@@ -7181,18 +7241,7 @@ namespace bimg
 
 			if (bgra)
 			{
-				for (uint32_t xx = 0; xx < _width; ++xx)
-				{
-					const uint8_t* texel = &data[xx*4];
-					const uint8_t bb = texel[0];
-					const uint8_t gg = texel[1];
-					const uint8_t rr = texel[2];
-					const uint8_t aa = texel[3];
-					total += bx::write(&writerA, rr, _err);
-					total += bx::write(&writerA, gg, _err);
-					total += bx::write(&writerA, bb, _err);
-					total += bx::write(&writerA, aa, _err);
-				}
+				total += writeTexels(&writerA, data, _width, format->m_bytes, format->m_rgba, 4, _err);
 			}
 			else
 			{
@@ -7208,6 +7257,64 @@ namespace bimg
 		writerC.begin();
 		total += bx::write(&writerC, "IEND", _err);
 		total += bx::write(_writer,  bx::toBigEndian(writerC.end() ), _err);
+
+		return total;
+	}
+
+	int32_t imageWriteBmp(bx::WriterI* _writer, uint32_t _width, uint32_t _height, uint32_t _srcPitch, const void* _src, TextureFormat::Enum _format, bool _yflip, bx::Error* _err)
+	{
+		BX_ERROR_SCOPE(_err);
+
+		const ImageWriteFormat* format = imageWriteFormat(_format);
+
+		if (NULL == format)
+		{
+			BX_ERROR_SET(_err, BIMG_ERROR, "BMP: Unsupported texture format.");
+			return 0;
+		}
+
+		const int32_t written = imageEncodeWic(_writer, WicContainer::Bmp, _width, _height, _srcPitch, _src, _format, _yflip, _err);
+
+		if (0 != written
+		||  !_err->isOk() )
+		{
+			return written;
+		}
+
+		const uint32_t row  = _width*3;
+		const uint32_t pad  = bx::alignUp(row, 4) - row;
+		const uint32_t size = (row + pad)*_height;
+
+		int32_t total = 0;
+		total += bx::write(_writer, "BM", _err);
+		total += bx::write(_writer, bx::toLittleEndian<uint32_t>(54 + size), _err);
+		total += bx::writeRep(_writer, 0, 4, _err);
+		total += bx::write(_writer, bx::toLittleEndian<uint32_t>(54), _err);
+
+		total += bx::write(_writer, bx::toLittleEndian<uint32_t>(40), _err);
+		total += bx::write(_writer, bx::toLittleEndian(_width),  _err);
+		total += bx::write(_writer, bx::toLittleEndian(_height), _err);
+		total += bx::write(_writer, bx::toLittleEndian<uint16_t>(1),  _err);
+		total += bx::write(_writer, bx::toLittleEndian<uint16_t>(24), _err);
+		total += bx::writeRep(_writer, 0, 4, _err);
+		total += bx::write(_writer, bx::toLittleEndian(size), _err);
+		total += bx::writeRep(_writer, 0, 16, _err);
+
+		const uint8_t* data = (const uint8_t*)_src;
+		int32_t step = int32_t(_srcPitch);
+
+		if (!_yflip)
+		{
+			data += _srcPitch*_height - _srcPitch;
+			step = -step;
+		}
+
+		for (uint32_t yy = 0; yy < _height && _err->isOk(); ++yy)
+		{
+			total += writeTexels(_writer, data, _width, format->m_bytes, format->m_bgr, 3, _err);
+			total += bx::writeRep(_writer, 0, int32_t(pad), _err);
+			data  += step;
+		}
 
 		return total;
 	}

@@ -45,7 +45,7 @@ pub fn build(b: *std.Build) !void {
         "-Wno-error=date-time",
         "-Wno-error=unused-command-line-argument",
         "-Wno-nan-infinity-disabled",
-        "-Wno-address-of-temporary",
+        // "-Wno-address-of-temporary",
     };
     const cxx_options = common_options ++ [_][]const u8{
         "-std=c++20",
@@ -530,6 +530,7 @@ const spirv_opt_path = "libs/bgfx/3rdparty/spirv-tools/";
 
 const bimg_files = .{
     "libs/bimg/src/image.cpp",
+    "libs/bimg/src/image_encode_wic.cpp",
     "libs/bimg/3rdparty/astc-encoder/source/astcenc_averages_and_directions.cpp",
     "libs/bimg/3rdparty/astc-encoder/source/astcenc_block_sizes.cpp",
     "libs/bimg/3rdparty/astc-encoder/source/astcenc_color_quantize.cpp",
