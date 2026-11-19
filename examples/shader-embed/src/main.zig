@@ -117,8 +117,7 @@ pub fn main(init: std.process.Init) anyerror!u8 {
     bgfx_init.debug = true;
 
     bgfx_alloc = zbgfx.callbacks.ZigAllocator.init(&init.gpa);
-    // FIXME: bad align
-    // bgfx_init.allocator = &bgfx_alloc;
+    bgfx_init.allocator = &bgfx_alloc;
 
     bgfx_init.callback = &bgfx_clbs;
 
