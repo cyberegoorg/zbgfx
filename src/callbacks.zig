@@ -115,7 +115,7 @@ pub const ZigAllocator = extern struct {
     };
 
     pub fn getAllocationAlignment(_align: usize) usize {
-        return @max(_align, @alignOf(AllocationHeader));
+        return @max(if (_align == 0) 16 else _align, @alignOf(AllocationHeader));
     }
 
     pub fn getAllocationSize(_size: usize, _align: usize) usize {
