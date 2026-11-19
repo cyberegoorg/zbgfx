@@ -142,10 +142,6 @@ zig-out/bin/shader-runtime
 
 Minimal setup for zgui/ImGui.
 
-> [!IMPORTANT]
->
-> - Disabled until `zgui` migrate to zig 0.17.0.
-
 ```sh
 zig-out/bin/zgui
 ```
