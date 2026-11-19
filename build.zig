@@ -12,21 +12,12 @@ pub fn build(b: *std.Build) !void {
 
     const options = .{
         .shared = b.option(bool, "shared", "Build as shared library.") orelse false,
-        .imgui_include = b.option([]const u8, "imgui_include", "Path to imgui (need for imgui bgfx backend)"),
+        .imgui_include = b.option(std.Build.LazyPath, "imgui_include", "Path to imgui (need for imgui bgfx backend)"),
         .multithread = b.option(bool, "multithread", "Compile with BGFX_CONFIG_MULTITHREADED") orelse true,
         .with_shaderc = b.option(bool, "with_shaderc", "Compile with shaderc executable") orelse true,
         .shaderc_optimize = b.option(std.builtin.OptimizeMode, "shaderc_optimize", "Shaderc optimize mode") orelse .fast,
         .with_sync = b.option(bool, "with_sync", "Enable bgfx src sync tool") orelse false,
     };
-
-    const options_step = b.addOptions();
-    const field_names = comptime std.meta.fieldNames(@TypeOf(options));
-    const field_types = comptime std.meta.fieldTypes(@TypeOf(options));
-    inline for (field_names, field_types) |field_name, field_type| {
-        options_step.addOption(field_type, field_name, @field(options, field_name));
-    }
-    const options_module = options_step.createModule();
-    _ = options_module; // autofix
 
     const use_lld = !target.result.os.tag.isDarwin();
 
@@ -88,7 +79,6 @@ pub fn build(b: *std.Build) !void {
         .root_module = b.createModule(.{
             .target = target,
             .optimize = optimize,
-            // .link_libc = true,
             .link_libcpp = true,
         }),
         .use_llvm = true,
@@ -199,7 +189,7 @@ pub fn build(b: *std.Build) !void {
     //
     const bgfx_imgui_path = "libs/imgui/";
     if (options.imgui_include) |include| {
-        bgfx.root_module.addIncludePath(.{ .cwd_relative = include });
+        bgfx.root_module.addIncludePath(include);
         bgfx.root_module.addCSourceFiles(.{
             .flags = &cxx_options,
             .files = &[_][]const u8{
@@ -240,6 +230,25 @@ pub fn build(b: *std.Build) !void {
     // Base steal from https://github.com/Interrupt/zig-bgfx-example/blob/main/build_shader_compiler.zig
     //
     if (options.with_shaderc) {
+        const shaderc_bx = b.addLibrary(.{
+            .linkage = .static,
+            .name = "bx",
+            .root_module = b.createModule(.{
+                .target = target,
+                .optimize = options.shaderc_optimize,
+                .link_libcpp = true,
+            }),
+            .use_llvm = true,
+            .use_lld = use_lld,
+        });
+        shaderc_bx.root_module.addCSourceFiles(.{
+            .flags = &cxx_options,
+            .files = &[_][]const u8{
+                "libs/bx/src/amalgamated.cpp",
+            },
+        });
+        bxInclude(b, shaderc_bx, target, options.shaderc_optimize);
+
         //
         // Shaderc executable
         //
@@ -278,8 +287,7 @@ pub fn build(b: *std.Build) !void {
             shaderc.root_module.linkFramework("CoreFoundation", .{ .needed = true });
             shaderc.root_module.linkFramework("Foundation", .{ .needed = true });
         }
-        shaderc.root_module.linkLibrary(bx);
-
+        shaderc.root_module.linkLibrary(shaderc_bx);
         bxInclude(b, shaderc, target, options.shaderc_optimize);
 
         shaderc.root_module.addIncludePath(b.path("libs/bimg/include"));

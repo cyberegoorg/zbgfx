@@ -32,7 +32,7 @@ namespace bgfx { namespace gl
 			: m_context(_context)
 		{
 			size_t length = bx::strLen(_canvas) + 1;
-			m_canvas = (char*)bx::alloc(g_allocator, length);
+			m_canvas = (char*)bx::allocPtr(g_allocatorBlk, length);
 			bx::strCopy(m_canvas, length, _canvas);
 
 			makeCurrent();
@@ -46,7 +46,7 @@ namespace bgfx { namespace gl
 		~SwapChainGL()
 		{
 			EMSCRIPTEN_CHECK(emscripten_webgl_destroy_context(m_context) );
-			bx::free(g_allocator, m_canvas);
+			bx::freePtr(m_canvas);
 		}
 
 		void makeCurrent()
@@ -98,10 +98,16 @@ namespace bgfx { namespace gl
 				return false;
 			}
 
-			m_primary = BX_NEW(g_allocator, SwapChainGL)(context, canvas);
+			m_primary = BX_NEW_PTR(g_allocatorBlk, SwapChainGL)(context, canvas);
 		}
 		else
 		{
+			if (NULL == canvas)
+			{
+				BX_TRACE("Init error: WebGL needs a canvas, swap chain native window handle is NULL.");
+				return false;
+			}
+
 			m_primary = createSwapChain( (void*)canvas, _swapChain.width, _swapChain.height);
 
 			if (NULL == m_primary)
@@ -110,6 +116,8 @@ namespace bgfx { namespace gl
 				return false;
 			}
 		}
+
+		BX_WARN(0 == (_swapChain.flags & BGFX_SWAP_CHAIN_SRGB_BACKBUFFER), "WebGL canvas has no sRGB back buffer.");
 
 		if (0 != _swapChain.width
 		&&  0 != _swapChain.height)
@@ -135,7 +143,7 @@ namespace bgfx { namespace gl
 				m_current = NULL;
 			}
 
-			bx::deleteObject(g_allocator, m_primary);
+			bx::deletePtr(m_primary);
 			m_primary = NULL;
 		}
 	}
@@ -146,6 +154,8 @@ namespace bgfx { namespace gl
 		{
 			return;
 		}
+
+		BX_WARN(0 == (_swapChain.flags & BGFX_SWAP_CHAIN_SRGB_BACKBUFFER), "WebGL canvas has no sRGB back buffer.");
 
 		EMSCRIPTEN_CHECK(emscripten_set_canvas_element_size(
 			  m_primary->m_canvas
@@ -167,11 +177,11 @@ namespace bgfx { namespace gl
 		{
 			EMSCRIPTEN_CHECK(emscripten_webgl_make_context_current(context) );
 
-			SwapChainGL* swapChain = BX_NEW(g_allocator, SwapChainGL)(context, canvas);
+			SwapChainGL* swapChain = BX_NEW_PTR(g_allocatorBlk, SwapChainGL)(context, canvas);
 
 			if (!import() )
 			{
-				bx::deleteObject(g_allocator, swapChain);
+				bx::deletePtr(swapChain);
 				return NULL;
 			}
 
@@ -190,7 +200,7 @@ namespace bgfx { namespace gl
 
 	void GlContext::destroySwapChain(SwapChainGL* _swapChain)
 	{
-		bx::deleteObject(g_allocator, _swapChain);
+		bx::deletePtr(_swapChain);
 	}
 
 	void GlContext::swap(SwapChainGL* /* _swapChain */, bool /* _vsync */)

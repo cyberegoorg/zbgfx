@@ -16,10 +16,10 @@
             .hash = "zglfw-0.10.0-dev-zgVDNHC7IQAbvGj5whD2Cp5TMmo5G2C9gNYaF-y-EDZ3",
         },
 
-        // .zgui = .{
-        //     .url = "https://github.com/zig-gamedev/zgui/archive/a25eb0434a3e032e44e2e40238cd9a390aeec028.tar.gz",
-        //     .hash = "zgui-0.6.0-dev--L6sZMdHbgDGyf0mWBzn0LjGig6LuanLqohxml6sZiPG",
-        // },
+        .zgui = .{
+            .url = "https://github.com/zig-gamedev/zgui/archive/1260767323dd59875d09b7c2c44bacaa10517720.tar.gz",
+            .hash = "zgui-0.6.0-dev--L6sZGRTbgCYz3hVnBNyOiTSoZSCnXC2Hkz3RvwwSRkd",
+        },
 
         .zmath = .{
             .url = "https://github.com/zig-gamedev/zmath/archive/43250209495cfb8a1a8d56c2977c563139c6eafe.tar.gz",

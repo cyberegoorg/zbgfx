@@ -27,47 +27,47 @@ namespace bimg
 		//  |   |  |   |  |  |   |  |   +---+---+---+----- r, g, b, a bits
 		//  |   |  |   |  |  |   |  |   r   g   b   a  +-- encoding type
 		//  |   |  |   |  |  |   |  |   |   |   |   |  |
-		{   4,  4, 4,  8, 1, 1,  0, 0,  0,  0,  0,  0, uint8_t(bx::EncodingType::Unorm) }, // BC1
-		{   8,  4, 4, 16, 1, 1,  0, 0,  0,  0,  0,  0, uint8_t(bx::EncodingType::Unorm) }, // BC2
-		{   8,  4, 4, 16, 1, 1,  0, 0,  0,  0,  0,  0, uint8_t(bx::EncodingType::Unorm) }, // BC3
-		{   4,  4, 4,  8, 1, 1,  0, 0,  0,  0,  0,  0, uint8_t(bx::EncodingType::Unorm) }, // BC4
-		{   4,  4, 4,  8, 1, 1,  0, 0,  0,  0,  0,  0, uint8_t(bx::EncodingType::Snorm) }, // BC4S
-		{   8,  4, 4, 16, 1, 1,  0, 0,  0,  0,  0,  0, uint8_t(bx::EncodingType::Unorm) }, // BC5
-		{   8,  4, 4, 16, 1, 1,  0, 0,  0,  0,  0,  0, uint8_t(bx::EncodingType::Snorm) }, // BC5S
-		{   8,  4, 4, 16, 1, 1,  0, 0,  0,  0,  0,  0, uint8_t(bx::EncodingType::Float) }, // BC6H
-		{   8,  4, 4, 16, 1, 1,  0, 0,  0,  0,  0,  0, uint8_t(bx::EncodingType::Float) }, // BC6HU
-		{   8,  4, 4, 16, 1, 1,  0, 0,  0,  0,  0,  0, uint8_t(bx::EncodingType::Unorm) }, // BC7
-		{   4,  4, 4,  8, 1, 1,  0, 0,  0,  0,  0,  0, uint8_t(bx::EncodingType::Unorm) }, // ETC1
-		{   4,  4, 4,  8, 1, 1,  0, 0,  0,  0,  0,  0, uint8_t(bx::EncodingType::Unorm) }, // ETC2
-		{   8,  4, 4, 16, 1, 1,  0, 0,  0,  0,  0,  0, uint8_t(bx::EncodingType::Unorm) }, // ETC2A
-		{   4,  4, 4,  8, 1, 1,  0, 0,  0,  0,  0,  0, uint8_t(bx::EncodingType::Unorm) }, // ETC2A1
-		{   4,  4, 4,  8, 1, 1,  0, 0,  0,  0,  0,  0, uint8_t(bx::EncodingType::Unorm) }, // EACR11 UNORM
-		{   4,  4, 4,  8, 1, 1,  0, 0,  0,  0,  0,  0, uint8_t(bx::EncodingType::Snorm) }, // EACR11 SNORM
-		{   8,  4, 4, 16, 1, 1,  0, 0,  0,  0,  0,  0, uint8_t(bx::EncodingType::Unorm) }, // EACRG11 UNORM
-		{   8,  4, 4, 16, 1, 1,  0, 0,  0,  0,  0,  0, uint8_t(bx::EncodingType::Snorm) }, // EACRG11 SNORM
-		{   2,  8, 4,  8, 2, 2,  0, 0,  0,  0,  0,  0, uint8_t(bx::EncodingType::Unorm) }, // PTC12
-		{   4,  4, 4,  8, 2, 2,  0, 0,  0,  0,  0,  0, uint8_t(bx::EncodingType::Unorm) }, // PTC14
-		{   2,  8, 4,  8, 2, 2,  0, 0,  0,  0,  0,  0, uint8_t(bx::EncodingType::Unorm) }, // PTC12A
-		{   4,  4, 4,  8, 2, 2,  0, 0,  0,  0,  0,  0, uint8_t(bx::EncodingType::Unorm) }, // PTC14A
-		{   2,  8, 4,  8, 2, 2,  0, 0,  0,  0,  0,  0, uint8_t(bx::EncodingType::Unorm) }, // PTC22
-		{   4,  4, 4,  8, 2, 2,  0, 0,  0,  0,  0,  0, uint8_t(bx::EncodingType::Unorm) }, // PTC24
-		{   4,  4, 4,  8, 1, 1,  0, 0,  0,  0,  0,  0, uint8_t(bx::EncodingType::Unorm) }, // ATC
-		{   8,  4, 4, 16, 1, 1,  0, 0,  0,  0,  0,  0, uint8_t(bx::EncodingType::Unorm) }, // ATCE
-		{   8,  4, 4, 16, 1, 1,  0, 0,  0,  0,  0,  0, uint8_t(bx::EncodingType::Unorm) }, // ATCI
-		{   8,  4, 4, 16, 1, 1,  0, 0,  0,  0,  0,  0, uint8_t(bx::EncodingType::Unorm) }, // ASTC4x4
-		{   6,  5, 4, 16, 1, 1,  0, 0,  0,  0,  0,  0, uint8_t(bx::EncodingType::Unorm) }, // ASTC5x4
-		{   6,  5, 5, 16, 1, 1,  0, 0,  0,  0,  0,  0, uint8_t(bx::EncodingType::Unorm) }, // ASTC5x5
-		{   4,  6, 5, 16, 1, 1,  0, 0,  0,  0,  0,  0, uint8_t(bx::EncodingType::Unorm) }, // ASTC6x5
-		{   4,  6, 6, 16, 1, 1,  0, 0,  0,  0,  0,  0, uint8_t(bx::EncodingType::Unorm) }, // ASTC6x6
-		{   4,  8, 5, 16, 1, 1,  0, 0,  0,  0,  0,  0, uint8_t(bx::EncodingType::Unorm) }, // ASTC8x5
-		{   3,  8, 6, 16, 1, 1,  0, 0,  0,  0,  0,  0, uint8_t(bx::EncodingType::Unorm) }, // ASTC8x6
-		{   2,  8, 8, 16, 1, 1,  0, 0,  0,  0,  0,  0, uint8_t(bx::EncodingType::Unorm) }, // ASTC8x8
-		{   3, 10, 5, 16, 1, 1,  0, 0,  0,  0,  0,  0, uint8_t(bx::EncodingType::Unorm) }, // ASTC10x5
-		{   2, 10, 6, 16, 1, 1,  0, 0,  0,  0,  0,  0, uint8_t(bx::EncodingType::Unorm) }, // ASTC10x6
-		{   2, 10, 8, 16, 1, 1,  0, 0,  0,  0,  0,  0, uint8_t(bx::EncodingType::Unorm) }, // ASTC10x8
-		{   1, 10,10, 16, 1, 1,  0, 0,  0,  0,  0,  0, uint8_t(bx::EncodingType::Unorm) }, // ASTC10x10
-		{   1, 12,10, 16, 1, 1,  0, 0,  0,  0,  0,  0, uint8_t(bx::EncodingType::Unorm) }, // ASTC12x10
-		{   1, 12,12, 16, 1, 1,  0, 0,  0,  0,  0,  0, uint8_t(bx::EncodingType::Unorm) }, // ASTC12x12
+		{   4,  4, 4,  8, 1, 1,  0, 0,  5,  6,  5,  1, uint8_t(bx::EncodingType::Unorm) }, // BC1
+		{   8,  4, 4, 16, 1, 1,  0, 0,  5,  6,  5,  4, uint8_t(bx::EncodingType::Unorm) }, // BC2
+		{   8,  4, 4, 16, 1, 1,  0, 0,  5,  6,  5,  8, uint8_t(bx::EncodingType::Unorm) }, // BC3
+		{   4,  4, 4,  8, 1, 1,  0, 0,  8,  0,  0,  0, uint8_t(bx::EncodingType::Unorm) }, // BC4
+		{   4,  4, 4,  8, 1, 1,  0, 0,  8,  0,  0,  0, uint8_t(bx::EncodingType::Snorm) }, // BC4S
+		{   8,  4, 4, 16, 1, 1,  0, 0,  8,  8,  0,  0, uint8_t(bx::EncodingType::Unorm) }, // BC5
+		{   8,  4, 4, 16, 1, 1,  0, 0,  8,  8,  0,  0, uint8_t(bx::EncodingType::Snorm) }, // BC5S
+		{   8,  4, 4, 16, 1, 1,  0, 0, 16, 16, 16,  0, uint8_t(bx::EncodingType::Float) }, // BC6H
+		{   8,  4, 4, 16, 1, 1,  0, 0, 16, 16, 16,  0, uint8_t(bx::EncodingType::Float) }, // BC6HU
+		{   8,  4, 4, 16, 1, 1,  0, 0,  7,  7,  7,  8, uint8_t(bx::EncodingType::Unorm) }, // BC7
+		{   4,  4, 4,  8, 1, 1,  0, 0,  8,  8,  8,  0, uint8_t(bx::EncodingType::Unorm) }, // ETC1
+		{   4,  4, 4,  8, 1, 1,  0, 0,  8,  8,  8,  0, uint8_t(bx::EncodingType::Unorm) }, // ETC2
+		{   8,  4, 4, 16, 1, 1,  0, 0,  8,  8,  8,  8, uint8_t(bx::EncodingType::Unorm) }, // ETC2A
+		{   4,  4, 4,  8, 1, 1,  0, 0,  8,  8,  8,  1, uint8_t(bx::EncodingType::Unorm) }, // ETC2A1
+		{   4,  4, 4,  8, 1, 1,  0, 0, 11,  0,  0,  0, uint8_t(bx::EncodingType::Unorm) }, // EACR11 UNORM
+		{   4,  4, 4,  8, 1, 1,  0, 0, 11,  0,  0,  0, uint8_t(bx::EncodingType::Snorm) }, // EACR11 SNORM
+		{   8,  4, 4, 16, 1, 1,  0, 0, 11, 11,  0,  0, uint8_t(bx::EncodingType::Unorm) }, // EACRG11 UNORM
+		{   8,  4, 4, 16, 1, 1,  0, 0, 11, 11,  0,  0, uint8_t(bx::EncodingType::Snorm) }, // EACRG11 SNORM
+		{   2,  8, 4,  8, 2, 2,  0, 0,  5,  5,  5,  0, uint8_t(bx::EncodingType::Unorm) }, // PTC12
+		{   4,  4, 4,  8, 2, 2,  0, 0,  5,  5,  5,  0, uint8_t(bx::EncodingType::Unorm) }, // PTC14
+		{   2,  8, 4,  8, 2, 2,  0, 0,  5,  5,  5,  4, uint8_t(bx::EncodingType::Unorm) }, // PTC12A
+		{   4,  4, 4,  8, 2, 2,  0, 0,  5,  5,  5,  4, uint8_t(bx::EncodingType::Unorm) }, // PTC14A
+		{   2,  8, 4,  8, 2, 2,  0, 0,  5,  5,  5,  4, uint8_t(bx::EncodingType::Unorm) }, // PTC22
+		{   4,  4, 4,  8, 2, 2,  0, 0,  5,  5,  5,  4, uint8_t(bx::EncodingType::Unorm) }, // PTC24
+		{   4,  4, 4,  8, 1, 1,  0, 0,  5,  6,  5,  0, uint8_t(bx::EncodingType::Unorm) }, // ATC
+		{   8,  4, 4, 16, 1, 1,  0, 0,  5,  6,  5,  4, uint8_t(bx::EncodingType::Unorm) }, // ATCE
+		{   8,  4, 4, 16, 1, 1,  0, 0,  5,  6,  5,  8, uint8_t(bx::EncodingType::Unorm) }, // ATCI
+		{   8,  4, 4, 16, 1, 1,  0, 0,  8,  8,  8,  8, uint8_t(bx::EncodingType::Unorm) }, // ASTC4x4
+		{   6,  5, 4, 16, 1, 1,  0, 0,  8,  8,  8,  8, uint8_t(bx::EncodingType::Unorm) }, // ASTC5x4
+		{   6,  5, 5, 16, 1, 1,  0, 0,  8,  8,  8,  8, uint8_t(bx::EncodingType::Unorm) }, // ASTC5x5
+		{   4,  6, 5, 16, 1, 1,  0, 0,  8,  8,  8,  8, uint8_t(bx::EncodingType::Unorm) }, // ASTC6x5
+		{   4,  6, 6, 16, 1, 1,  0, 0,  8,  8,  8,  8, uint8_t(bx::EncodingType::Unorm) }, // ASTC6x6
+		{   4,  8, 5, 16, 1, 1,  0, 0,  8,  8,  8,  8, uint8_t(bx::EncodingType::Unorm) }, // ASTC8x5
+		{   3,  8, 6, 16, 1, 1,  0, 0,  8,  8,  8,  8, uint8_t(bx::EncodingType::Unorm) }, // ASTC8x6
+		{   2,  8, 8, 16, 1, 1,  0, 0,  8,  8,  8,  8, uint8_t(bx::EncodingType::Unorm) }, // ASTC8x8
+		{   3, 10, 5, 16, 1, 1,  0, 0,  8,  8,  8,  8, uint8_t(bx::EncodingType::Unorm) }, // ASTC10x5
+		{   2, 10, 6, 16, 1, 1,  0, 0,  8,  8,  8,  8, uint8_t(bx::EncodingType::Unorm) }, // ASTC10x6
+		{   2, 10, 8, 16, 1, 1,  0, 0,  8,  8,  8,  8, uint8_t(bx::EncodingType::Unorm) }, // ASTC10x8
+		{   1, 10,10, 16, 1, 1,  0, 0,  8,  8,  8,  8, uint8_t(bx::EncodingType::Unorm) }, // ASTC10x10
+		{   1, 12,10, 16, 1, 1,  0, 0,  8,  8,  8,  8, uint8_t(bx::EncodingType::Unorm) }, // ASTC12x10
+		{   1, 12,12, 16, 1, 1,  0, 0,  8,  8,  8,  8, uint8_t(bx::EncodingType::Unorm) }, // ASTC12x12
 		{   0,  0, 0,  0, 0, 0,  0, 0,  0,  0,  0,  0, uint8_t(bx::EncodingType::Count) }, // Unknown
 		{   1,  8, 1,  1, 1, 1,  0, 0,  1,  0,  0,  0, uint8_t(bx::EncodingType::Unorm) }, // R1
 		{   8,  1, 1,  1, 1, 1,  0, 0,  0,  0,  0,  8, uint8_t(bx::EncodingType::Unorm) }, // A8
@@ -354,14 +354,10 @@ namespace bimg
 
 	uint8_t imageGetNumMips(TextureFormat::Enum _format, uint32_t _width, uint32_t _height, uint32_t _depth)
 	{
-		const ImageBlockInfo& blockInfo = getBlockInfo(_format);
-		const uint32_t blockWidth  = blockInfo.blockWidth;
-		const uint32_t blockHeight = blockInfo.blockHeight;
-		const uint32_t minBlockX   = blockInfo.minBlockX;
-		const uint32_t minBlockY   = blockInfo.minBlockY;
+		BX_UNUSED(_format);
 
-		_width  = bx::max<uint32_t>(blockWidth  * minBlockX, ( (_width  + blockWidth  - 1) / blockWidth )*blockWidth);
-		_height = bx::max<uint32_t>(blockHeight * minBlockY, ( (_height + blockHeight - 1) / blockHeight)*blockHeight);
+		_width  = bx::max<uint32_t>(1, _width);
+		_height = bx::max<uint32_t>(1, _height);
 		_depth  = bx::max<uint32_t>(1, _depth);
 
 		uint8_t numMips = calcNumMips(true, _width, _height, _depth);
@@ -414,7 +410,7 @@ namespace bimg
 			_info->numMips = numMips;
 			_info->numLayers = _numLayers;
 			_info->cubeMap   = _cubeMap;
-			_info->storageSize  = uint32_t(size);
+			_info->storageSize  = uint32_t(bx::min<uint64_t>(size, UINT32_MAX) );
 			_info->bitsPerPixel = bpp;
 		}
 
@@ -454,7 +450,7 @@ namespace bimg
 		const uint32_t height = bx::min<uint32_t>(4, _height - _yy*4);
 
 		const uint8_t* src = (const uint8_t*)_block;
-		uint8_t* dst = &_dst[_yy*4*_dstPitch + _xx*4*_texelSize];
+		uint8_t* dst = &_dst[uint64_t(_yy)*4*_dstPitch + uint64_t(_xx)*4*_texelSize];
 
 		for (uint32_t ii = 0; ii < height; ++ii)
 		{
@@ -479,14 +475,17 @@ namespace bimg
 	template<bool SrgbT>
 	static void imageRgba8Downsample2x2RefT(void* _dst, uint32_t _width, uint32_t _height, uint32_t _depth, uint32_t _srcPitch, uint32_t _dstPitch, const void* _src)
 	{
-		const uint32_t dstWidth  = _width/2;
-		const uint32_t dstHeight = _height/2;
+		const uint32_t dstWidth  = bx::max<uint32_t>(1, _width/2);
+		const uint32_t dstHeight = bx::max<uint32_t>(1, _height/2);
 
-		if (0 == dstWidth
-		||  0 == dstHeight)
+		if (1 == _width
+		&&  1 == _height)
 		{
 			return;
 		}
+
+		const uint32_t xoff = 1 < _width  ? 4         : 0;
+		const uint32_t yoff = 1 < _height ? _srcPitch : 0;
 
 		const uint8_t* src = (const uint8_t*)_src;
 
@@ -494,26 +493,26 @@ namespace bimg
 		{
 			for (uint32_t yy = 0, ystep = _srcPitch*2; yy < dstHeight; ++yy, src += ystep)
 			{
-				uint8_t* dst = (uint8_t*)_dst + _dstPitch*yy;
+				uint8_t* dst = (uint8_t*)_dst + uint64_t(yy)*_dstPitch;
 				const uint8_t* rgba = src;
 				for (uint32_t xx = 0; xx < dstWidth; ++xx, rgba += 8, dst += 4)
 				{
-					float rr = toLinearUnorm8<SrgbT>(rgba[          0]);
-					float gg = toLinearUnorm8<SrgbT>(rgba[          1]);
-					float bb = toLinearUnorm8<SrgbT>(rgba[          2]);
-					float aa = toLinearUnorm8<false>(rgba[          3]);
-					rr      += toLinearUnorm8<SrgbT>(rgba[          4]);
-					gg      += toLinearUnorm8<SrgbT>(rgba[          5]);
-					bb      += toLinearUnorm8<SrgbT>(rgba[          6]);
-					aa      += toLinearUnorm8<false>(rgba[          7]);
-					rr      += toLinearUnorm8<SrgbT>(rgba[_srcPitch+0]);
-					gg      += toLinearUnorm8<SrgbT>(rgba[_srcPitch+1]);
-					bb      += toLinearUnorm8<SrgbT>(rgba[_srcPitch+2]);
-					aa      += toLinearUnorm8<false>(rgba[_srcPitch+3]);
-					rr      += toLinearUnorm8<SrgbT>(rgba[_srcPitch+4]);
-					gg      += toLinearUnorm8<SrgbT>(rgba[_srcPitch+5]);
-					bb      += toLinearUnorm8<SrgbT>(rgba[_srcPitch+6]);
-					aa      += toLinearUnorm8<false>(rgba[_srcPitch+7]);
+					float rr = toLinearUnorm8<SrgbT>(rgba[            0]);
+					float gg = toLinearUnorm8<SrgbT>(rgba[            1]);
+					float bb = toLinearUnorm8<SrgbT>(rgba[            2]);
+					float aa = toLinearUnorm8<false>(rgba[            3]);
+					rr      += toLinearUnorm8<SrgbT>(rgba[xoff       +0]);
+					gg      += toLinearUnorm8<SrgbT>(rgba[xoff       +1]);
+					bb      += toLinearUnorm8<SrgbT>(rgba[xoff       +2]);
+					aa      += toLinearUnorm8<false>(rgba[xoff       +3]);
+					rr      += toLinearUnorm8<SrgbT>(rgba[yoff       +0]);
+					gg      += toLinearUnorm8<SrgbT>(rgba[yoff       +1]);
+					bb      += toLinearUnorm8<SrgbT>(rgba[yoff       +2]);
+					aa      += toLinearUnorm8<false>(rgba[yoff       +3]);
+					rr      += toLinearUnorm8<SrgbT>(rgba[yoff + xoff+0]);
+					gg      += toLinearUnorm8<SrgbT>(rgba[yoff + xoff+1]);
+					bb      += toLinearUnorm8<SrgbT>(rgba[yoff + xoff+2]);
+					aa      += toLinearUnorm8<false>(rgba[yoff + xoff+3]);
 
 					rr *= 0.25f;
 					gg *= 0.25f;
@@ -581,14 +580,17 @@ namespace bimg
 	template<bool SrgbT>
 	static void imageRgba8Downsample2x2T(void* _dst, uint32_t _width, uint32_t _height, uint32_t _depth, uint32_t _srcPitch, uint32_t _dstPitch, const void* _src)
 	{
-		const uint32_t dstWidth  = _width/2;
-		const uint32_t dstHeight = _height/2;
+		const uint32_t dstWidth  = bx::max<uint32_t>(1, _width/2);
+		const uint32_t dstHeight = bx::max<uint32_t>(1, _height/2);
 
-		if (0 == dstWidth
-		||  0 == dstHeight)
+		if (1 == _width
+		&&  1 == _height)
 		{
 			return;
 		}
+
+		const uint32_t xoff = 1 < _width  ? 4         : 0;
+		const uint32_t yoff = 1 < _height ? _srcPitch : 0;
 
 		const uint8_t* src = (const uint8_t*)_src;
 
@@ -607,14 +609,14 @@ namespace bimg
 		{
 			for (uint32_t yy = 0, ystep = _srcPitch*2; yy < dstHeight; ++yy, src += ystep)
 			{
-				uint8_t* dst = (uint8_t*)_dst + _dstPitch*yy;
+				uint8_t* dst = (uint8_t*)_dst + uint64_t(yy)*_dstPitch;
 				const uint8_t* rgba = src;
 				for (uint32_t xx = 0; xx < dstWidth; ++xx, rgba += 8, dst += 4)
 				{
 					const simd128_t abgr0  = simd128_splat(*(const uint32_t*)(rgba) );
-					const simd128_t abgr1  = simd128_splat(*(const uint32_t*)(rgba+4) );
-					const simd128_t abgr2  = simd128_splat(*(const uint32_t*)(rgba+_srcPitch) );
-					const simd128_t abgr3  = simd128_splat(*(const uint32_t*)(rgba+_srcPitch+4) );
+					const simd128_t abgr1  = simd128_splat(*(const uint32_t*)(rgba+xoff) );
+					const simd128_t abgr2  = simd128_splat(*(const uint32_t*)(rgba+yoff) );
+					const simd128_t abgr3  = simd128_splat(*(const uint32_t*)(rgba+yoff+xoff) );
 
 					const simd128_t abgr0m = simd_and(abgr0, umask);
 					const simd128_t abgr1m = simd_and(abgr1, umask);
@@ -768,15 +770,19 @@ namespace bimg
 
 	void imageRgba32fLinearDownsample2x2Ref(void* _dst, uint32_t _width, uint32_t _height, uint32_t _depth, uint32_t _srcPitch, const void* _src)
 	{
-		const uint32_t dstWidth  = _width/2;
-		const uint32_t dstHeight = _height/2;
-		const uint32_t dstDepth = _depth/2;
+		const uint32_t dstWidth  = bx::max<uint32_t>(1, _width/2);
+		const uint32_t dstHeight = bx::max<uint32_t>(1, _height/2);
+		const uint32_t dstDepth  = _depth/2;
 
-		if (0 == dstWidth
-		||  0 == dstHeight)
+		if (1 == _width
+		&&  1 == _height
+		&&  0 == dstDepth)
 		{
 			return;
 		}
+
+		const uint32_t xoff = 1 < _width  ? 4         : 0;
+		const uint32_t yoff = 1 < _height ? _srcPitch : 0;
 
 		const uint8_t* src = (const uint8_t*)_src;
 		uint8_t* dst = (uint8_t*)_dst;
@@ -786,7 +792,7 @@ namespace bimg
 			for (uint32_t yy = 0, ystep = _srcPitch*2; yy < dstHeight; ++yy, src += ystep)
 			{
 				const float* rgba0 = (const float*)&src[0];
-				const float* rgba1 = (const float*)&src[_srcPitch];
+				const float* rgba1 = (const float*)&src[yoff];
 				for (uint32_t xx = 0; xx < dstWidth; ++xx, rgba0 += 8, rgba1 += 8, dst += 16)
 				{
 					float xyz[4];
@@ -796,20 +802,20 @@ namespace bimg
 					xyz[2]  = rgba0[2];
 					xyz[3]  = rgba0[3];
 
-					xyz[0] += rgba0[4];
-					xyz[1] += rgba0[5];
-					xyz[2] += rgba0[6];
-					xyz[3] += rgba0[7];
+					xyz[0] += rgba0[xoff+0];
+					xyz[1] += rgba0[xoff+1];
+					xyz[2] += rgba0[xoff+2];
+					xyz[3] += rgba0[xoff+3];
 
 					xyz[0] += rgba1[0];
 					xyz[1] += rgba1[1];
 					xyz[2] += rgba1[2];
 					xyz[3] += rgba1[3];
 
-					xyz[0] += rgba1[4];
-					xyz[1] += rgba1[5];
-					xyz[2] += rgba1[6];
-					xyz[3] += rgba1[7];
+					xyz[0] += rgba1[xoff+0];
+					xyz[1] += rgba1[xoff+1];
+					xyz[2] += rgba1[xoff+2];
+					xyz[3] += rgba1[xoff+3];
 
 					xyz[0] *= 1.0f/4.0f;
 					xyz[1] *= 1.0f/4.0f;
@@ -822,16 +828,18 @@ namespace bimg
 		}
 		else
 		{
-			const uint32_t slicePitch = _srcPitch*_height;
+			const uint64_t slicePitch = uint64_t(_srcPitch)*_height;
 
-			for (uint32_t zz = 0; zz < dstDepth; ++zz, src += slicePitch)
+			for (uint32_t zz = 0; zz < dstDepth; ++zz)
 			{
-				for (uint32_t yy = 0, ystep = _srcPitch*2; yy < dstHeight; ++yy, src += ystep)
+				for (uint32_t yy = 0; yy < dstHeight; ++yy)
 				{
-					const float* rgba0 = (const float*)&src[0];
-					const float* rgba1 = (const float*)&src[_srcPitch];
-					const float* rgba2 = (const float*)&src[slicePitch];
-					const float* rgba3 = (const float*)&src[slicePitch+_srcPitch];
+					const uint8_t* row = &src[(uint64_t(zz)*2*_height + yy*2)*_srcPitch];
+
+					const float* rgba0 = (const float*)&row[0];
+					const float* rgba1 = (const float*)&row[yoff];
+					const float* rgba2 = (const float*)&row[slicePitch];
+					const float* rgba3 = (const float*)&row[slicePitch+yoff];
 					for (uint32_t xx = 0
 						; xx < dstWidth
 						; ++xx, rgba0 += 8, rgba1 += 8, rgba2 += 8, rgba3 += 8, dst += 16
@@ -844,40 +852,40 @@ namespace bimg
 						xyz[2]  = rgba0[2];
 						xyz[3]  = rgba0[3];
 
-						xyz[0] += rgba0[4];
-						xyz[1] += rgba0[5];
-						xyz[2] += rgba0[6];
-						xyz[3] += rgba0[7];
+						xyz[0] += rgba0[xoff+0];
+						xyz[1] += rgba0[xoff+1];
+						xyz[2] += rgba0[xoff+2];
+						xyz[3] += rgba0[xoff+3];
 
 						xyz[0] += rgba1[0];
 						xyz[1] += rgba1[1];
 						xyz[2] += rgba1[2];
 						xyz[3] += rgba1[3];
 
-						xyz[0] += rgba1[4];
-						xyz[1] += rgba1[5];
-						xyz[2] += rgba1[6];
-						xyz[3] += rgba1[7];
+						xyz[0] += rgba1[xoff+0];
+						xyz[1] += rgba1[xoff+1];
+						xyz[2] += rgba1[xoff+2];
+						xyz[3] += rgba1[xoff+3];
 
 						xyz[0] += rgba2[0];
 						xyz[1] += rgba2[1];
 						xyz[2] += rgba2[2];
 						xyz[3] += rgba2[3];
 
-						xyz[0] += rgba2[4];
-						xyz[1] += rgba2[5];
-						xyz[2] += rgba2[6];
-						xyz[3] += rgba2[7];
+						xyz[0] += rgba2[xoff+0];
+						xyz[1] += rgba2[xoff+1];
+						xyz[2] += rgba2[xoff+2];
+						xyz[3] += rgba2[xoff+3];
 
 						xyz[0] += rgba3[0];
 						xyz[1] += rgba3[1];
 						xyz[2] += rgba3[2];
 						xyz[3] += rgba3[3];
 
-						xyz[0] += rgba3[4];
-						xyz[1] += rgba3[5];
-						xyz[2] += rgba3[6];
-						xyz[3] += rgba3[7];
+						xyz[0] += rgba3[xoff+0];
+						xyz[1] += rgba3[xoff+1];
+						xyz[2] += rgba3[xoff+2];
+						xyz[3] += rgba3[xoff+3];
 
 						xyz[0] *= 1.0f/8.0f;
 						xyz[1] *= 1.0f/8.0f;
@@ -898,15 +906,19 @@ namespace bimg
 
 	void imageRgba32fDownsample2x2Ref(void* _dst, uint32_t _width, uint32_t _height, uint32_t _depth, uint32_t _srcPitch, const void* _src)
 	{
-		const uint32_t dstWidth  = _width/2;
-		const uint32_t dstHeight = _height/2;
+		const uint32_t dstWidth  = bx::max<uint32_t>(1, _width/2);
+		const uint32_t dstHeight = bx::max<uint32_t>(1, _height/2);
 		const uint32_t dstDepth  = _depth/2;
 
-		if (0 == dstWidth
-		||  0 == dstHeight)
+		if (1 == _width
+		&&  1 == _height
+		&&  0 == dstDepth)
 		{
 			return;
 		}
+
+		const uint32_t xoff = 1 < _width  ? 4         : 0;
+		const uint32_t yoff = 1 < _height ? _srcPitch : 0;
 
 		const uint8_t* src = (const uint8_t*)_src;
 		uint8_t* dst = (uint8_t*)_dst;
@@ -916,7 +928,7 @@ namespace bimg
 			for (uint32_t yy = 0, ystep = _srcPitch*2; yy < dstHeight; ++yy, src += ystep)
 			{
 				const float* rgba0 = (const float*)&src[0];
-				const float* rgba1 = (const float*)&src[_srcPitch];
+				const float* rgba1 = (const float*)&src[yoff];
 				for (uint32_t xx = 0; xx < dstWidth; ++xx, rgba0 += 8, rgba1 += 8, dst += 16)
 				{
 					float xyz[4];
@@ -926,20 +938,20 @@ namespace bimg
 					xyz[2]  = bx::toLinear(rgba0[2]);
 					xyz[3]  =              rgba0[3];
 
-					xyz[0] += bx::toLinear(rgba0[4]);
-					xyz[1] += bx::toLinear(rgba0[5]);
-					xyz[2] += bx::toLinear(rgba0[6]);
-					xyz[3] +=              rgba0[7];
+					xyz[0] += bx::toLinear(rgba0[xoff+0]);
+					xyz[1] += bx::toLinear(rgba0[xoff+1]);
+					xyz[2] += bx::toLinear(rgba0[xoff+2]);
+					xyz[3] +=              rgba0[xoff+3];
 
 					xyz[0] += bx::toLinear(rgba1[0]);
 					xyz[1] += bx::toLinear(rgba1[1]);
 					xyz[2] += bx::toLinear(rgba1[2]);
 					xyz[3] +=              rgba1[3];
 
-					xyz[0] += bx::toLinear(rgba1[4]);
-					xyz[1] += bx::toLinear(rgba1[5]);
-					xyz[2] += bx::toLinear(rgba1[6]);
-					xyz[3] +=              rgba1[7];
+					xyz[0] += bx::toLinear(rgba1[xoff+0]);
+					xyz[1] += bx::toLinear(rgba1[xoff+1]);
+					xyz[2] += bx::toLinear(rgba1[xoff+2]);
+					xyz[3] +=              rgba1[xoff+3];
 
 					xyz[0] = bx::toGamma(xyz[0]/4.0f);
 					xyz[1] = bx::toGamma(xyz[1]/4.0f);
@@ -952,16 +964,18 @@ namespace bimg
 		}
 		else
 		{
-			const uint32_t slicePitch = _srcPitch*_height;
+			const uint64_t slicePitch = uint64_t(_srcPitch)*_height;
 
-			for (uint32_t zz = 0; zz < dstDepth; ++zz, src += slicePitch)
+			for (uint32_t zz = 0; zz < dstDepth; ++zz)
 			{
-				for (uint32_t yy = 0, ystep = _srcPitch*2; yy < dstHeight; ++yy, src += ystep)
+				for (uint32_t yy = 0; yy < dstHeight; ++yy)
 				{
-					const float* rgba0 = (const float*)&src[0];
-					const float* rgba1 = (const float*)&src[_srcPitch];
-					const float* rgba2 = (const float*)&src[slicePitch];
-					const float* rgba3 = (const float*)&src[slicePitch+_srcPitch];
+					const uint8_t* row = &src[(uint64_t(zz)*2*_height + yy*2)*_srcPitch];
+
+					const float* rgba0 = (const float*)&row[0];
+					const float* rgba1 = (const float*)&row[yoff];
+					const float* rgba2 = (const float*)&row[slicePitch];
+					const float* rgba3 = (const float*)&row[slicePitch+yoff];
 					for (uint32_t xx = 0
 						; xx < dstWidth
 						; ++xx, rgba0 += 8, rgba1 += 8, rgba2 += 8, rgba3 += 8, dst += 16
@@ -974,40 +988,40 @@ namespace bimg
 						xyz[2]  = bx::toLinear(rgba0[2]);
 						xyz[3]  =              rgba0[3];
 
-						xyz[0] += bx::toLinear(rgba0[4]);
-						xyz[1] += bx::toLinear(rgba0[5]);
-						xyz[2] += bx::toLinear(rgba0[6]);
-						xyz[3] +=              rgba0[7];
+						xyz[0] += bx::toLinear(rgba0[xoff+0]);
+						xyz[1] += bx::toLinear(rgba0[xoff+1]);
+						xyz[2] += bx::toLinear(rgba0[xoff+2]);
+						xyz[3] +=              rgba0[xoff+3];
 
 						xyz[0] += bx::toLinear(rgba1[0]);
 						xyz[1] += bx::toLinear(rgba1[1]);
 						xyz[2] += bx::toLinear(rgba1[2]);
 						xyz[3] +=              rgba1[3];
 
-						xyz[0] += bx::toLinear(rgba1[4]);
-						xyz[1] += bx::toLinear(rgba1[5]);
-						xyz[2] += bx::toLinear(rgba1[6]);
-						xyz[3] +=              rgba1[7];
+						xyz[0] += bx::toLinear(rgba1[xoff+0]);
+						xyz[1] += bx::toLinear(rgba1[xoff+1]);
+						xyz[2] += bx::toLinear(rgba1[xoff+2]);
+						xyz[3] +=              rgba1[xoff+3];
 
 						xyz[0] += bx::toLinear(rgba2[0]);
 						xyz[1] += bx::toLinear(rgba2[1]);
 						xyz[2] += bx::toLinear(rgba2[2]);
 						xyz[3] +=              rgba2[3];
 
-						xyz[0] += bx::toLinear(rgba2[4]);
-						xyz[1] += bx::toLinear(rgba2[5]);
-						xyz[2] += bx::toLinear(rgba2[6]);
-						xyz[3] +=              rgba2[7];
+						xyz[0] += bx::toLinear(rgba2[xoff+0]);
+						xyz[1] += bx::toLinear(rgba2[xoff+1]);
+						xyz[2] += bx::toLinear(rgba2[xoff+2]);
+						xyz[3] +=              rgba2[xoff+3];
 
 						xyz[0] += bx::toLinear(rgba3[0]);
 						xyz[1] += bx::toLinear(rgba3[1]);
 						xyz[2] += bx::toLinear(rgba3[2]);
 						xyz[3] +=              rgba3[3];
 
-						xyz[0] += bx::toLinear(rgba3[4]);
-						xyz[1] += bx::toLinear(rgba3[5]);
-						xyz[2] += bx::toLinear(rgba3[6]);
-						xyz[3] +=              rgba3[7];
+						xyz[0] += bx::toLinear(rgba3[xoff+0]);
+						xyz[1] += bx::toLinear(rgba3[xoff+1]);
+						xyz[2] += bx::toLinear(rgba3[xoff+2]);
+						xyz[3] +=              rgba3[xoff+3];
 
 						xyz[0] = bx::toGamma(xyz[0]/8.0f);
 						xyz[1] = bx::toGamma(xyz[1]/8.0f);
@@ -1028,23 +1042,26 @@ namespace bimg
 
 	void imageRgba32fDownsample2x2NormalMapRef(void* _dst, uint32_t _width, uint32_t _height, uint32_t _srcPitch, uint32_t _dstPitch, const void* _src)
 	{
-		const uint32_t dstWidth  = _width/2;
-		const uint32_t dstHeight = _height/2;
+		const uint32_t dstWidth  = bx::max<uint32_t>(1, _width/2);
+		const uint32_t dstHeight = bx::max<uint32_t>(1, _height/2);
 
-		if (0 == dstWidth
-		||  0 == dstHeight)
+		if (1 == _width
+		&&  1 == _height)
 		{
 			return;
 		}
+
+		const uint32_t xoff = 1 < _width  ? 4         : 0;
+		const uint32_t yoff = 1 < _height ? _srcPitch : 0;
 
 		const uint8_t* src = (const uint8_t*)_src;
 
 		for (uint32_t yy = 0, ystep = _srcPitch*2; yy < dstHeight; ++yy, src += ystep)
 		{
 			const float* rgba0 = (const float*)&src[0];
-			const float* rgba1 = (const float*)&src[_srcPitch];
+			const float* rgba1 = (const float*)&src[yoff];
 
-			uint8_t* dst = (uint8_t*)_dst + _dstPitch*yy;
+			uint8_t* dst = (uint8_t*)_dst + uint64_t(yy)*_dstPitch;
 
 			for (uint32_t xx = 0; xx < dstWidth; ++xx, rgba0 += 8, rgba1 += 8, dst += 16)
 			{
@@ -1054,17 +1071,17 @@ namespace bimg
 				xyz[1]  = rgba0[1];
 				xyz[2]  = rgba0[2];
 
-				xyz[0] += rgba0[4];
-				xyz[1] += rgba0[5];
-				xyz[2] += rgba0[6];
+				xyz[0] += rgba0[xoff+0];
+				xyz[1] += rgba0[xoff+1];
+				xyz[2] += rgba0[xoff+2];
 
 				xyz[0] += rgba1[0];
 				xyz[1] += rgba1[1];
 				xyz[2] += rgba1[2];
 
-				xyz[0] += rgba1[4];
-				xyz[1] += rgba1[5];
-				xyz[2] += rgba1[6];
+				xyz[0] += rgba1[xoff+0];
+				xyz[1] += rgba1[xoff+1];
+				xyz[2] += rgba1[xoff+2];
 
 				bx::store(dst, bx::normalize(bx::load<bx::Vec3>(xyz) ) );
 			}
@@ -1156,7 +1173,7 @@ namespace bimg
 		const uint8_t* src = (uint8_t*)_src;
 		uint8_t* dst = (uint8_t*)_dst;
 
-		for (uint32_t zz = 0; zz < _depth; ++zz, src += _srcPitch*_height, dst += _dstPitch*_height)
+		for (uint32_t zz = 0; zz < _depth; ++zz, src += uint64_t(_srcPitch)*_height, dst += uint64_t(_dstPitch)*_height)
 		{
 			bx::memCopy(dst, _dstPitch, src, _srcPitch, pitch, _height);
 		}
@@ -1308,9 +1325,9 @@ namespace bimg
 		const uint8_t* src = (uint8_t*)_src;
 		uint8_t* dst = (uint8_t*)_dst;
 
-		const uint32_t size = _size * 8 / _bpp;
+		const uint64_t size = uint64_t(_size) * 8 / _bpp;
 
-		for (uint32_t ii = 0; ii < size; ++ii)
+		for (uint64_t ii = 0; ii < size; ++ii)
 		{
 			float rgba[4] = { 0.0f, 0.0f, 0.0f, 1.0f };
 			_unpack(rgba, &src[ii*_bpp/8]);
@@ -1402,8 +1419,113 @@ namespace bimg
 		return imageConvert(_allocator, _dst, _dstFormat, _src, _srcFormat, _width, _height, _depth, _width*srcBpp/8, dstPitch);
 	}
 
+	static bool isGrayscale(const ImageContainer& _image)
+	{
+		switch (_image.m_parser)
+		{
+		case ImageParser::Dds:
+		case ImageParser::Exr:
+		case ImageParser::Ktx:
+		case ImageParser::Ktx2:
+		case ImageParser::Pvr3:
+		case ImageParser::Count:
+			return false;
+
+		default:
+			break;
+		}
+
+		const ImageBlockInfo& blockInfo = s_imageBlockInfo[_image.m_format];
+		const bx::EncodingType::Enum encoding = bx::EncodingType::Enum(blockInfo.encoding);
+
+		return true
+			&& !isCompressed(_image.m_format)
+			&& bx::EncodingType::Unorm == encoding
+			&& (8 == blockInfo.rBits || 16 == blockInfo.rBits)
+			&& 0 == blockInfo.bBits
+			&& 0 == blockInfo.aBits
+			&& 1 == _image.m_numMips
+			&& 1 == _image.m_numLayers
+			&& 1 >= _image.m_depth
+			&& !_image.m_cubeMap
+			;
+	}
+
+	static ImageContainer* imageGrayToRgba(bx::AllocatorI* _allocator, const ImageContainer& _input)
+	{
+		const ImageBlockInfo& blockInfo = s_imageBlockInfo[_input.m_format];
+		const bool wide  = 16 == blockInfo.rBits;
+		const bool alpha =  0 != blockInfo.gBits;
+
+		ImageContainer* output = imageAlloc(_allocator
+			, wide ? TextureFormat::RGBA16 : TextureFormat::RGBA8
+			, _input.m_width
+			, _input.m_height
+			, 0
+			, 1
+			, false
+			, false
+			);
+
+		if (NULL == output)
+		{
+			return NULL;
+		}
+
+		output->m_orientation = _input.m_orientation;
+		output->m_parser      = _input.m_parser;
+		output->m_hasAlpha    = _input.m_hasAlpha;
+		output->m_srgb        = _input.m_srgb;
+
+		const uint32_t numChannels = alpha ? 2 : 1;
+
+		for (uint32_t ii = 0, num = _input.m_width*_input.m_height; ii < num; ++ii)
+		{
+			if (wide)
+			{
+				const uint16_t* src = (const uint16_t*)_input.m_data + ii*numChannels;
+				      uint16_t* dst = (uint16_t*)output->m_data + ii*4;
+				dst[0] = src[0];
+				dst[1] = src[0];
+				dst[2] = src[0];
+				dst[3] = alpha ? src[1] : UINT16_MAX;
+			}
+			else
+			{
+				const uint8_t* src = (const uint8_t*)_input.m_data + ii*numChannels;
+				      uint8_t* dst = (uint8_t*)output->m_data + ii*4;
+				dst[0] = src[0];
+				dst[1] = src[0];
+				dst[2] = src[0];
+				dst[3] = alpha ? src[1] : UINT8_MAX;
+			}
+		}
+
+		return output;
+	}
+
 	ImageContainer* imageConvert(bx::AllocatorI* _allocator, TextureFormat::Enum _dstFormat, const ImageContainer& _input, bool _convertMips)
 	{
+		const ImageBlockInfo& dstBlockInfo = s_imageBlockInfo[_dstFormat];
+
+		if (_dstFormat != _input.m_format
+		&&  isGrayscale(_input)
+		&&  (0 != dstBlockInfo.bBits || 0 != dstBlockInfo.aBits) )
+		{
+			ImageContainer* rgba = imageGrayToRgba(_allocator, _input);
+
+			if (NULL == rgba
+			||  _dstFormat == rgba->m_format)
+			{
+				return rgba;
+			}
+
+			ImageContainer* output = imageConvert(_allocator, _dstFormat, *rgba, _convertMips);
+			imageFree(rgba);
+
+			return output;
+		}
+
 		ImageContainer* output = imageAlloc(_allocator
 			, _dstFormat
 			, _input.m_width
@@ -1442,9 +1564,9 @@ namespace bimg
 
 					const uint32_t dstBpp       = s_imageBlockInfo[_dstFormat].bitsPerPixel;
 					const uint32_t scratchPitch = mip.m_width * dstBpp / 8;
-					const uint32_t scratchSize  = scratchPitch * mip.m_height * mip.m_depth;
+					const uint64_t scratchSize  = uint64_t(scratchPitch) * mip.m_height * mip.m_depth;
 					uint8_t* scratch = needScratch
-						? (uint8_t*)bx::alloc(_allocator, scratchSize)
+						? (uint8_t*)bx::alloc(_allocator, size_t(scratchSize) )
 						: NULL
 						;
 
@@ -1466,9 +1588,9 @@ namespace bimg
 						for (uint32_t zz = 0; zz < dstMip.m_depth; ++zz)
 						{
 							bx::memCopy(
-								  dstData + zz*dstMip.m_height*dstPitch
+								  dstData + uint64_t(zz)*dstMip.m_height*dstPitch
 								, dstPitch
-								, scratch + zz*mip.m_height*scratchPitch
+								, scratch + uint64_t(zz)*mip.m_height*scratchPitch
 								, scratchPitch
 								, dstPitch
 								, dstMip.m_height
@@ -3703,14 +3825,8 @@ namespace bimg
 
 	ImageContainer* imageAlloc(bx::AllocatorI* _allocator, TextureFormat::Enum _format, uint32_t _width, uint32_t _height, uint32_t _depth, uint32_t _numLayers, bool _cubeMap, bool _hasMips, const void* _data)
 	{
-		const ImageBlockInfo& blockInfo = getBlockInfo(_format);
-		const uint32_t blockWidth  = blockInfo.blockWidth;
-		const uint32_t blockHeight = blockInfo.blockHeight;
-		const uint32_t minBlockX   = blockInfo.minBlockX;
-		const uint32_t minBlockY   = blockInfo.minBlockY;
-
-		_width     = bx::max<uint32_t>(blockWidth  * minBlockX, ( (_width  + blockWidth  - 1) / blockWidth)*blockWidth);
-		_height    = bx::max<uint32_t>(blockHeight * minBlockY, ( (_height + blockHeight - 1) / blockHeight)*blockHeight);
+		_width     = bx::max<uint32_t>(1, _width);
+		_height    = bx::max<uint32_t>(1, _height);
 		_numLayers = bx::max<uint32_t>(1, _numLayers);
 
 		const uint32_t numSlices = bx::max<uint32_t>(1, _depth);
@@ -6059,8 +6175,9 @@ namespace bimg
 
 		const uint32_t srcBpp = s_imageBlockInfo[_srcFormat].bitsPerPixel;
 		const uint32_t srcPitch = _width*srcBpp/8;
+		const uint64_t srcSlice = imageGetSize(NULL, _width, _height, 1, false, false, 1, _srcFormat);
 
-		for (uint32_t zz = 0; zz < _depth; ++zz, src += _height*srcPitch, dst += _height*_dstPitch)
+		for (uint32_t zz = 0; zz < _depth; ++zz, src += srcSlice, dst += uint64_t(_height)*_dstPitch)
 		{
 			if (isCompressed(_srcFormat))
 			{
@@ -6615,7 +6732,7 @@ namespace bimg
 					const uint32_t tightPitch = _width*4;
 					void* imageData = tightPitch == _dstPitch
 						? _dst
-						: bx::alloc(_allocator, tightPitch*_height)
+						: bx::alloc(_allocator, size_t(tightPitch)*_height)
 						;
 
 					//Put image data into an astcenc_image
@@ -6756,9 +6873,9 @@ namespace bimg
 
 		const uint32_t srcBpp   = s_imageBlockInfo[_srcFormat].bitsPerPixel;
 		const uint32_t srcPitch = _width*srcBpp/8;
-		const uint32_t srcSlice = uint32_t(imageGetSize(NULL, _width, _height, 1, false, false, 1, _srcFormat) );
+		const uint64_t srcSlice = imageGetSize(NULL, _width, _height, 1, false, false, 1, _srcFormat);
 
-		for (uint32_t zz = 0; zz < _depth; ++zz, src += srcSlice, dst += _height*_dstPitch)
+		for (uint32_t zz = 0; zz < _depth; ++zz, src += srcSlice, dst += uint64_t(_height)*_dstPitch)
 		{
 			switch (_srcFormat)
 			{
@@ -6831,7 +6948,7 @@ namespace bimg
 					imageDecodeToRgba8(_allocator, temp, src, _width, _height, _width*4, _srcFormat);
 					for (uint32_t yy = 0; yy < _height; ++yy)
 					{
-						imageRgba8ToRgba32f(&dst[yy*_dstPitch], _width, 1, _width*4, (const uint8_t*)temp + yy*_width*4);
+						imageRgba8ToRgba32f(&dst[uint64_t(yy)*_dstPitch], _width, 1, _width*4, (const uint8_t*)temp + uint64_t(yy)*_width*4);
 					}
 					bx::free(_allocator, temp);
 				}
@@ -7049,6 +7166,14 @@ namespace bimg
 		uint8_t type = _grayscale ? 3 :  2;
 		uint8_t bpp  = _grayscale ? 8 : 32;
 
+		if (UINT16_MAX < _width
+		||  UINT16_MAX < _height
+		||  INT32_MAX - 18 < uint64_t(_width)*_height*bpp/8)
+		{
+			BX_ERROR_SET(_err, BIMG_ERROR, "TGA: Image is too large.");
+			return 0;
+		}
+
 		uint8_t header[18] = {};
 		header[ 2] = type;
 		header[12] =  _width     &0xff;
@@ -7064,7 +7189,7 @@ namespace bimg
 		uint32_t dstPitch = _width*bpp/8;
 		if (_yflip)
 		{
-			const uint8_t* data = (const uint8_t*)_src + _srcPitch*_height - _srcPitch;
+			const uint8_t* data = (const uint8_t*)_src + uint64_t(_height-1)*_srcPitch;
 			for (uint32_t yy = 0; yy < _height && _err->isOk(); ++yy)
 			{
 				total += bx::write(_writer, data, dstPitch, _err);
@@ -7186,6 +7311,21 @@ namespace bimg
 			return 0;
 		}
 
+		const bool grayscale = TextureFormat::R8    == _format;
+		const bool bgra      = TextureFormat::BGRA8 == _format;
+
+		constexpr uint32_t kMaxBlockSize = 65532;
+		const uint32_t texelSize     = grayscale ? 1 : 4;
+		const uint32_t blockTexels   = kMaxBlockSize/texelSize;
+		const uint64_t numRowBlocks  = bx::max<uint64_t>(1, (uint64_t(_width) + blockTexels - 1)/blockTexels);
+		const uint64_t idatSize      = 2 + uint64_t(_height)*(1 + uint64_t(_width)*texelSize + numRowBlocks*5) + 4;
+
+		if (INT32_MAX - 64 < idatSize)
+		{
+			BX_ERROR_SET(_err, BIMG_ERROR, "PNG: Image is too large.");
+			return 0;
+		}
+
 		const int32_t written = imageEncodeWic(_writer, WicContainer::Png, _width, _height, _srcPitch, _src, _format, _yflip, _err);
 
 		if (0 != written
@@ -7193,9 +7333,6 @@ namespace bimg
 		{
 			return written;
 		}
-
-		const bool grayscale = TextureFormat::R8    == _format;
-		const bool bgra      = TextureFormat::BGRA8 == _format;
 
 		int32_t total = 0;
 		total += bx::write(_writer, "\x89PNG\r\n\x1a\n", _err);
@@ -7210,12 +7347,7 @@ namespace bimg
 		total += bx::writeRep(&writerC, 0, 3, _err);
 		total += bx::write(_writer, bx::toBigEndian(writerC.end() ), _err);
 
-		const uint32_t bpp    = grayscale ? 8 : 32;
-		const uint32_t stride = _width*bpp/8;
-		const uint16_t zlen   = bx::toLittleEndian<uint16_t>(uint16_t(stride + 1) );
-		const uint16_t zlenC  = bx::toLittleEndian<uint16_t>(~zlen);
-
-		total += bx::write(_writer, bx::toBigEndian<uint32_t>(_height*(stride+6)+6), _err);
+		total += bx::write(_writer, bx::toBigEndian<uint32_t>(uint32_t(idatSize) ), _err);
 
 		writerC.begin();
 		total += bx::write(&writerC, "IDAT", _err);
@@ -7225,31 +7357,50 @@ namespace bimg
 		int32_t step = int32_t(_srcPitch);
 		if (_yflip)
 		{
-			data += _srcPitch*_height - _srcPitch;
+			data += uint64_t(_height-1)*_srcPitch;
 			step = -step;
 		}
 
 		HashWriter<bx::HashAdler32> writerA(&writerC);
 
-		for (uint32_t ii = 0; ii < _height && _err->isOk(); ++ii)
+		for (uint32_t yy = 0; yy < _height && _err->isOk(); ++yy, data += step)
 		{
-			total += bx::write(&writerC, uint8_t(ii == _height-1 ? 1 : 0), _err);
-			total += bx::write(&writerC, zlen,  _err);
-			total += bx::write(&writerC, zlenC, _err);
+			const uint8_t* texels = data;
+			uint32_t xx = 0;
 
-			total += bx::write(&writerA, uint8_t(0), _err);
-
-			if (bgra)
+			do
 			{
-				total += writeTexels(&writerA, data, _width, format->m_bytes, format->m_rgba, 4, _err);
-			}
-			else
-			{
-				total += bx::write(&writerA, data, stride, _err);
-			}
+				const bool     first = 0 == xx;
+				const uint32_t num   = bx::min(_width - xx, blockTexels);
+				xx += num;
+				const bool     last  = yy == _height-1 && xx == _width;
 
-			data += step;
+				const uint16_t len  = bx::toLittleEndian<uint16_t>(uint16_t(num*texelSize + (first ? 1 : 0) ) );
+				const uint16_t lenC = bx::toLittleEndian<uint16_t>(~len);
+
+				total += bx::write(&writerC, uint8_t(last ? 1 : 0), _err);
+				total += bx::write(&writerC, len,  _err);
+				total += bx::write(&writerC, lenC, _err);
+
+				if (first)
+				{
+					total += bx::write(&writerA, uint8_t(0), _err);
+				}
+
+				if (bgra)
+				{
+					total += writeTexels(&writerA, texels, num, format->m_bytes, format->m_rgba, 4, _err);
+				}
+				else
+				{
+					total += bx::write(&writerA, texels, int32_t(num*texelSize), _err);
+				}
+
+				texels += num*format->m_bytes;
+			}
+			while (xx < _width && _err->isOk() );
 		}
+
 		total += bx::write(&writerC, bx::toBigEndian(writerA.end() ), _err);
 		total += bx::write(_writer,  bx::toBigEndian(writerC.end() ), _err);
 
@@ -7273,6 +7424,16 @@ namespace bimg
 			return 0;
 		}
 
+		const uint64_t row  = uint64_t(_width)*3;
+		const uint64_t pad  = bx::alignUp<uint64_t>(row, 4) - row;
+		const uint64_t size = (row + pad)*_height;
+
+		if (INT32_MAX - 54 < size)
+		{
+			BX_ERROR_SET(_err, BIMG_ERROR, "BMP: Image is too large.");
+			return 0;
+		}
+
 		const int32_t written = imageEncodeWic(_writer, WicContainer::Bmp, _width, _height, _srcPitch, _src, _format, _yflip, _err);
 
 		if (0 != written
@@ -7281,13 +7442,9 @@ namespace bimg
 			return written;
 		}
 
-		const uint32_t row  = _width*3;
-		const uint32_t pad  = bx::alignUp(row, 4) - row;
-		const uint32_t size = (row + pad)*_height;
-
 		int32_t total = 0;
 		total += bx::write(_writer, "BM", _err);
-		total += bx::write(_writer, bx::toLittleEndian<uint32_t>(54 + size), _err);
+		total += bx::write(_writer, bx::toLittleEndian<uint32_t>(uint32_t(54 + size) ), _err);
 		total += bx::writeRep(_writer, 0, 4, _err);
 		total += bx::write(_writer, bx::toLittleEndian<uint32_t>(54), _err);
 
@@ -7297,7 +7454,7 @@ namespace bimg
 		total += bx::write(_writer, bx::toLittleEndian<uint16_t>(1),  _err);
 		total += bx::write(_writer, bx::toLittleEndian<uint16_t>(24), _err);
 		total += bx::writeRep(_writer, 0, 4, _err);
-		total += bx::write(_writer, bx::toLittleEndian(size), _err);
+		total += bx::write(_writer, bx::toLittleEndian<uint32_t>(uint32_t(size) ), _err);
 		total += bx::writeRep(_writer, 0, 16, _err);
 
 		const uint8_t* data = (const uint8_t*)_src;
@@ -7305,7 +7462,7 @@ namespace bimg
 
 		if (!_yflip)
 		{
-			data += _srcPitch*_height - _srcPitch;
+			data += uint64_t(_height-1)*_srcPitch;
 			step = -step;
 		}
 
@@ -7475,7 +7632,7 @@ namespace bimg
 		{
 			for (uint32_t xx = 0; xx < _width && _err->isOk(); ++xx)
 			{
-				float rgba[4];
+				float rgba[4] = { 0.0f, 0.0f, 0.0f, 1.0f };
 				unpack(rgba, &data[xx*bpp/8]);
 
 				const float maxVal = bx::max(rgba[0], rgba[1], rgba[2]);
@@ -7564,10 +7721,10 @@ namespace bimg
 			)
 			, _err
 			);
-		const uint32_t pitchOrLinearSize = isCompressed(_format)
-			? _width*_height*bpp/8
-			: _width*bpp/8
-			;
+		const uint32_t pitchOrLinearSize = uint32_t(bx::min<uint64_t>(UINT32_MAX, isCompressed(_format)
+			? uint64_t(_width)*_height*bpp/8
+			: uint64_t(_width)*bpp/8
+			) );
 
 		total += bx::write(_writer, _height, _err);
 		total += bx::write(_writer, _width, _err);

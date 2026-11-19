@@ -16,6 +16,7 @@ pub const CAllocVtblT = extern struct {
     realloc: *const fn (_this: *CAllocInterfaceT, _ptr: [*c]u8, _size: usize, _align: usize, _file: [*:0]const u8, _line: u32) callconv(.c) [*c]u8,
 };
 
+// FIXME: Need fix bad alignment.
 pub const ZigAllocatorVtbl = extern struct {
     fn realloc(_this: *CAllocInterfaceT, _ptr: [*c]u8, _size: usize, _align: usize, _file: [*:0]const u8, _line: u32) callconv(.c) [*c]u8 {
         var self: *ZigAllocator = @ptrCast(_this);

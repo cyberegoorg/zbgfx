@@ -40,8 +40,7 @@ pub fn build(
         .{
             .target = target,
             .optimize = optimize,
-            .imgui_include = zgui.path("libs").path(b, ""),
-            // .imgui_include = zgui.path("libs"),
+            .imgui_include = zgui.path("libs"),
         },
     );
 

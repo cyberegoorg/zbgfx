@@ -51,9 +51,9 @@ namespace bx
 
 	StringView Scanner::moveTo(const StringView& _to)
 	{
-		if (BX_LIKELY(!_to.isEmpty() ) )
+		if (!_to.isEmpty() ) [[likely]]
 		{
-			if (BX_LIKELY(overlap(m_tail, _to) ) )
+			if (overlap(m_tail, _to) ) [[likely]]
 			{
 				const StringView result(m_tail.getPtr(), _to.getTerm() );
 
@@ -128,7 +128,7 @@ namespace bx
 		const int32_t len = m_tail.getLength();
 		_bytes = clamp(_bytes, len - m_input.getLength(), len);
 
-		if (BX_LIKELY(0 < _bytes) )
+		if (0 < _bytes) [[likely]]
 		{
 			const StringView result(m_tail.getPtr(), m_tail.getPtr() + _bytes);
 
@@ -150,12 +150,9 @@ namespace bx
 	{
 		uint32_t line = 0;
 
-		StringView str = strFindEol(_str);
-
-		while (!str.isEmpty() )
+		for (const char* ptr = _str.getPtr(), *term = _str.getTerm(); ptr != term; ++ptr)
 		{
-			++line;
-			str = strFindEol(strFindNl(str) );
+			line += '\n' == *ptr ? 1 : 0;
 		}
 
 		return line;
@@ -173,9 +170,6 @@ namespace bx
 			const StringView line = m_scanner.between(cursor);
 			m_scanner.accept(Scanner::Class::NewLine);
 
-			// A line terminator is `\n` or `\r\n`, and `Class::EndOfLine` already
-			// excludes it. Only malformed input (`\r` at the end of input, or
-			// `\r\r\n`) can leave a trailing `\r` behind.
 			return strRTrim(line, "\r");
 		}
 

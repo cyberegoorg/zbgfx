@@ -107,6 +107,8 @@
 			VK_IMPORT_INSTANCE_FUNC(true,  vkGetPhysicalDeviceSurfacePresentModesKHR); \
 			VK_IMPORT_INSTANCE_FUNC(true,  vkGetPhysicalDeviceSurfaceSupportKHR);      \
 			VK_IMPORT_INSTANCE_FUNC(true,  vkDestroySurfaceKHR);                       \
+			/* VK_KHR_get_surface_capabilities2 */                                     \
+			VK_IMPORT_INSTANCE_FUNC(true,  vkGetPhysicalDeviceSurfaceCapabilities2KHR); \
 			/* VK_KHR_get_physical_device_properties2 */                               \
 			VK_IMPORT_INSTANCE_FUNC(true,  vkGetPhysicalDeviceProperties2KHR);         \
 			VK_IMPORT_INSTANCE_FUNC(true,  vkGetPhysicalDeviceFeatures2KHR);           \
@@ -381,11 +383,16 @@ VK_DESTROY_FUNC(DescriptorSet);
 	}
 
 	struct DeviceMemoryAllocationVK {
+		static constexpr uint32_t kDedicated = UINT32_MAX;
+
 		DeviceMemoryAllocationVK()
 			: mem(VK_NULL_HANDLE)
 			, offset(0)
 			, size(0)
 			, memoryTypeIndex(0)
+			, blockIdx(kDedicated)
+			, slabIdx(0)
+			, data(NULL)
 		{
 		}
 
@@ -393,6 +400,58 @@ VK_DESTROY_FUNC(DescriptorSet);
 		uint32_t offset;
 		uint32_t size;
 		int32_t memoryTypeIndex;
+		uint32_t blockIdx;
+		uint16_t slabIdx;
+		uint8_t* data;
+	};
+
+	struct MemoryKindVK
+	{
+		enum Enum
+		{
+			Buffer,
+			Image,
+			Host,
+
+			Count
+		};
+	};
+
+	struct MemoryAllocatorVK
+	{
+		static constexpr uint32_t kMinSlabSize  = 8<<20;
+		static constexpr uint32_t kMaxSlabSize  = 64<<20;
+		static constexpr uint32_t kMaxBlockSize = kMaxSlabSize/4;
+		static constexpr uint32_t kMinFreeSize  = 2*kMinSlabSize;
+		static constexpr uint32_t kMinBlockSize = 256;
+		static constexpr uint32_t kSlabShift    = 32;
+		static constexpr uint16_t kMaxSlabs     = 256;
+
+		using Allocator = bx::TwoLevelSegregatedFitAllocatorT<kMinBlockSize, false>;
+
+		struct Slab
+		{
+			VkDeviceMemory     mem;
+			uint8_t*           data;
+			uint32_t           size;
+			int32_t            memoryTypeIndex;
+			MemoryKindVK::Enum kind;
+		};
+
+		MemoryAllocatorVK();
+
+		void shutdown();
+		VkResult alloc(const VkMemoryRequirements& _requirements, int32_t _memoryTypeIndex, MemoryKindVK::Enum _kind, DeviceMemoryAllocationVK* _alloc);
+		void free(const DeviceMemoryAllocationVK& _alloc);
+
+		VkResult addSlab(Allocator& _allocator, uint32_t _size, int32_t _memoryTypeIndex, MemoryKindVK::Enum _kind);
+		void removeSlab(uint16_t _slabIdx);
+
+		Allocator* m_allocator[VK_MAX_MEMORY_TYPES][MemoryKindVK::Count];
+		uint8_t m_numSlabs[VK_MAX_MEMORY_TYPES][MemoryKindVK::Count];
+		bool m_persistentMap;
+		Slab m_slab[kMaxSlabs];
+		bx::HandleAllocT<kMaxSlabs> m_slabHandle;
 	};
 
 	struct MemoryLruVK
@@ -412,6 +471,13 @@ VK_DESTROY_FUNC(DescriptorSet);
 		void recycle(DeviceMemoryAllocationVK &_alloc);
 		bool find(uint32_t _size, int32_t _memoryTypeIndex, DeviceMemoryAllocationVK *_alloc);
 		void evictAll();
+	};
+
+	struct TransientStagingVK
+	{
+		VkBuffer m_buffer;
+		DeviceMemoryAllocationVK m_deviceMem;
+		TransientStaging* m_staging = NULL;
 	};
 
 	struct StagingBufferVK
@@ -493,6 +559,7 @@ VK_DESTROY_FUNC(DescriptorSet);
 
 		void create(VkCommandBuffer _commandBuffer, uint32_t _size, void* _data, uint16_t _flags, bool _vertex, uint32_t _stride = 0);
 		void update(VkCommandBuffer _commandBuffer, uint32_t _offset, uint32_t _size, void* _data, bool _discard = false);
+		void copy(VkCommandBuffer _commandBuffer, VkBuffer _src, uint32_t _srcOffset, uint32_t _offset, uint32_t _size);
 		void destroy();
 
 		VkBuffer m_buffer;
@@ -704,7 +771,7 @@ VK_DESTROY_FUNC(DescriptorSet);
 		uint32_t pitch(uint8_t _mip = 0) const;
 		uint32_t stagingSize(VkImageAspectFlags _aspect, uint8_t _mip = 0) const;
 		void copyImageToBuffer(VkCommandBuffer _commandBuffer, VkBuffer _buffer, VkImageLayout _layout, VkImageAspectFlags _aspect, uint16_t _layer = 0, uint8_t _mip = 0) const;
-		void readback(VkDeviceMemory _memory, VkDeviceSize _offset, void* _data, VkImageAspectFlags _aspect, uint8_t _mip = 0) const;
+		void readback(const DeviceMemoryAllocationVK& _memory, void* _data, VkImageAspectFlags _aspect, uint8_t _mip = 0) const;
 
 		VkImage  m_image;
 		uint32_t m_width;
@@ -794,6 +861,7 @@ VK_DESTROY_FUNC(DescriptorSet);
 		SwapChainVK()
 			: m_nwh(NULL)
 			, m_vsync(false)
+			, m_presentModeSwitch(false)
 			, m_surface(VK_NULL_HANDLE)
 			, m_swapChain(VK_NULL_HANDLE)
 			, m_backBufferColorIdx(0)
@@ -826,6 +894,8 @@ VK_DESTROY_FUNC(DescriptorSet);
 		void releaseFrameBuffer();
 
 		uint32_t findPresentMode(bool _vsync);
+		bool isPresentModeCompatible(VkPresentModeKHR _presentMode, VkPresentModeKHR _with);
+		bool getPresentScaling(const VkSurfaceCapabilitiesKHR& _surfaceCapabilities, VkExtent2D& _extent, VkSwapchainPresentScalingCreateInfoEXT* _scalingInfo);
 		TextureFormat::Enum findSurfaceFormat(TextureFormat::Enum _format, VkColorSpaceKHR _colorSpace, bool _srgb);
 
 		bool acquire(VkCommandBuffer _commandBuffer, bool _block = true);
@@ -844,6 +914,7 @@ VK_DESTROY_FUNC(DescriptorSet);
 		SwapChain m_desc;
 
 		bool m_vsync;
+		bool m_presentModeSwitch;
 
 		TextureFormat::Enum m_colorFormat;
 		TextureFormat::Enum m_depthFormat;
@@ -952,6 +1023,13 @@ VK_DESTROY_FUNC(DescriptorSet);
 
 	struct CommandQueueVK
 	{
+		CommandQueueVK()
+		{
+			setAllocatorHandle(m_release, g_allocatorHandle);
+			setAllocatorHandle(m_recycleAllocs, g_allocatorHandle);
+			setAllocatorHandle(m_transientStaging, g_allocatorHandle);
+		}
+
 		VkResult init(uint32_t _queueFamily, VkQueue _queue);
 		VkResult reset();
 		void shutdown();
@@ -964,6 +1042,7 @@ VK_DESTROY_FUNC(DescriptorSet);
 
 		void release(uint64_t _handle, VkObjectType _type);
 		void recycleMemory(DeviceMemoryAllocationVK _mem);
+		void releaseTransientStaging(TransientStaging* _staging);
 		void consume();
 
 		void addExternal(TextureHandle _handle);
@@ -1003,11 +1082,12 @@ VK_DESTROY_FUNC(DescriptorSet);
 			uint64_t m_handle;
 		};
 
-		typedef stl::vector<Resource> ResourceArray;
+		using ResourceArray = bx::ArrayT<Resource>;
 		ResourceArray m_release[BGFX_CONFIG_MAX_FRAME_LATENCY];
-		stl::vector<DeviceMemoryAllocationVK> m_recycleAllocs[BGFX_CONFIG_MAX_FRAME_LATENCY];
-		typedef stl::vector<TextureHandle> ExternalTextureArray;
-		ExternalTextureArray m_external;
+		bx::ArrayT<DeviceMemoryAllocationVK> m_recycleAllocs[BGFX_CONFIG_MAX_FRAME_LATENCY];
+		bx::ArrayT<TransientStaging*> m_transientStaging[BGFX_CONFIG_MAX_FRAME_LATENCY];
+		using ExternalTextureArray = bx::ArrayT<TextureHandle>;
+		ExternalTextureArray m_external{g_allocatorHandle};
 
 	private:
 		template<typename Ty>

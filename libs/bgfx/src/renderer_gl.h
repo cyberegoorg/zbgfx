@@ -397,6 +397,14 @@ typedef double GLdouble;
 #	define GL_COMPRESSED_RG_RGTC2 0x8DBD
 #endif // GL_COMPRESSED_RG_RGTC2
 
+#ifndef GL_COMPRESSED_SIGNED_RED_RGTC1
+#	define GL_COMPRESSED_SIGNED_RED_RGTC1 0x8DBC
+#endif // GL_COMPRESSED_SIGNED_RED_RGTC1
+
+#ifndef GL_COMPRESSED_SIGNED_RG_RGTC2
+#	define GL_COMPRESSED_SIGNED_RG_RGTC2 0x8DBE
+#endif // GL_COMPRESSED_SIGNED_RG_RGTC2
+
 #ifndef GL_ETC1_RGB8_OES
 #	define GL_ETC1_RGB8_OES 0x8D64
 #endif // GL_ETC1_RGB8_OES
@@ -1286,10 +1294,10 @@ namespace bgfx { namespace gl
 		struct f3x3 { float val[ 9]; bool operator ==(const f3x3 &rhs) { const uint64_t *a = (const uint64_t *)this; const uint64_t *b = (const uint64_t *)&rhs; return a[0] == b[0] && a[1] == b[1] && a[2] == b[2] && a[3] == b[3] && ((const uint32_t*)a)[8] == ((const uint32_t*)b)[8]; }};
 		struct f4x4 { float val[16]; bool operator ==(const f4x4 &rhs) { const uint64_t *a = (const uint64_t *)this; const uint64_t *b = (const uint64_t *)&rhs; return a[0] == b[0] && a[1] == b[1] && a[2] == b[2] && a[3] == b[3] && a[4] == b[4] && a[5] == b[5] && a[6] == b[6] && a[7] == b[7]; }};
 
-		typedef stl::unordered_map<uint64_t, int>  IMap;
-		typedef stl::unordered_map<uint64_t, f4>   F4Map;
-		typedef stl::unordered_map<uint64_t, f3x3> F3x3Map;
-		typedef stl::unordered_map<uint64_t, f4x4> F4x4Map;
+		using IMap    = bx::HashMapT<uint64_t, int>;
+		using F4Map   = bx::HashMapT<uint64_t, f4>;
+		using F3x3Map = bx::HashMapT<uint64_t, f3x3>;
+		using F4x4Map = bx::HashMapT<uint64_t, f4x4>;
 
 		UniformStateCache()
 			: m_currentProgram(0)
@@ -1304,26 +1312,26 @@ namespace bgfx { namespace gl
 			if constexpr (BX_ENABLED(BGFX_GL_CONFIG_UNIFORM_CACHE) )
 			{
 				// Uniform state cache for various types.
-				stl::unordered_map<uint64_t, T>& uniformCacheMap = getUniformCache<T>();
+				bx::HashMapT<uint64_t, T>& uniformCacheMap = getUniformCache<T>();
 
 				uint64_t key = (uint64_t(m_currentProgram) << 32) | loc;
 
-				auto iter = uniformCacheMap.find(key);
+				T* cached = uniformCacheMap.find(key);
 
 				// Not found in the cache? Add it.
-				if (iter == uniformCacheMap.end())
+				if (NULL == cached)
 				{
-					uniformCacheMap[key] = value;
+					uniformCacheMap.add(key, value);
 					return true;
 				}
 
 				// Value in the cache was the same as new state? Skip reuploading this state.
-				if (iter->second == value)
+				if (*cached == value)
 				{
 					return false;
 				}
 
-				iter->second = value;
+				*cached = value;
 			}
 
 			return true;
@@ -1340,13 +1348,13 @@ namespace bgfx { namespace gl
 	private:
 		GLuint m_currentProgram;
 
-		IMap    m_uniformiCacheMap;
-		F4Map   m_uniformf4CacheMap;
-		F3x3Map m_uniformf3x3CacheMap;
-		F4x4Map m_uniformf4x4CacheMap;
+		IMap    m_uniformiCacheMap{g_allocatorHandle};
+		F4Map   m_uniformf4CacheMap{g_allocatorHandle};
+		F3x3Map m_uniformf3x3CacheMap{g_allocatorHandle};
+		F4x4Map m_uniformf4x4CacheMap{g_allocatorHandle};
 
 		template<typename T>
-		stl::unordered_map<uint64_t, T>& getUniformCache();
+		bx::HashMapT<uint64_t, T>& getUniformCache();
 	};
 
 	template<>
@@ -1393,6 +1401,13 @@ namespace bgfx { namespace gl
 
 	struct IndexBufferGL
 	{
+		IndexBufferGL()
+			: m_id(0)
+			, m_size(0)
+			, m_flags(0)
+		{
+		}
+
 		void create(uint32_t _size, void* _data, uint16_t _flags)
 		{
 			m_size  = _size;
@@ -1438,6 +1453,13 @@ namespace bgfx { namespace gl
 
 	struct VertexBufferGL
 	{
+		VertexBufferGL()
+			: m_id(0)
+			, m_target(GL_ARRAY_BUFFER)
+			, m_size(0)
+		{
+		}
+
 		void create(uint32_t _size, void* _data, VertexLayoutHandle _layoutHandle, uint16_t _flags)
 		{
 			m_size = _size;
@@ -1567,6 +1589,7 @@ namespace bgfx { namespace gl
 			: m_id(0)
 			, m_type(0)
 			, m_hash(0)
+			, m_numFragOutputs(UINT8_MAX)
 		{
 		}
 
@@ -1576,6 +1599,7 @@ namespace bgfx { namespace gl
 		GLuint m_id;
 		GLenum m_type;
 		uint32_t m_hash;
+		uint8_t m_numFragOutputs;
 	};
 
 	struct FrameBufferGL
@@ -1588,6 +1612,7 @@ namespace bgfx { namespace gl
 			, m_swapChainMsaa(1)
 			, m_denseIdx(UINT16_MAX)
 			, m_num(0)
+			, m_numDrawBuffers(0)
 			, m_needPresent(false)
 		{
 			bx::memSet(m_fbo, 0, sizeof(m_fbo) );
@@ -1624,6 +1649,7 @@ namespace bgfx { namespace gl
 		uint16_t m_denseIdx;
 		uint8_t  m_num;
 		uint8_t  m_numTh;
+		uint8_t  m_numDrawBuffers;
 		bool     m_needPresent;
 		Attachment m_attachment[BGFX_CONFIG_MAX_FRAME_BUFFER_ATTACHMENTS];
 	};
@@ -1635,6 +1661,9 @@ namespace bgfx { namespace gl
 			, m_numSamplerTargets(0)
 			, m_constantBuffer(NULL)
 			, m_numPredefined(0)
+			, m_numFragOutputs(UINT8_MAX)
+			, m_intAttribMask(0)
+			, m_uintAttribMask(0)
 		{
 			m_instanceData[0] = -1;
 		}
@@ -1675,6 +1704,9 @@ namespace bgfx { namespace gl
 		UniformBuffer* m_constantBuffer;
 		PredefinedUniform m_predefined[PredefinedUniform::Count];
 		uint8_t m_numPredefined;
+		uint8_t m_numFragOutputs;
+		uint32_t m_intAttribMask;
+		uint32_t m_uintAttribMask;
 	};
 
 	struct TimerQueryGL

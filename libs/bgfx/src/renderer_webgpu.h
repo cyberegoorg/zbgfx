@@ -524,6 +524,7 @@ namespace wgpu {
 			, m_hash(0)
 			, m_numUniforms(0)
 			, m_numPredefined(0)
+			, m_outputMask(UINT8_MAX)
 		{
 		}
 
@@ -548,6 +549,7 @@ namespace wgpu {
 		uint8_t  m_numPredefined;
 		uint8_t  m_numAttrs;
 		uint8_t  m_numInstanceData;
+		uint8_t  m_outputMask;
 
 		ShaderBinding m_shaderBinding[BGFX_CONFIG_MAX_TEXTURE_SAMPLERS];
 
@@ -762,6 +764,7 @@ namespace wgpu {
 		Attachment      m_attachment[BGFX_CONFIG_MAX_FRAME_BUFFER_ATTACHMENTS];
 		WGPUTextureView m_textureView[BGFX_CONFIG_MAX_FRAME_BUFFER_ATTACHMENTS];
 		WGPUTextureView m_resolveView[BGFX_CONFIG_MAX_FRAME_BUFFER_ATTACHMENTS];
+		uint32_t        m_depthSlice[BGFX_CONFIG_MAX_FRAME_BUFFER_ATTACHMENTS];
 		WGPUTextureFormat m_colorFormat[BGFX_CONFIG_MAX_FRAME_BUFFER_ATTACHMENTS];
 		WGPUTextureView m_depthStencilView;
 		uint8_t m_formatDepthStencil;
@@ -903,6 +906,9 @@ namespace wgpu {
 			, m_resolve(NULL)
 			, m_readback(NULL)
 			, m_control(BX_COUNTOF(m_handle) )
+			, m_numResolved(0)
+			, m_resolved(false)
+			, m_mapPending(false)
 		{
 		}
 
@@ -921,6 +927,9 @@ namespace wgpu {
 
 		OcclusionQueryHandle m_handle[BGFX_CONFIG_MAX_OCCLUSION_QUERIES];
 		bx::RingBufferControl m_control;
+		uint32_t m_numResolved;
+		bool m_resolved;
+		bool m_mapPending;
 	};
 
 } /* namespace bgfx */ } // namespace wgpu
